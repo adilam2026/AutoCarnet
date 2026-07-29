@@ -1,0 +1,47 @@
+name: autocarnet
+description: "AutoCarnet - Le compagnon numerique de vos vehicules."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management / DI
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Local database (offline-first)
+  drift: ^2.22.1
+  sqlite3_flutter_libs: ^0.5.28
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # Identifiers
+  uuid: ^4.5.1
+
+  # Security (PIN storage, future secrets)
+  flutter_secure_storage: ^9.2.4
+  crypto: ^3.0.6
+
+  # Biometric unlock
+  local_auth: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  drift_dev: ^2.22.1
+
+flutter:
+  uses-material-design: true

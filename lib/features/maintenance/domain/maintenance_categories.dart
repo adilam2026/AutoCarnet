@@ -1,0 +1,23 @@
+/// Extensible list of operation categories (bloc 5, §8.2).
+const List<String> maintenanceCategories = [
+  'Vidange',
+  'Filtre à huile',
+  'Filtre à air',
+  'Filtre habitacle',
+  'Filtre carburant',
+  'Bougies',
+  'Batterie',
+  'Distribution',
+  'Courroie accessoires',
+  'Embrayage',
+  'Freinage',
+  'Pneus',
+  'Suspension',
+  'Climatisation',
+  'Révision constructeur',
+  'Diagnostic',
+  'Réparation moteur',
+  'Réparation carrosserie',
+  'Réparation électrique',
+  'Autre',
+];
