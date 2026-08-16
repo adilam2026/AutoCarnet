@@ -163,7 +163,56 @@ class MaintenanceRepository {
       );
     }
 
+    await _reconcileCategoryReminders(vehicleId, category);
+
     return id;
+  }
+
+  /// RG-ENT-010: for a given (vehicleId, category), only the operation that
+  /// was actually performed most recently may drive an active échéance -
+  /// never the order entries happened to be typed into the app. The
+  /// reference is found from operationMileage/operationDate alone, exactly
+  /// like a mechanic reading a paper carnet would: the entry with the
+  /// highest mileage wins, ties broken by the latest date. createdAt is
+  /// never consulted here - it's an audit detail, not automotive truth.
+  ///
+  /// Every other entry of that category keeps enriching historique,
+  /// intervalles observés and statistiques, but its reminder (if any) is
+  /// closed so it can never coexist with, or contradict, the current one.
+  Future<void> _reconcileCategoryReminders(
+    String vehicleId,
+    String category,
+  ) async {
+    final entries = await (_db.select(_db.maintenanceEntries)
+          ..where((m) =>
+              m.vehicleId.equals(vehicleId) &
+              m.category.equals(category) &
+              m.isDeleted.equals(false)))
+        .get();
+    if (entries.isEmpty) return;
+
+    entries.sort((a, b) {
+      final byMileage = a.mileage.compareTo(b.mileage);
+      if (byMileage != 0) return byMileage;
+      return a.date.compareTo(b.date);
+    });
+    final reference = entries.last;
+
+    for (final e in entries) {
+      if (e.id == reference.id) continue;
+      await _reminders.disableForSource('maintenance', e.id);
+    }
+
+    if (reference.nextDueDate != null || reference.nextDueMileage != null) {
+      await _reminders.upsertForSource(
+        vehicleId: vehicleId,
+        sourceType: 'maintenance',
+        sourceId: reference.id,
+        title: '${reference.category} à prévoir',
+        dueDate: reference.nextDueDate,
+        dueMileage: reference.nextDueMileage,
+      );
+    }
   }
 
   /// Edits an existing operation in place: updates the entry, replaces its
@@ -301,6 +350,13 @@ class MaintenanceRepository {
     } else {
       await _reminders.disableForSource('maintenance', id);
     }
+
+    // The category (or the reference operation within it) may have just
+    // changed - re-derive which entry is the true reference before leaving.
+    if (existing.category != category) {
+      await _reconcileCategoryReminders(vehicleId, existing.category);
+    }
+    await _reconcileCategoryReminders(vehicleId, category);
   }
 
   Future<void> softDelete(String id) async {
@@ -323,6 +379,9 @@ class MaintenanceRepository {
     }
     await _reminders.disableForSource('maintenance', id);
     await _timeline.removeForEntity('maintenance', id);
+    if (entry != null) {
+      await _reconcileCategoryReminders(entry.vehicleId, entry.category);
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/currency_format.dart';
 import '../../../../core/utils/layout.dart';
 import '../../../../core/widgets/sheet_handle.dart';
 import '../../domain/valuation/valuation_models.dart';
@@ -37,7 +38,7 @@ Future<void> showValuationBreakdownSheet(BuildContext context, ValuationResult r
                       ),
                       if (line.delta != null)
                         Text(
-                          '${line.delta! >= 0 ? '+' : ''}${line.delta!.toStringAsFixed(0)}',
+                          '${line.delta! >= 0 ? '+' : ''}${formatAmount(line.delta!)}',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: line.delta! >= 0 ? Colors.green : Colors.red,
@@ -56,7 +57,7 @@ Future<void> showValuationBreakdownSheet(BuildContext context, ValuationResult r
                           .titleSmall
                           ?.copyWith(fontWeight: FontWeight.w700)),
                   Text(
-                    result.fairPrice.toStringAsFixed(0),
+                    formatAmount(result.fairPrice),
                     style: Theme.of(sheetContext)
                         .textTheme
                         .titleSmall

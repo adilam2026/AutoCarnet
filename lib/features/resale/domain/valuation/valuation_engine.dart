@@ -31,7 +31,7 @@ class InternalValuationProvider implements ValuationEngine {
     final usingPurchasePrice = input.purchasePrice != null && input.purchasePrice! > 0;
     final base = usingPurchasePrice
         ? input.purchasePrice!
-        : VehicleValuationReference.estimatedNewPrice(input.brand);
+        : VehicleValuationReference.estimatedNewPrice(input.brand, input.model);
     final baseLabel = usingPurchasePrice
         ? 'Valeur de référence (prix d\'achat renseigné)'
         : 'Valeur de référence estimée par AutoCarnet (prix neuf approximatif)';

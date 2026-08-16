@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../timeline/data/timeline_repository.dart';
 
@@ -75,7 +76,7 @@ class ExpenseRepository {
       vehicleId: vehicleId,
       moduleOrigin: 'expenses',
       eventType: 'expense_added',
-      title: '$category — ${amount.toStringAsFixed(0)}',
+      title: '$category — ${formatAmount(amount)} $currency',
       linkedEntityId: id,
       linkedEntityType: 'expense',
       occurredAt: date,
@@ -116,7 +117,7 @@ class ExpenseRepository {
       vehicleId: vehicleId,
       moduleOrigin: 'expenses',
       eventType: 'expense_added',
-      title: '$category — ${amount.toStringAsFixed(0)}',
+      title: '$category — ${formatAmount(amount)} $currency',
       linkedEntityId: id,
       linkedEntityType: 'expense',
       occurredAt: date,

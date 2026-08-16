@@ -124,14 +124,37 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
     _createExpense = source.linkedExpenseId != null;
     _nextDueDate = source.nextDueDate;
     _nextDueMileageCtrl.text = source.nextDueMileage?.toStringAsFixed(0) ?? '';
+
     // The source already carries its own next-due values (or intentionally
-    // none) - never silently override them with a fresh suggestion. The
-    // resolved frequency is still loaded so the UI can offer to recompute
-    // it on demand (bloc 23: editing an operation's mileage must be able
-    // to keep its next-due échéance coherent with the rule in force).
-    _nextDueMileageUserEdited = true;
-    _nextDueDateUserEdited = true;
-    await _loadFrequencyAndSuggest();
+    // none). Whether editing may keep recalculating them in place depends on
+    // where they came from: a plain "mileage + frequency" formula result may
+    // keep auto-following the mileage field as it's corrected (TEST C - bloc
+    // 23), but a value the owner deliberately customized must never be
+    // silently overwritten. createdAt/insertion order play no role in this
+    // decision, only the operation's own mileage/date and the frequency rule
+    // currently in force.
+    final override = await ref
+        .read(operationFrequencyRepositoryProvider)
+        .getFor(widget.vehicleId, _category);
+    final resolved = resolveFrequency(
+      category: _category,
+      vehicleFrequencyKm: override?.frequencyKm,
+      vehicleFrequencyMonths: override?.frequencyMonths,
+    );
+    _resolvedFrequency = resolved;
+
+    final formulaDerivedMileage = resolved.frequencyKm != null &&
+        source.nextDueMileage != null &&
+        (source.nextDueMileage! - (source.mileage + resolved.frequencyKm!))
+                .abs() <
+            0.5;
+    _nextDueMileageUserEdited = !formulaDerivedMileage;
+
+    final formulaDerivedDate = resolved.frequencyMonths != null &&
+        source.nextDueDate != null &&
+        source.nextDueDate!.isAtSameMomentAs(DateTime(
+            _date.year, _date.month + resolved.frequencyMonths!, _date.day));
+    _nextDueDateUserEdited = !formulaDerivedDate;
 
     if (source.providerId != null) {
       final provider =
@@ -451,7 +474,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                               ? 'Requis'
                               : null,
                           onChanged: (_) {
-                            if (_isNewEntry && !_nextDueMileageUserEdited) {
+                            if (!_nextDueMileageUserEdited) {
                               _applySuggestion(
                                 vehicleFrequencyKm:
                                     _resolvedFrequency?.isVehicleSpecific == true

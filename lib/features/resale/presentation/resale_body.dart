@@ -4,6 +4,7 @@ import 'package:printing/printing.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -131,7 +132,6 @@ class _ResaleSummary extends ConsumerWidget {
             trim: vehicle.trim,
             year: vehicle.year,
             firstRegistrationDate: vehicle.firstRegistrationDate,
-            registrationDatePrecision: vehicle.firstRegistrationDatePrecision,
             currentMileage: vehicle.currentMileage,
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
@@ -292,19 +292,19 @@ class _EstimationCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _TierChip(
-                        label: 'Vente rapide', value: result.quickSale.toStringAsFixed(0)),
+                        label: 'Vente rapide', value: formatCurrency(result.quickSale)),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _TierChip(
                         label: 'Prix conseillé',
-                        value: result.fairPrice.toStringAsFixed(0),
+                        value: formatCurrency(result.fairPrice),
                         highlight: true),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _TierChip(
-                        label: 'Prix haut', value: result.highPrice.toStringAsFixed(0)),
+                        label: 'Prix haut', value: formatCurrency(result.highPrice)),
                   ),
                 ],
               ),

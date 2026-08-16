@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/utils/period_filter.dart';
@@ -154,7 +155,7 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                                 ),
                                 trailing: total > 0
                                     ? Text(
-                                        '${total.toStringAsFixed(0)} ${e.currency}',
+                                        '${formatAmount(total)} ${e.currency}',
                                         style:
                                             const TextStyle(fontWeight: FontWeight.w700),
                                       )

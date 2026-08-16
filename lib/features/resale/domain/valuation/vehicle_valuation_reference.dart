@@ -1,3 +1,5 @@
+import 'vehicle_segment_rules.dart';
+
 /// Internal, isolated reference layer used ONLY as a last-resort fallback
 /// when the owner hasn't provided a purchase price to anchor the
 /// estimation on (bloc 7). These are rough brand-tier price bands, not a
@@ -73,11 +75,16 @@ class VehicleValuationReference {
 
   static BrandTier tierFor(String brand) => _brandTiers[brand] ?? BrandTier.mainstream;
 
-  /// Midpoint of the brand's tier band - an approximate, clearly internal
-  /// placeholder, only used when no purchase price is available.
-  static double estimatedNewPrice(String brand) {
+  /// Midpoint of the brand's tier band, adjusted for the model's body
+  /// segment when it's a recognised one (bloc 24-27: a brand tier alone
+  /// can't tell a city car from a mid-size SUV of the same brand) - an
+  /// approximate, clearly internal placeholder, only used when no purchase
+  /// price is available.
+  static double estimatedNewPrice(String brand, [String? model]) {
     final tier = tierFor(brand);
     final (min, max) = tierNewPriceRangeMad[tier]!;
-    return (min + max) / 2;
+    final base = (min + max) / 2;
+    final segment = VehicleSegmentRules.segmentFor(brand, model);
+    return base * VehicleSegmentRules.multiplierFor(segment);
   }
 }

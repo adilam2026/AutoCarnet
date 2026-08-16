@@ -32,14 +32,10 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   late final TextEditingController _purchasePrice;
   late final TextEditingController _comments;
   String _brandValue = '';
-  int? _year;
   String? _fuelType;
   String? _transmission;
   DateTime? _acquisitionDate;
-  DatePrecision _regPrecision = DatePrecision.full;
   DateTime? _firstRegistrationDate;
-  int? _firstRegYear;
-  int? _firstRegMonth;
   VehicleCondition? _condition;
   bool _saving = false;
 
@@ -58,17 +54,11 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         TextEditingController(text: v.purchasePrice?.toStringAsFixed(0) ?? '');
     _comments = TextEditingController(text: v.comments ?? '');
     _brandValue = v.brand;
-    _year = v.year;
     _fuelType = fuelTypes.contains(v.fuelType) ? v.fuelType : null;
     _transmission =
         transmissionTypes.contains(v.transmission) ? v.transmission : null;
     _acquisitionDate = v.acquisitionDate;
     _firstRegistrationDate = v.firstRegistrationDate;
-    _regPrecision = v.firstRegistrationDatePrecision ?? DatePrecision.full;
-    if (_firstRegistrationDate != null) {
-      _firstRegYear = _firstRegistrationDate!.year;
-      _firstRegMonth = _firstRegistrationDate!.month;
-    }
     _condition = v.condition;
   }
 
@@ -106,32 +96,16 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     if (picked != null) setState(() => _firstRegistrationDate = picked);
   }
 
-  /// Never invents a day/month the owner didn't provide (bloc 3): a
-  /// "mois et année" or "année seulement" precision anchors to the 1st so
-  /// there's a concrete DateTime to compute age from, but callers must
-  /// consult [_regPrecision] before trusting the day/month.
-  DateTime? get _resolvedFirstRegistrationDate {
-    switch (_regPrecision) {
-      case DatePrecision.full:
-        return _firstRegistrationDate;
-      case DatePrecision.monthYear:
-        return (_firstRegYear != null && _firstRegMonth != null)
-            ? DateTime(_firstRegYear!, _firstRegMonth!, 1)
-            : null;
-      case DatePrecision.yearOnly:
-        return _firstRegYear != null ? DateTime(_firstRegYear!, 1, 1) : null;
-    }
-  }
-
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final resolvedRegDate = _resolvedFirstRegistrationDate;
       final updated = widget.vehicle.copyWith(
         brand: _brand.text.trim(),
         model: _model.text.trim(),
         trim: Value(_trim.text.trim().isEmpty ? null : _trim.text.trim()),
-        year: Value(_year),
+        // Année unique source de vérité : dérivée de la date de première
+        // mise en circulation, jamais saisie séparément (bloc 23).
+        year: Value(_firstRegistrationDate?.year ?? widget.vehicle.year),
         vin: Value(_vin.text.trim().isEmpty ? null : _vin.text.trim()),
         plate: Value(_plate.text.trim().isEmpty ? null : _plate.text.trim()),
         motorization: Value(_motorization.text.trim().isEmpty
@@ -142,9 +116,8 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         color: Value(_color.text.trim().isEmpty ? null : _color.text.trim()),
         acquisitionDate: Value(_acquisitionDate),
         purchasePrice: Value(double.tryParse(_purchasePrice.text.trim())),
-        firstRegistrationDate: Value(resolvedRegDate),
-        firstRegistrationDatePrecision:
-            Value(resolvedRegDate != null ? _regPrecision : null),
+        firstRegistrationDate: Value(_firstRegistrationDate),
+        firstRegistrationDatePrecision: const Value(null),
         condition: Value(_condition),
         comments: Value(
             _comments.text.trim().isEmpty ? null : _comments.text.trim()),
@@ -161,9 +134,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentYear = DateTime.now().year;
-    final years = [for (var y = currentYear + 1; y >= 1980; y--) y];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Modifier la fiche'),
@@ -195,107 +165,28 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
           TextField(
               controller: _trim,
               decoration: const InputDecoration(labelText: 'Version / finition')),
-          const SizedBox(height: AppSpacing.md),
-          DropdownButtonFormField<int>(
-            initialValue: years.contains(_year) ? _year : null,
-            decoration: const InputDecoration(labelText: 'Année'),
-            hint: const Text('Sélectionner'),
-            isExpanded: true,
-            items: [
-              for (final y in years)
-                DropdownMenuItem(value: y, child: Text('$y')),
-            ],
-            onChanged: (v) => setState(() => _year = v),
-          ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Première mise en circulation'),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Un véhicule immatriculé en janvier n\'a pas tout à fait le même '
-            'âge qu\'un véhicule immatriculé en décembre de la même année : '
-            'précisez la date si vous la connaissez.',
+            'Source unique de vérité : l\'année du véhicule est calculée '
+            'automatiquement à partir de cette date.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              ChoiceChip(
-                label: const Text('Date complète'),
-                selected: _regPrecision == DatePrecision.full,
-                onSelected: (_) => setState(() => _regPrecision = DatePrecision.full),
-              ),
-              ChoiceChip(
-                label: const Text('Mois et année'),
-                selected: _regPrecision == DatePrecision.monthYear,
-                onSelected: (_) =>
-                    setState(() => _regPrecision = DatePrecision.monthYear),
-              ),
-              ChoiceChip(
-                label: const Text('Année seulement'),
-                selected: _regPrecision == DatePrecision.yearOnly,
-                onSelected: (_) => setState(() => _regPrecision = DatePrecision.yearOnly),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (_regPrecision == DatePrecision.full)
-            OutlinedButton(
-              onPressed: _pickFirstRegistrationDate,
-              style: OutlinedButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: AppSpacing.md),
-              ),
-              child: Text(
-                _firstRegistrationDate == null
-                    ? 'Date de première mise en circulation'
-                    : 'Mise en circulation le ${_fmt(_firstRegistrationDate!)}',
-              ),
-            )
-          else if (_regPrecision == DatePrecision.monthYear)
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _firstRegMonth,
-                    decoration: const InputDecoration(labelText: 'Mois'),
-                    hint: const Text('Mois'),
-                    isExpanded: true,
-                    items: [
-                      for (var m = 1; m <= 12; m++)
-                        DropdownMenuItem(value: m, child: Text(_monthLabel(m))),
-                    ],
-                    onChanged: (v) => setState(() => _firstRegMonth = v),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: years.contains(_firstRegYear) ? _firstRegYear : null,
-                    decoration: const InputDecoration(labelText: 'Année'),
-                    hint: const Text('Année'),
-                    isExpanded: true,
-                    items: [
-                      for (final y in years) DropdownMenuItem(value: y, child: Text('$y')),
-                    ],
-                    onChanged: (v) => setState(() => _firstRegYear = v),
-                  ),
-                ),
-              ],
-            )
-          else
-            DropdownButtonFormField<int>(
-              initialValue: years.contains(_firstRegYear) ? _firstRegYear : null,
-              decoration: const InputDecoration(labelText: 'Année'),
-              hint: const Text('Sélectionner'),
-              isExpanded: true,
-              items: [
-                for (final y in years) DropdownMenuItem(value: y, child: Text('$y')),
-              ],
-              onChanged: (v) => setState(() => _firstRegYear = v),
+          OutlinedButton(
+            onPressed: _pickFirstRegistrationDate,
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
             ),
+            child: Text(
+              _firstRegistrationDate == null
+                  ? 'Date de première mise en circulation'
+                  : 'Mise en circulation le ${_fmt(_firstRegistrationDate!)}',
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Identification'),
           const SizedBox(height: AppSpacing.sm),
@@ -391,11 +282,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   }
 
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
-
-  String _monthLabel(int m) => const [
-        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-      ][m - 1];
 
   String _conditionLabel(VehicleCondition c) => switch (c) {
         VehicleCondition.excellent => 'Excellent',

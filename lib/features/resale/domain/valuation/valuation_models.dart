@@ -31,7 +31,6 @@ class ValuationInput {
   final String? trim;
   final int? year;
   final DateTime? firstRegistrationDate;
-  final DatePrecision? registrationDatePrecision;
   final double currentMileage;
   final String? fuelType;
   final String? transmission;
@@ -47,7 +46,6 @@ class ValuationInput {
     this.trim,
     this.year,
     this.firstRegistrationDate,
-    this.registrationDatePrecision,
     required this.currentMileage,
     this.fuelType,
     this.transmission,

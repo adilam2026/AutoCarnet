@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/utils/period_filter.dart';
@@ -87,7 +88,7 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                             ),
                             StatTile(
                               label: 'Total dépensé',
-                              value: stats.totalCost.toStringAsFixed(0),
+                              value: formatAmount(stats.totalCost),
                               icon: Icons.payments_outlined,
                             ),
                           ],
@@ -170,7 +171,7 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                   '${f.isFullTank ? '' : ' • partiel'}',
                                 ),
                                 trailing: Text(
-                                  f.totalAmount.toStringAsFixed(0),
+                                  formatAmount(f.totalAmount),
                                   style: const TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 onTap: () => vehicleAsync.maybeWhen(

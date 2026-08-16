@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/utils/period_filter.dart';
@@ -76,17 +77,17 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                           tiles: [
                             StatTile(
                               label: 'Ce mois',
-                              value: stats.thisMonth.toStringAsFixed(0),
+                              value: formatAmount(stats.thisMonth),
                               icon: Icons.calendar_today_outlined,
                             ),
                             StatTile(
                               label: 'Cette année',
-                              value: stats.thisYear.toStringAsFixed(0),
+                              value: formatAmount(stats.thisYear),
                               icon: Icons.event_outlined,
                             ),
                             StatTile(
                               label: 'Total',
-                              value: stats.totalAll.toStringAsFixed(0),
+                              value: formatAmount(stats.totalAll),
                               icon: Icons.summarize_outlined,
                               highlight: true,
                             ),
@@ -175,7 +176,7 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               trailing: Text(
-                                '${e.amount.toStringAsFixed(0)} ${e.currency}',
+                                '${formatAmount(e.amount)} ${e.currency}',
                                 style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                               onTap: () => _openSource(context, ref, e, vehicleAsync),

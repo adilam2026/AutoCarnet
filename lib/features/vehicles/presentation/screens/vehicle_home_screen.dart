@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/currency_format.dart';
 import '../../../../core/utils/feedback.dart';
 import '../../../../core/utils/layout.dart';
 import '../../../../core/widgets/loading_error_views.dart';
@@ -574,7 +575,7 @@ class _RecentOperationsCard extends ConsumerWidget {
               ),
               trailing: Text(
                 (entries[i].partsCost + entries[i].laborCost) > 0
-                    ? '${(entries[i].partsCost + entries[i].laborCost).toStringAsFixed(0)} ${entries[i].currency}'
+                    ? '${formatAmount(entries[i].partsCost + entries[i].laborCost)} ${entries[i].currency}'
                     : '',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
@@ -634,7 +635,7 @@ class _OverviewGrid extends StatelessWidget {
                 child: _OverviewTile(
                   icon: Icons.payments_outlined,
                   label: 'Dépenses cette année',
-                  value: expenseThisYear?.toStringAsFixed(0),
+                  value: expenseThisYear == null ? null : formatAmount(expenseThisYear!),
                   emptyMessage: 'Pas encore de données',
                 ),
               ),

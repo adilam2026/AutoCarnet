@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/database/database.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../documents/data/document_repository.dart';
 import '../../vehicles/domain/vehicle_health.dart';
 import 'resale_readiness.dart';
@@ -64,10 +65,10 @@ class ResalePdfReport {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('Vente rapide : ${valuation.quickSale.toStringAsFixed(0)}'),
-              pw.Text('Prix conseillé : ${valuation.fairPrice.toStringAsFixed(0)}',
+              pw.Text('Vente rapide : ${formatCurrency(valuation.quickSale)}'),
+              pw.Text('Prix conseillé : ${formatCurrency(valuation.fairPrice)}',
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-              pw.Text('Prix haut : ${valuation.highPrice.toStringAsFixed(0)}'),
+              pw.Text('Prix haut : ${formatCurrency(valuation.highPrice)}'),
               pw.SizedBox(height: 4),
               pw.Text(
                 'Confiance : ${_confidenceLabel(valuation.confidence)}',
@@ -140,8 +141,8 @@ class ResalePdfReport {
                   pw.TableRow(children: [
                     _cell(_fmt(m.date)),
                     _cell(m.category),
-                    _cell(m.mileage.toStringAsFixed(0)),
-                    _cell((m.partsCost + m.laborCost).toStringAsFixed(0)),
+                    _cell('${m.mileage.toStringAsFixed(0)} km'),
+                    _cell(formatCurrency(m.partsCost + m.laborCost)),
                   ]),
               ],
             ),

@@ -3,6 +3,7 @@ import 'package:autocarnet/core/utils/mileage_result.dart';
 import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/reminders/data/reminder_repository.dart';
 import 'package:autocarnet/features/vehicles/data/vehicle_repository.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -89,6 +90,32 @@ void main() {
     expect(history.length, 2);
     final vehicle = await repo.getOne(id);
     expect(vehicle.currentMileage, 49500);
+  });
+
+  test(
+      'firstRegistrationDate is the single source of truth for year: '
+      'persisting a precise MEC date keeps its own day/month/year exactly, '
+      'and the derived year survives a fresh read (Date MEC checklist)',
+      () async {
+    final id = await repo.createVehicle(
+      brand: 'Audi',
+      model: 'Q5',
+      currentMileage: 89400,
+    );
+    final v = await repo.getOne(id);
+    final mec = DateTime(2021, 12, 22);
+    await repo.updateVehicle(v.copyWith(
+      year: Value(mec.year),
+      firstRegistrationDate: Value(mec),
+      firstRegistrationDatePrecision: const Value(null),
+    ));
+
+    final reloaded = await repo.getOne(id);
+    expect(reloaded.firstRegistrationDate, mec);
+    expect(reloaded.firstRegistrationDate!.day, 22);
+    expect(reloaded.firstRegistrationDate!.month, 12);
+    expect(reloaded.year, 2021);
+    expect(reloaded.firstRegistrationDatePrecision, isNull);
   });
 
   test('a sold vehicle no longer needs future reminders (RG-ALR-007)',

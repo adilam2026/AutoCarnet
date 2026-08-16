@@ -125,4 +125,90 @@ void main() {
     expect(result.quickSale, lessThan(result.fairPrice));
     expect(result.highPrice, greaterThan(result.fairPrice));
   });
+
+  group('Revente - référentiel fin (segment-aware, cas Audi Q5)', () {
+    ValuationInput q5Input({
+      required double currentMileage,
+      required DateTime firstRegistrationDate,
+      VehicleCondition? condition,
+    }) {
+      return ValuationInput(
+        brand: 'Audi',
+        model: 'Q5',
+        firstRegistrationDate: firstRegistrationDate,
+        currentMileage: currentMileage,
+        condition: condition,
+        maintenanceEntryCount: 4,
+      );
+    }
+
+    final mecDec2021 = DateTime(2021, 12, 15);
+    final mecDec2019 = DateTime(2019, 12, 15);
+
+    test('A. a mid-size premium SUV with no purchase price lands in the '
+        'realistic order of magnitude for its segment, never at the same '
+        'level as a generic mainstream car', () {
+      final q5 = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      final genericMainstream = engine.compute(baseInput(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      // Order of magnitude only - the exact figure depends on finition/
+      // motorisation/état, never a hardcoded target for this one vehicle.
+      expect(q5.quickSale, greaterThan(300000));
+      expect(q5.quickSale, lessThan(460000));
+      expect(q5.fairPrice, lessThan(q5.highPrice));
+      expect(q5.quickSale, greaterThan(genericMainstream.quickSale * 1.5));
+    });
+
+    test('B. more mileage never scores a better resale value, all else '
+        'equal', () {
+      final a = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      final b = engine.compute(q5Input(
+        currentMileage: 150000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      expect(a.fairPrice, greaterThan(b.fairPrice));
+    });
+
+    test('C. a worse declared condition never scores a better resale '
+        'value, all else equal', () {
+      final a = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      final c = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.average,
+      ));
+      expect(a.fairPrice, greaterThan(c.fairPrice));
+    });
+
+    test('D. an older first-registration date never scores a better resale '
+        'value, all else equal', () {
+      final a = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2021,
+        condition: VehicleCondition.veryGood,
+      ));
+      final d = engine.compute(q5Input(
+        currentMileage: 89000,
+        firstRegistrationDate: mecDec2019,
+        condition: VehicleCondition.veryGood,
+      ));
+      expect(a.fairPrice, greaterThan(d.fairPrice));
+    });
+  });
 }
