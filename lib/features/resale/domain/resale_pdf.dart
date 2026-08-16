@@ -5,21 +5,22 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/database/database.dart';
 import '../../documents/data/document_repository.dart';
-import 'resale_estimation.dart';
 import '../../vehicles/domain/vehicle_health.dart';
 import 'resale_readiness.dart';
+import 'valuation/valuation_models.dart';
 
 /// Builds the resale dossier PDF (bloc 18 §18.4) entirely from data already
 /// collected in the carnet - vehicle sheet, health score, readiness
-/// checklist and maintenance/expense history. No market price is printed
-/// unless [estimate] carries real amounts (see [ResaleEstimator]).
+/// checklist and maintenance/expense history. The valuation is always
+/// clearly labeled as an internal AutoCarnet estimate (see
+/// [ValuationEngine]), never presented as a real market quote.
 class ResalePdfReport {
   const ResalePdfReport();
 
   Future<Uint8List> build({
     required Vehicle vehicle,
     required VehicleHealthScore health,
-    required ResaleEstimate estimate,
+    required ValuationResult valuation,
     required ResaleReadiness readiness,
     required List<MaintenanceEntry> maintenanceEntries,
     required List<DocumentWithVersion> documents,
@@ -59,23 +60,28 @@ class ResalePdfReport {
           for (final factor in health.factors)
             pw.Bullet(text: '${factor.label} — ${factor.detail}'),
           pw.SizedBox(height: 16),
-          _sectionTitle('Estimation de revente'),
-          if (!estimate.isAvailable)
-            pw.Text(estimate.message, style: const pw.TextStyle(fontSize: 10))
-          else
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                for (final tier in resaleEstimateTierDefinitions)
-                  if (estimate.amountsByTier.containsKey(tier.label))
-                    pw.Text(
-                      '${tier.label} : '
-                      '${estimate.amountsByTier[tier.label]!.toStringAsFixed(0)}',
-                    ),
-                pw.SizedBox(height: 4),
-                pw.Text(estimate.message, style: const pw.TextStyle(fontSize: 9)),
-              ],
-            ),
+          _sectionTitle('Estimation de revente (AutoCarnet, indicative)'),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Vente rapide : ${valuation.quickSale.toStringAsFixed(0)}'),
+              pw.Text('Prix conseillé : ${valuation.fairPrice.toStringAsFixed(0)}',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.Text('Prix haut : ${valuation.highPrice.toStringAsFixed(0)}'),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Confiance : ${_confidenceLabel(valuation.confidence)}',
+                style: const pw.TextStyle(fontSize: 9),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Estimation indicative calculée par le moteur interne '
+                'AutoCarnet - aucune cote de marché externe (Argus ou '
+                'équivalent) n\'est connectée aujourd\'hui.',
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+              ),
+            ],
+          ),
           pw.SizedBox(height: 16),
           _sectionTitle('Préparation à la vente'),
           pw.Table(
@@ -210,6 +216,12 @@ class ResalePdfReport {
       );
 
   String _fmt(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  String _confidenceLabel(ConfidenceLevel c) => switch (c) {
+        ConfidenceLevel.low => 'faible',
+        ConfidenceLevel.medium => 'moyenne',
+        ConfidenceLevel.good => 'bonne',
+      };
 
   String _docStatusLabel(DocumentVersionStatus s) => switch (s) {
         DocumentVersionStatus.valid => 'valide',

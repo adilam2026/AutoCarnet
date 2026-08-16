@@ -3,8 +3,9 @@ import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/documents/data/document_repository.dart';
 import 'package:autocarnet/features/maintenance/data/maintenance_repository.dart';
 import 'package:autocarnet/features/reminders/data/reminder_repository.dart';
-import 'package:autocarnet/features/resale/domain/resale_estimation.dart';
 import 'package:autocarnet/features/resale/domain/resale_readiness.dart';
+import 'package:autocarnet/features/resale/domain/valuation/valuation_engine.dart';
+import 'package:autocarnet/features/resale/domain/valuation/valuation_models.dart';
 import 'package:autocarnet/features/timeline/data/timeline_repository.dart';
 import 'package:autocarnet/features/vehicles/data/vehicle_repository.dart';
 import 'package:autocarnet/features/vehicles/domain/vehicle_health.dart';
@@ -170,27 +171,20 @@ void main() {
     });
   });
 
-  group('NoMarketSourceResaleEstimator', () {
-    test('never fabricates a price - always reports the estimate as unavailable', () {
-      const estimator = NoMarketSourceResaleEstimator();
-      final health = computeVehicleHealthScore(
-        activeReminders: const [],
-        maintenanceEntries: const [],
-        documents: const [],
-        completeness: 1,
-      );
-      final estimate = estimator.estimate(
-        ResaleEstimationInput(
-          brand: 'Renault',
-          model: 'Clio',
-          year: 2020,
-          currentMileage: 60000,
-          health: health,
-        ),
-      );
-      expect(estimate.isAvailable, isFalse);
-      expect(estimate.amountsByTier, isEmpty);
-      expect(estimate.message, isNotEmpty);
+  group('InternalValuationProvider', () {
+    test('always produces an explainable, clearly-labeled indicative estimate '
+        '- see valuation_engine_test.dart for the full A-G scenario suite', () {
+      const engine = InternalValuationProvider();
+      final result = engine.compute(const ValuationInput(
+        brand: 'Renault',
+        model: 'Clio',
+        year: 2020,
+        currentMileage: 60000,
+      ));
+      expect(result.fairPrice, greaterThan(0));
+      expect(result.quickSale, lessThan(result.fairPrice));
+      expect(result.highPrice, greaterThan(result.fairPrice));
+      expect(result.breakdown, isNotEmpty);
     });
   });
 }
