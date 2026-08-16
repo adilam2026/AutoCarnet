@@ -6,7 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/database/database.dart';
 import '../../documents/data/document_repository.dart';
 import 'resale_estimation.dart';
-import 'resale_health.dart';
+import '../../vehicles/domain/vehicle_health.dart';
 import 'resale_readiness.dart';
 
 /// Builds the resale dossier PDF (bloc 18 §18.4) entirely from data already

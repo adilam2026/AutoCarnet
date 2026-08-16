@@ -56,19 +56,31 @@ class DocumentRepository {
     final query = _db.select(_db.documents)
       ..where((d) => d.vehicleId.equals(vehicleId) & d.isDeleted.equals(false))
       ..orderBy([(d) => OrderingTerm.desc(d.updatedAt)]);
-    return query.watch().asyncMap((docs) async {
-      final result = <DocumentWithVersion>[];
-      for (final d in docs) {
-        DocumentVersion? version;
-        if (d.currentVersionId != null) {
-          version = await (_db.select(_db.documentVersions)
-                ..where((v) => v.id.equals(d.currentVersionId!)))
-              .getSingleOrNull();
-        }
-        result.add(DocumentWithVersion(d, version));
+    return query.watch().asyncMap(_withVersions);
+  }
+
+  /// Driver documents (permis de conduire, pièce d'identité...) are not
+  /// tied to a single vehicle - they belong to the profile and are shared
+  /// across the whole garage.
+  Stream<List<DocumentWithVersion>> watchDriverDocuments() {
+    final query = _db.select(_db.documents)
+      ..where((d) => d.vehicleId.isNull() & d.isDeleted.equals(false))
+      ..orderBy([(d) => OrderingTerm.desc(d.updatedAt)]);
+    return query.watch().asyncMap(_withVersions);
+  }
+
+  Future<List<DocumentWithVersion>> _withVersions(List<Document> docs) async {
+    final result = <DocumentWithVersion>[];
+    for (final d in docs) {
+      DocumentVersion? version;
+      if (d.currentVersionId != null) {
+        version = await (_db.select(_db.documentVersions)
+              ..where((v) => v.id.equals(d.currentVersionId!)))
+            .getSingleOrNull();
       }
-      return result;
-    });
+      result.add(DocumentWithVersion(d, version));
+    }
+    return result;
   }
 
   Future<List<DocumentAttachment>> attachmentsFor(String versionId) {
@@ -229,4 +241,8 @@ final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
 final vehicleDocumentsProvider =
     StreamProvider.family<List<DocumentWithVersion>, String>((ref, vehicleId) {
   return ref.watch(documentRepositoryProvider).watchForVehicle(vehicleId);
+});
+
+final driverDocumentsProvider = StreamProvider<List<DocumentWithVersion>>((ref) {
+  return ref.watch(documentRepositoryProvider).watchDriverDocuments();
 });

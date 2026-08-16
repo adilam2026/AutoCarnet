@@ -16,7 +16,7 @@ import '../../reminders/data/reminder_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../../vehicles/presentation/providers/vehicle_form_providers.dart';
 import '../domain/resale_estimation.dart';
-import '../domain/resale_health.dart';
+import '../../vehicles/domain/vehicle_health.dart';
 import '../domain/resale_pdf.dart';
 import '../domain/resale_readiness.dart';
 
@@ -115,7 +115,7 @@ class _ResaleSummary extends ConsumerWidget {
     final activeReminders = remindersAsync.value ?? const <Reminder>[];
     final mileageHistory = mileageAsync.value ?? const <MileageEntry>[];
 
-    final health = computeResaleHealthScore(
+    final health = computeVehicleHealthScore(
       activeReminders: activeReminders,
       maintenanceEntries: maintenanceEntries,
       documents: documents,

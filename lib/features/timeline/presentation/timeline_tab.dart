@@ -1,23 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/utils/period_filter.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
-import '../../documents/data/document_repository.dart';
-import '../../documents/presentation/document_form_sheet.dart';
-import '../../expenses/data/expense_repository.dart';
-import '../../expenses/presentation/expense_form_sheet.dart';
-import '../../fuel/data/fuel_repository.dart';
-import '../../fuel/presentation/fuel_form_sheet.dart';
-import '../../maintenance/data/maintenance_repository.dart';
-import '../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../vehicles/data/vehicle_repository.dart';
-import '../../vehicles/presentation/screens/vehicle_edit_screen.dart';
 import '../data/timeline_repository.dart';
+import '../domain/timeline_navigation.dart';
 
 const _moduleIcons = {
   'vehicles': Icons.directions_car_outlined,
@@ -128,7 +119,11 @@ class _TimelineTabState extends ConsumerState<TimelineTab> {
                           return _TimelineEntranceAnimation(
                             index: i,
                             child: InkWell(
-                              onTap: () => _openSource(context, ref, e, vehicleAsync),
+                              onTap: () => vehicleAsync.maybeWhen(
+                                data: (vehicle) =>
+                                    openTimelineEventSource(context, ref, e, vehicle),
+                                orElse: () {},
+                              ),
                               child: IntrinsicHeight(
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,60 +201,6 @@ class _TimelineTabState extends ConsumerState<TimelineTab> {
         },
       ),
     );
-  }
-
-  Future<void> _openSource(
-    BuildContext context,
-    WidgetRef ref,
-    TimelineEvent event,
-    AsyncValue<Vehicle> vehicleAsync,
-  ) async {
-    final vehicle = vehicleAsync.maybeWhen(data: (v) => v, orElse: () => null);
-    if (vehicle == null || event.linkedEntityId == null) return;
-    final id = event.linkedEntityId!;
-    switch (event.moduleOrigin) {
-      case 'maintenance':
-        final entry = await ref.read(maintenanceRepositoryProvider).getById(id);
-        if (entry != null && context.mounted) {
-          showMaintenanceFormSheet(
-            context,
-            vehicleId: widget.vehicleId,
-            currentMileage: vehicle.currentMileage,
-            editing: entry,
-          );
-        }
-      case 'fuel':
-        final entry = await ref.read(fuelRepositoryProvider).getById(id);
-        if (entry != null && context.mounted) {
-          showFuelFormSheet(
-            context,
-            vehicleId: widget.vehicleId,
-            currentMileage: vehicle.currentMileage,
-            editing: entry,
-          );
-        }
-      case 'expenses':
-        final entry = await ref.read(expenseRepositoryProvider).getById(id);
-        if (entry != null && context.mounted) {
-          showExpenseFormSheet(context, vehicleId: widget.vehicleId, editing: entry);
-        }
-      case 'documents':
-        final doc = await ref.read(documentRepositoryProvider).getById(id);
-        if (doc != null && context.mounted) {
-          showDocumentFormSheet(
-            context,
-            vehicleId: widget.vehicleId,
-            renewing: doc.document,
-            renewingVersion: doc.version,
-          );
-        }
-      case 'vehicles':
-        if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
-          );
-        }
-    }
   }
 
   String _fmt(DateTime d) =>

@@ -11,12 +11,15 @@ import '../data/document_repository.dart';
 import '../domain/document_types.dart';
 
 /// Used both for creating a document and for renewing one - renewal simply
-/// pre-fills the previous version's data (bloc 4, §7.6).
+/// pre-fills the previous version's data (bloc 4, §7.6). A null [vehicleId]
+/// means a driver document (permis de conduire...), shared across the whole
+/// garage rather than tied to one vehicle.
 Future<void> showDocumentFormSheet(
   BuildContext context, {
-  required String vehicleId,
+  required String? vehicleId,
   Document? renewing,
   DocumentVersion? renewingVersion,
+  String? initialType,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -26,6 +29,7 @@ Future<void> showDocumentFormSheet(
       vehicleId: vehicleId,
       renewing: renewing,
       renewingVersion: renewingVersion,
+      initialType: initialType,
     ),
   );
 }
@@ -35,11 +39,13 @@ class _DocumentFormSheet extends ConsumerStatefulWidget {
     required this.vehicleId,
     this.renewing,
     this.renewingVersion,
+    this.initialType,
   });
 
-  final String vehicleId;
+  final String? vehicleId;
   final Document? renewing;
   final DocumentVersion? renewingVersion;
+  final String? initialType;
 
   @override
   ConsumerState<_DocumentFormSheet> createState() => _DocumentFormSheetState();
@@ -58,11 +64,14 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
   bool _saving = false;
 
   bool get isRenewal => widget.renewing != null;
+  bool get isDriverDocument => widget.vehicleId == null;
+  List<String> get _availableTypes =>
+      isDriverDocument ? driverDocumentTypes : vehicleDocumentTypes;
 
   @override
   void initState() {
     super.initState();
-    _type = widget.renewing?.type ?? vehicleDocumentTypes.first;
+    _type = widget.renewing?.type ?? widget.initialType ?? _availableTypes.first;
     _numberCtrl.text = widget.renewingVersion?.documentNumber ?? '';
     _costCtrl.text = widget.renewingVersion?.cost?.toString() ?? '';
     _issueDate = DateTime.now();
@@ -165,7 +174,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
               DropdownButtonFormField<String>(
                 initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type *'),
-                items: vehicleDocumentTypes
+                items: _availableTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
                 onChanged: (v) => setState(() => _type = v!),

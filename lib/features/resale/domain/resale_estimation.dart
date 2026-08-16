@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'resale_health.dart';
+import '../../vehicles/domain/vehicle_health.dart';
 
 /// Everything a real estimator would need to compute a market-accurate
 /// price. Fields are collected and passed through today even though the

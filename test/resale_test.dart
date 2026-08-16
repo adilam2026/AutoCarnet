@@ -3,10 +3,10 @@ import 'package:autocarnet/features/documents/data/document_repository.dart';
 import 'package:autocarnet/features/maintenance/data/maintenance_repository.dart';
 import 'package:autocarnet/features/reminders/data/reminder_repository.dart';
 import 'package:autocarnet/features/resale/domain/resale_estimation.dart';
-import 'package:autocarnet/features/resale/domain/resale_health.dart';
 import 'package:autocarnet/features/resale/domain/resale_readiness.dart';
 import 'package:autocarnet/features/timeline/data/timeline_repository.dart';
 import 'package:autocarnet/features/vehicles/data/vehicle_repository.dart';
+import 'package:autocarnet/features/vehicles/domain/vehicle_health.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,9 +34,9 @@ void main() {
 
   tearDown(() => db.close());
 
-  group('computeResaleHealthScore', () {
+  group('computeVehicleHealthScore', () {
     test('a brand new vehicle with no history scores below 100 and explains why', () async {
-      final health = computeResaleHealthScore(
+      final health = computeVehicleHealthScore(
         activeReminders: const [],
         maintenanceEntries: const [],
         documents: const [],
@@ -51,7 +51,7 @@ void main() {
     });
 
     test('an overdue reminder drags the score down more than an upcoming one', () async {
-      final overdue = computeResaleHealthScore(
+      final overdue = computeVehicleHealthScore(
         activeReminders: [
           Reminder(
             id: 'r1',
@@ -72,7 +72,7 @@ void main() {
         documents: const [],
         completeness: 0.5,
       );
-      final upcoming = computeResaleHealthScore(
+      final upcoming = computeVehicleHealthScore(
         activeReminders: [
           Reminder(
             id: 'r2',
@@ -111,7 +111,7 @@ void main() {
       final maintenanceEntries = await maintenance.watchForVehicle(vehicleId).first;
       final docs = await documents.watchForVehicle(vehicleId).first;
 
-      final health = computeResaleHealthScore(
+      final health = computeVehicleHealthScore(
         activeReminders: const [],
         maintenanceEntries: maintenanceEntries,
         documents: docs,
@@ -172,7 +172,7 @@ void main() {
   group('NoMarketSourceResaleEstimator', () {
     test('never fabricates a price - always reports the estimate as unavailable', () {
       const estimator = NoMarketSourceResaleEstimator();
-      final health = computeResaleHealthScore(
+      final health = computeVehicleHealthScore(
         activeReminders: const [],
         maintenanceEntries: const [],
         documents: const [],
