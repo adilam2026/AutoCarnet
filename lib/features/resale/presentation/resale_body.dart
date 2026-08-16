@@ -310,12 +310,15 @@ class _EstimationCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.sm,
+              runSpacing: 4,
               children: [
                 _ConfidenceBadge(confidence: result.confidence),
-                const Spacer(),
                 TextButton(
                   onPressed: onExplain,
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
                   child: const Text('Comment cette estimation est calculée ?'),
                 ),
               ],
