@@ -10,7 +10,9 @@ import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../providers/data/provider_repository.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/maintenance_repository.dart';
+import '../data/operation_frequency_repository.dart';
 import '../domain/maintenance_categories.dart';
+import '../domain/operation_recurrence_rules.dart';
 
 /// Used both to create a new operation and to open/edit/duplicate an
 /// existing one - the same form serves as the "detail" view (Principe: a
@@ -75,20 +77,43 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
   DateTime? _nextDueDate;
   final _nextDueMileageCtrl = TextEditingController();
 
+  ResolvedFrequency? _resolvedFrequency;
+  bool _applyingSuggestion = false;
+  bool _nextDueMileageUserEdited = false;
+  bool _nextDueDateUserEdited = false;
+
   MaintenanceEntry? get _source => widget.editing ?? widget.duplicateFrom;
   bool get _isEditing => widget.editing != null;
+  bool get _isNewEntry => _source == null;
+
+  String get _nextDueLabel {
+    final lower = _category.toLowerCase();
+    if (lower.contains('vidange')) return 'Prochaine vidange';
+    if (lower.contains('révision')) return 'Prochaine révision';
+    if (lower.contains('pneu')) return 'Prochain contrôle pneus';
+    if (lower.contains('frein') ||
+        lower.contains('plaquette') ||
+        lower.contains('disque')) {
+      return 'Prochain contrôle freinage';
+    }
+    return 'Prochaine échéance';
+  }
 
   @override
   void initState() {
     super.initState();
     _mileageCtrl.text = widget.currentMileage.toStringAsFixed(0);
+    _nextDueMileageCtrl.addListener(() {
+      if (!_applyingSuggestion) _nextDueMileageUserEdited = true;
+    });
     _init();
   }
 
   Future<void> _init() async {
     final source = _source;
     if (source == null) {
-      setState(() => _ready = true);
+      await _loadFrequencyAndSuggest();
+      if (mounted) setState(() => _ready = true);
       return;
     }
     _category = source.category;
@@ -99,6 +124,10 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
     _createExpense = source.linkedExpenseId != null;
     _nextDueDate = source.nextDueDate;
     _nextDueMileageCtrl.text = source.nextDueMileage?.toStringAsFixed(0) ?? '';
+    // The source already carries its own next-due values (or intentionally
+    // none) - never override them with a fresh suggestion.
+    _nextDueMileageUserEdited = true;
+    _nextDueDateUserEdited = true;
 
     if (source.providerId != null) {
       final provider =
@@ -122,6 +151,84 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
     }
 
     if (mounted) setState(() => _ready = true);
+  }
+
+  /// Only ever runs for a brand-new entry (bloc 2.1/2.2): a vidange or
+  /// révision periodic category gets a default +10 000 km suggestion (or
+  /// the vehicle's own configured frequency if one exists), anything else
+  /// stays empty - no invented échéance for a one-off diagnostic or repair.
+  Future<void> _loadFrequencyAndSuggest() async {
+    if (!_isNewEntry) return;
+    final override =
+        await ref.read(operationFrequencyRepositoryProvider).getFor(widget.vehicleId, _category);
+    _applySuggestion(
+      vehicleFrequencyKm: override?.frequencyKm,
+      vehicleFrequencyMonths: override?.frequencyMonths,
+    );
+  }
+
+  void _applySuggestion({double? vehicleFrequencyKm, int? vehicleFrequencyMonths}) {
+    final resolved = resolveFrequency(
+      category: _category,
+      vehicleFrequencyKm: vehicleFrequencyKm,
+      vehicleFrequencyMonths: vehicleFrequencyMonths,
+    );
+    _resolvedFrequency = resolved;
+    if (!_nextDueMileageUserEdited) {
+      _applyingSuggestion = true;
+      if (resolved.frequencyKm != null) {
+        final base = double.tryParse(_mileageCtrl.text.trim()) ?? widget.currentMileage;
+        _nextDueMileageCtrl.text = (base + resolved.frequencyKm!).toStringAsFixed(0);
+      } else {
+        _nextDueMileageCtrl.clear();
+      }
+      _applyingSuggestion = false;
+    }
+    if (!_nextDueDateUserEdited) {
+      _nextDueDate = resolved.frequencyMonths != null
+          ? DateTime(_date.year, _date.month + resolved.frequencyMonths!, _date.day)
+          : null;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editFrequency() async {
+    final ctrl = TextEditingController(
+      text: _resolvedFrequency?.frequencyKm?.toStringAsFixed(0) ?? '',
+    );
+    final result = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Fréquence pour « $_category » sur ce véhicule'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(),
+          decoration: const InputDecoration(labelText: 'Kilomètres', suffixText: 'km'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(double.tryParse(ctrl.text.trim())),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || result <= 0) return;
+    await ref
+        .read(operationFrequencyRepositoryProvider)
+        .setFor(widget.vehicleId, _category, frequencyKm: result);
+    _nextDueMileageUserEdited = false;
+    _applySuggestion(vehicleFrequencyKm: result);
+    if (mounted) {
+      showAppSnackBar(context, 'Fréquence mémorisée pour ce véhicule',
+          icon: Icons.check_circle_outline);
+    }
   }
 
   Future<void> _save() async {
@@ -287,7 +394,10 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                     items: maintenanceCategories
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
-                    onChanged: (v) => setState(() => _category = v!),
+                    onChanged: (v) {
+                      setState(() => _category = v!);
+                      _loadFrequencyAndSuggest();
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Row(
@@ -316,6 +426,20 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                           validator: (v) => (v == null || double.tryParse(v) == null)
                               ? 'Requis'
                               : null,
+                          onChanged: (_) {
+                            if (_isNewEntry && !_nextDueMileageUserEdited) {
+                              _applySuggestion(
+                                vehicleFrequencyKm:
+                                    _resolvedFrequency?.isVehicleSpecific == true
+                                        ? _resolvedFrequency!.frequencyKm
+                                        : null,
+                                vehicleFrequencyMonths:
+                                    _resolvedFrequency?.isVehicleSpecific == true
+                                        ? _resolvedFrequency!.frequencyMonths
+                                        : null,
+                              );
+                            }
+                          },
                         ),
                       ),
                     ],
@@ -391,8 +515,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Text('Prochaine échéance',
-                      style: Theme.of(context).textTheme.titleSmall),
+                  Text(_nextDueLabel, style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
@@ -414,7 +537,10 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                               firstDate: DateTime(1990),
                               lastDate: DateTime(2100),
                             );
-                            setState(() => _nextDueDate = picked);
+                            if (picked != null) {
+                              _nextDueDateUserEdited = true;
+                              setState(() => _nextDueDate = picked);
+                            }
                           },
                           child: Text(
                             _nextDueDate == null
@@ -427,6 +553,38 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                       ),
                     ],
                   ),
+                  if (_isNewEntry && (_resolvedFrequency?.isRecurrent ?? false))
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _resolvedFrequency!.isVehicleSpecific
+                                  ? 'Fréquence de ce véhicule : '
+                                      '${_resolvedFrequency!.frequencyKm?.toStringAsFixed(0)} km'
+                                  : 'Suggestion AutoCarnet (modifiable) : '
+                                      '${_resolvedFrequency!.frequencyKm?.toStringAsFixed(0)} km',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _editFrequency,
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                            child: const Text('Modifier'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_isNewEntry)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      child: Text(
+                        'Aucune échéance automatique pour cette catégorie. '
+                        'Ajoutez-en une seulement si nécessaire.',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ),
                   const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
