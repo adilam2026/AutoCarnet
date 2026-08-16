@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/loading_error_views.dart';
+import '../../onboarding_lock/data/local_profile_repository.dart';
+import '../../reminders/data/reminder_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../../vehicles/presentation/widgets/vehicle_card.dart';
 
@@ -14,66 +18,65 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vehiclesAsync = ref.watch(vehiclesListProvider);
+    final profileAsync = ref.watch(localProfileProvider);
+    final remindersAsync = ref.watch(allActiveRemindersProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AutoCarnet'),
+        title: profileAsync.maybeWhen(
+          data: (p) => Text(
+            p != null ? 'Bonjour, ${p.displayName.split(' ').first}' : 'AutoCarnet',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          orElse: () => const Text('AutoCarnet'),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Paramètres',
             onPressed: () => context.push('/settings'),
           ),
         ],
       ),
       body: vehiclesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur : $e')),
+        loading: () => const LoadingView(),
+        error: (e, _) => ErrorView(message: e.toString()),
         data: (vehicles) {
           if (vehicles.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.directions_car_outlined,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Aucun véhicule pour le moment',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Ajoutez votre premier véhicule pour commencer à '
-                      'suivre son entretien, ses documents et ses dépenses.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    FilledButton.icon(
-                      onPressed: () => context.push('/vehicles/new'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Ajouter un véhicule'),
-                    ),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: Icons.directions_car_outlined,
+              title: 'Aucun véhicule pour le moment',
+              subtitle:
+                  'Ajoutez votre premier véhicule pour commencer à suivre '
+                  'son entretien, ses documents et ses dépenses.',
+              actionLabel: 'Ajouter un véhicule',
+              onAction: () => context.push('/vehicles/new'),
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: vehicles.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, i) {
-              final v = vehicles[i];
-              return VehicleCard(
-                vehicle: v,
-                onTap: () => context.push('/vehicles/${v.id}'),
-              );
-            },
+          final reminderCount = remindersAsync.maybeWhen(
+            data: (r) => r.length,
+            orElse: () => 0,
+          );
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
+            children: [
+              if (reminderCount > 0) ...[
+                _RemindersBanner(count: reminderCount),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              for (var i = 0; i < vehicles.length; i++) ...[
+                if (i > 0) const SizedBox(height: AppSpacing.sm),
+                _StaggeredEntry(
+                  index: i,
+                  child: VehicleCard(
+                    vehicle: vehicles[i],
+                    onTap: () => context.push('/vehicles/${vehicles[i].id}'),
+                  ),
+                ),
+              ],
+            ],
           );
         },
       ),
@@ -82,10 +85,69 @@ class HomeScreen extends ConsumerWidget {
             ? null
             : FloatingActionButton(
                 onPressed: () => context.push('/vehicles/new'),
+                tooltip: 'Ajouter un véhicule',
                 child: const Icon(Icons.add),
               ),
         orElse: () => null,
       ),
+    );
+  }
+}
+
+class _RemindersBanner extends StatelessWidget {
+  const _RemindersBanner({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.notifications_active_outlined, color: scheme.onTertiaryContainer),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              count == 1
+                  ? '1 échéance à surveiller'
+                  : '$count échéances à surveiller',
+              style: TextStyle(
+                color: scheme.onTertiaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaggeredEntry extends StatelessWidget {
+  const _StaggeredEntry({required this.index, required this.child});
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final delay = (index.clamp(0, 6)) * 40;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 220 + delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - value) * 10),
+          child: child,
+        ),
+      ),
+      child: child,
     );
   }
 }

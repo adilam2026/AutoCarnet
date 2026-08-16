@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/feedback.dart';
 import '../../data/vehicle_repository.dart';
 
 /// Principe 2 (saisie minimale): only brand, model and current mileage are
@@ -40,6 +41,7 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
             currentMileage: double.parse(_mileageCtrl.text.trim()),
           );
       if (!mounted) return;
+      showAppSnackBar(context, 'Véhicule ajouté', icon: Icons.check_circle_outline);
       context.go('/vehicles/$id');
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -56,6 +58,22 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.directions_car_filled,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 'Trois informations suffisent pour commencer. Vous pourrez '
                 'compléter la fiche plus tard.',

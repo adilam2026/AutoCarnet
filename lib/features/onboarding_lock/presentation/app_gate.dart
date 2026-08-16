@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/loading_error_views.dart';
 import '../data/local_profile_repository.dart';
 import '../data/pin_service.dart';
 import 'lock_screen.dart';
@@ -45,7 +46,7 @@ class _AppGateState extends ConsumerState<AppGate> {
 
     return profileAsync.when(
       loading: () => const _Splash(),
-      error: (e, _) => Scaffold(body: Center(child: Text('Erreur : $e'))),
+      error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
       data: (profile) {
         if (_step == _GateStep.loading) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,6 +82,23 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: Center(
+        child: Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.directions_car_filled,
+            size: 32,
+            color: scheme.primary,
+          ),
+        ),
+      ),
+    );
   }
 }

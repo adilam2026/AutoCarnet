@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/tables.dart';
+import '../../../../core/utils/feedback.dart';
+import '../../../../core/widgets/loading_error_views.dart';
 import '../../../documents/presentation/documents_tab.dart';
 import '../../../expenses/presentation/expenses_tab.dart';
 import '../../../fuel/presentation/fuel_tab.dart';
@@ -20,42 +22,66 @@ class VehicleDetailScreen extends ConsumerWidget {
     final vehicleAsync = ref.watch(vehicleByIdProvider(vehicleId));
 
     return vehicleAsync.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Scaffold(body: Center(child: Text('Erreur : $e'))),
+      loading: () => const Scaffold(body: LoadingView()),
+      error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
       data: (vehicle) => DefaultTabController(
         length: 6,
         child: Scaffold(
           appBar: AppBar(
-            title: Text('${vehicle.brand} ${vehicle.model}'),
+            title: Text(
+              '${vehicle.brand} ${vehicle.model}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             actions: [
               PopupMenuButton<VehicleStatus>(
-                onSelected: (status) => ref
-                    .read(vehicleRepositoryProvider)
-                    .setStatus(vehicle.id, status),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                      value: VehicleStatus.active, child: Text('Actif')),
-                  PopupMenuItem(
-                      value: VehicleStatus.archived, child: Text('Archivé')),
-                  PopupMenuItem(
-                      value: VehicleStatus.sold, child: Text('Vendu')),
-                  PopupMenuItem(
-                      value: VehicleStatus.destroyed, child: Text('Détruit')),
+                tooltip: 'Statut du véhicule',
+                icon: _StatusIndicator(status: vehicle.status),
+                onSelected: (status) async {
+                  await ref
+                      .read(vehicleRepositoryProvider)
+                      .setStatus(vehicle.id, status);
+                  if (context.mounted) {
+                    showAppSnackBar(
+                      context,
+                      'Statut mis à jour : ${_statusLabel(status)}',
+                      icon: Icons.check_circle_outline,
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  for (final status in VehicleStatus.values)
+                    PopupMenuItem(
+                      value: status,
+                      child: Row(
+                        children: [
+                          if (status == vehicle.status)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(Icons.check, size: 18),
+                            )
+                          else
+                            const SizedBox(width: 26),
+                          Text(_statusLabel(status)),
+                        ],
+                      ),
+                    ),
                 ],
               ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Modifier la fiche',
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => VehicleEditScreen(vehicle: vehicle),
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
             ],
             bottom: const TabBar(
               isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(text: 'Aperçu'),
                 Tab(text: 'Documents'),
@@ -78,6 +104,38 @@ class VehicleDetailScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  String _statusLabel(VehicleStatus s) => switch (s) {
+        VehicleStatus.active => 'Actif',
+        VehicleStatus.archived => 'Archivé',
+        VehicleStatus.sold => 'Vendu',
+        VehicleStatus.destroyed => 'Détruit',
+      };
+}
+
+class _StatusIndicator extends StatelessWidget {
+  const _StatusIndicator({required this.status});
+  final VehicleStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (status) {
+      VehicleStatus.active => scheme.primary,
+      VehicleStatus.archived => scheme.outline,
+      VehicleStatus.sold => scheme.tertiary,
+      VehicleStatus.destroyed => scheme.error,
+    };
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.circle, size: 10, color: color),
     );
   }
 }

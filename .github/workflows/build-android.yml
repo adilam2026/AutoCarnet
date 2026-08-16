@@ -1,0 +1,73 @@
+name: Build Android
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/autocarnet-specs-mj7872
+  pull_request:
+    branches:
+      - main
+      - master
+      - claude/autocarnet-specs-mj7872
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Analyze, test and build APK / AAB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.8"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate database code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Build release App Bundle (Play Store)
+        run: flutter build appbundle --release
+
+      - name: Rename artifacts
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/autocarnet-release.apk
+          cp build/app/outputs/bundle/release/app-release.aab dist/autocarnet-release.aab
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: autocarnet-apk
+          path: dist/autocarnet-release.apk
+          retention-days: 30
+
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: autocarnet-aab
+          path: dist/autocarnet-release.aab
+          retention-days: 30

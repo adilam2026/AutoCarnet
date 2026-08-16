@@ -14,7 +14,7 @@ class VehicleRepository {
   final TimelineRepository _timeline;
   final ReminderRepository _reminders;
 
-  Stream<List<Vehicle>> watchAll({bool includeArchivedAndSold = true}) {
+  Stream<List<Vehicle>> watchAll() {
     final query = _db.select(_db.vehicles)
       ..where((v) => v.isDeleted.equals(false))
       ..orderBy([(v) => OrderingTerm.desc(v.updatedAt)]);

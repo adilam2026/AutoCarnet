@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/fuel_repository.dart';
 import '../domain/fuel_types.dart';
@@ -74,7 +76,10 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
             providerId: providerId,
             isFullTank: _isFullTank,
           );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        showAppSnackBar(context, 'Plein enregistré', icon: Icons.check_circle_outline);
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -94,6 +99,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            const SheetHandle(),
             Text('Nouveau plein', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),
             Row(

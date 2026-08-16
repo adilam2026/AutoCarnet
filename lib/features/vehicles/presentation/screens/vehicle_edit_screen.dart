@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/feedback.dart';
+import '../../../../core/widgets/section_header.dart';
 import '../../data/vehicle_repository.dart';
 
 /// Every field beyond the 3 required at creation lives here - the fiche is
@@ -47,6 +49,22 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _comments = TextEditingController(text: v.comments ?? '');
   }
 
+  @override
+  void dispose() {
+    _brand.dispose();
+    _model.dispose();
+    _trim.dispose();
+    _year.dispose();
+    _vin.dispose();
+    _plate.dispose();
+    _motorization.dispose();
+    _fuelType.dispose();
+    _transmission.dispose();
+    _color.dispose();
+    _comments.dispose();
+    super.dispose();
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
@@ -70,7 +88,10 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
             _comments.text.trim().isEmpty ? null : _comments.text.trim()),
       );
       await ref.read(vehicleRepositoryProvider).updateVehicle(updated);
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        showAppSnackBar(context, 'Fiche mise à jour', icon: Icons.check_circle_outline);
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -84,19 +105,29 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
-            child: const Text('Enregistrer'),
+            child: _saving
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Enregistrer'),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          const SectionHeader('Identité'),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
               controller: _brand,
+              textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Marque')),
           const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _model,
+              textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Modèle')),
           const SizedBox(height: AppSpacing.md),
           TextField(
@@ -108,14 +139,21 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
             decoration: const InputDecoration(labelText: 'Année'),
             keyboardType: TextInputType.number,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Identification'),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
-              controller: _vin, decoration: const InputDecoration(labelText: 'VIN')),
+              controller: _vin,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: 'VIN')),
           const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _plate,
+              textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(labelText: 'Immatriculation')),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Caractéristiques'),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
               controller: _motorization,
               decoration: const InputDecoration(labelText: 'Motorisation')),
@@ -130,13 +168,17 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
           const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _color,
+              textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Couleur')),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Notes'),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _comments,
             decoration: const InputDecoration(labelText: 'Commentaires'),
             maxLines: 3,
           ),
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/expense_repository.dart';
 import '../domain/expense_categories.dart';
@@ -55,7 +57,10 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
                 ? null
                 : _commentsCtrl.text.trim(),
           );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        showAppSnackBar(context, 'Dépense ajoutée', icon: Icons.check_circle_outline);
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -75,6 +80,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            const SheetHandle(),
             Text('Nouvelle dépense',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),

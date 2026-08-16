@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/maintenance_repository.dart';
 import '../domain/maintenance_categories.dart';
@@ -90,7 +92,10 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
             parts: parts,
             createLinkedExpense: _createExpense,
           );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        showAppSnackBar(context, 'Entretien enregistré', icon: Icons.check_circle_outline);
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -110,6 +115,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            const SheetHandle(),
             Text('Nouvel entretien',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),

@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/dismissible_delete.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/loading_error_views.dart';
+import '../../../core/widgets/stat_tile.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../data/fuel_repository.dart';
 import 'fuel_form_sheet.dart';
@@ -18,71 +23,117 @@ class FuelTab extends ConsumerWidget {
 
     return Scaffold(
       body: entriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur : $e')),
+        loading: () => const LoadingView(),
+        error: (e, _) => ErrorView(message: e.toString()),
         data: (entries) {
+          if (entries.isEmpty) {
+            return EmptyState(
+              icon: Icons.local_gas_station_outlined,
+              title: 'Aucun plein enregistré',
+              subtitle:
+                  'Enregistrez vos pleins pour suivre la consommation '
+                  'réelle et le budget carburant de ce véhicule.',
+              actionLabel: 'Ajouter un plein',
+              onAction: vehicleAsync.maybeWhen(
+                data: (vehicle) => () => showFuelFormSheet(
+                      context,
+                      vehicleId: vehicleId,
+                      currentMileage: vehicle.currentMileage,
+                    ),
+                orElse: () => null,
+              ),
+            );
+          }
           return CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: statsAsync.maybeWhen(
-                    data: (stats) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _Stat(
-                              label: 'Conso. moyenne',
-                              value: stats.averageConsumption != null
-                                  ? '${stats.averageConsumption!.toStringAsFixed(1)} L/100km'
-                                  : '—',
-                            ),
-                            _Stat(
-                              label: 'Total litres',
-                              value: '${stats.totalLiters.toStringAsFixed(0)} L',
-                            ),
-                            _Stat(
-                              label: 'Total dépensé',
-                              value: stats.totalCost.toStringAsFixed(0),
-                            ),
-                          ],
+                    data: (stats) => StatTileRow(
+                      tiles: [
+                        StatTile(
+                          label: 'Conso. moyenne',
+                          value: stats.averageConsumption != null
+                              ? '${stats.averageConsumption!.toStringAsFixed(1)} L/100'
+                              : '—',
+                          icon: Icons.speed_outlined,
+                          highlight: true,
                         ),
-                      ),
+                        StatTile(
+                          label: 'Total litres',
+                          value: '${stats.totalLiters.toStringAsFixed(0)} L',
+                          icon: Icons.local_gas_station_outlined,
+                        ),
+                        StatTile(
+                          label: 'Total dépensé',
+                          value: stats.totalCost.toStringAsFixed(0),
+                          icon: Icons.payments_outlined,
+                        ),
+                      ],
                     ),
                     orElse: () => const SizedBox.shrink(),
                   ),
                 ),
               ),
-              if (entries.isEmpty)
-                const SliverFillRemaining(
-                  child: Center(child: Text('Aucun plein enregistré')),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  sliver: SliverList.separated(
-                    itemCount: entries.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, i) {
-                      final f = entries[i];
-                      return Card(
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.sm, AppSpacing.md, 96),
+                sliver: SliverList.separated(
+                  itemCount: entries.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, i) {
+                    final f = entries[i];
+                    return DismissibleDelete(
+                      itemKey: ValueKey(f.id),
+                      confirmTitle: 'Supprimer ce plein ?',
+                      confirmMessage:
+                          'Le plein du ${_fmt(f.date)} sera déplacé dans '
+                          'la corbeille.',
+                      onConfirmedDelete: () async {
+                        await ref.read(fuelRepositoryProvider).softDelete(f.id);
+                        if (context.mounted) {
+                          showAppSnackBar(context, 'Plein supprimé',
+                              icon: Icons.delete_outline);
+                        }
+                      },
+                      child: Card(
                         child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.xs,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer
+                                .withValues(alpha: 0.6),
+                            child: Icon(
+                              Icons.local_gas_station_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
                           title: Text(
-                              '${f.quantityLiters.toStringAsFixed(1)} L — ${f.fuelType}'),
+                            '${f.quantityLiters.toStringAsFixed(1)} L — ${f.fuelType}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           subtitle: Text(
                             '${_fmt(f.date)} • ${f.mileage.toStringAsFixed(0)} km'
                             '${f.isFullTank ? '' : ' • partiel'}',
                           ),
-                          trailing: Text(f.totalAmount.toStringAsFixed(0)),
+                          trailing: Text(
+                            f.totalAmount.toStringAsFixed(0),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
+              ),
             ],
           );
         },
@@ -102,20 +153,4 @@ class FuelTab extends ConsumerWidget {
   }
 
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
-      ],
-    );
-  }
 }

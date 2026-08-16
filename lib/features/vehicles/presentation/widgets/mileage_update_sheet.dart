@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/feedback.dart';
 import '../../../../core/utils/mileage_result.dart';
+import '../../../../core/widgets/sheet_handle.dart';
 import '../../data/vehicle_repository.dart';
 
 /// Implements RG-VEH-005 / Situations A & B from the cahier des charges:
@@ -21,12 +23,13 @@ Future<void> showMileageUpdateSheet(
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) {
       return Padding(
         padding: EdgeInsets.only(
           left: AppSpacing.md,
           right: AppSpacing.md,
-          top: AppSpacing.md,
+          top: AppSpacing.sm,
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom + AppSpacing.md,
         ),
         child: _MileageUpdateForm(
@@ -76,7 +79,10 @@ class _MileageUpdateFormState extends State<_MileageUpdateForm> {
     switch (result) {
       case MileageOk():
         await repo.recordManualMileage(widget.vehicle.id, value);
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) {
+          showAppSnackBar(context, 'Kilométrage mis à jour', icon: Icons.check_circle_outline);
+          Navigator.of(context).pop();
+        }
       case MileageNeedsConfirmation():
         setState(() {
           _needsConfirmation = true;
@@ -96,7 +102,10 @@ class _MileageUpdateFormState extends State<_MileageUpdateForm> {
     await widget.ref
         .read(vehicleRepositoryProvider)
         .recordManualMileage(widget.vehicle.id, value);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) {
+      showAppSnackBar(context, 'Kilométrage mis à jour', icon: Icons.check_circle_outline);
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -105,6 +114,7 @@ class _MileageUpdateFormState extends State<_MileageUpdateForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SheetHandle(),
         Text('Mettre à jour le kilométrage',
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.md),

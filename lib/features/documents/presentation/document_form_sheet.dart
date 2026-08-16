@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/document_repository.dart';
 import '../domain/document_types.dart';
@@ -123,7 +125,14 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
               : _commentsCtrl.text.trim(),
         );
       }
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          isRenewal ? 'Document renouvelé' : 'Document ajouté',
+          icon: Icons.check_circle_outline,
+        );
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -143,6 +152,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            const SheetHandle(),
             Text(
               isRenewal ? 'Renouveler le document' : 'Nouveau document',
               style: Theme.of(context).textTheme.titleMedium,

@@ -12,22 +12,27 @@ class VehicleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
+    final isInactive = vehicle.status != VehicleStatus.active;
+
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor:
-                    Theme.of(context).colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.directions_car,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+              Hero(
+                tag: 'vehicle-avatar-${vehicle.id}',
+                child: CircleAvatar(
+                  radius: 28,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Icon(
+                    Icons.directions_car,
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -35,31 +40,70 @@ class VehicleCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${vehicle.brand} ${vehicle.model}',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${vehicle.brand} ${vehicle.model}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        if (isInactive) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _statusLabel(vehicle.status),
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       '${vehicle.currentMileage.toStringAsFixed(0)} km'
                       '${vehicle.plate != null ? ' • ${vehicle.plate}' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm),
               remindersAsync.maybeWhen(
                 data: (reminders) => reminders.isEmpty
                     ? const SizedBox.shrink()
                     : Badge(
                         label: Text('${reminders.length}'),
-                        child: const Icon(Icons.notifications_outlined),
+                        child: Icon(
+                          Icons.notifications_outlined,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                 orElse: () => const SizedBox.shrink(),
               ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(Icons.chevron_right, color: scheme.outline),
             ],
           ),
         ),
       ),
     );
   }
+
+  String _statusLabel(VehicleStatus s) => switch (s) {
+        VehicleStatus.active => 'Actif',
+        VehicleStatus.archived => 'Archivé',
+        VehicleStatus.sold => 'Vendu',
+        VehicleStatus.destroyed => 'Détruit',
+      };
 }
