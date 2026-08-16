@@ -25,6 +25,8 @@ part 'database.g.dart';
     Expenses,
     FuelEntries,
     TimelineEvents,
+    AuditEvents,
+    OperationFrequencyPreferences,
     Reminders,
   ],
 )

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/audit/presentation/audit_log_screen.dart';
 import '../../features/dashboard/presentation/app_shell.dart';
 import '../../features/documents/presentation/documents_tab.dart';
 import '../../features/expenses/presentation/expenses_tab.dart';
@@ -65,6 +66,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/audit-log',
+        builder: (context, state) => const AuditLogScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

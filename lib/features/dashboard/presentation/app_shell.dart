@@ -165,6 +165,14 @@ class _AppDrawer extends ConsumerWidget {
                 context.push('/settings');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.fact_check_outlined),
+              title: const Text('Journal d\'audit'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/audit-log');
+              },
+            ),
           ],
         ),
       ),
@@ -197,6 +205,16 @@ class _MoreMenuBody extends StatelessWidget {
             subtitle: const Text('Profil, devise, code PIN, biométrie'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings'),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Journal d\'audit'),
+            subtitle: const Text('Trace technique des modifications, séparée du carnet'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/audit-log'),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),

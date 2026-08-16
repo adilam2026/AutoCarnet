@@ -1,4 +1,5 @@
 import 'package:autocarnet/core/database/database.dart';
+import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/expenses/data/expense_repository.dart';
 import 'package:autocarnet/features/fuel/data/fuel_repository.dart';
 import 'package:autocarnet/features/maintenance/data/maintenance_repository.dart';
@@ -25,7 +26,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     timeline = TimelineRepository(db);
     reminders = ReminderRepository(db);
-    vehicles = VehicleRepository(db, timeline, reminders);
+    vehicles = VehicleRepository(db, AuditRepository(db), reminders);
     expenseRepo = ExpenseRepository(db, timeline);
     maintenanceRepo = MaintenanceRepository(db, timeline, reminders, vehicles);
     fuelRepo = FuelRepository(db, timeline, vehicles);

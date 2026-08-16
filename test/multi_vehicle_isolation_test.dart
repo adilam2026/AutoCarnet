@@ -1,5 +1,6 @@
 import 'package:autocarnet/core/database/database.dart';
 import 'package:autocarnet/core/utils/mileage_result.dart';
+import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/documents/data/document_repository.dart';
 import 'package:autocarnet/features/expenses/data/expense_repository.dart';
 import 'package:autocarnet/features/fuel/data/fuel_repository.dart';
@@ -30,7 +31,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     timeline = TimelineRepository(db);
     reminders = ReminderRepository(db);
-    vehicles = VehicleRepository(db, timeline, reminders);
+    vehicles = VehicleRepository(db, AuditRepository(db), reminders);
     expenses = ExpenseRepository(db, timeline);
     documents = DocumentRepository(db, timeline, reminders);
     maintenance = MaintenanceRepository(db, timeline, reminders, vehicles);
@@ -132,9 +133,10 @@ void main() {
     );
     final timelineA = await timeline.watchForVehicle(vehicleA).first;
     final timelineB = await timeline.watchForVehicle(vehicleB).first;
-    // vehicle_created + expense_added for A, only vehicle_created for B.
-    expect(timelineA, hasLength(2));
-    expect(timelineB, hasLength(1));
+    // Vehicle creation is an audit fact, not a business event (bloc
+    // "historique métier vs journal d'audit") - only the expense shows up.
+    expect(timelineA, hasLength(1));
+    expect(timelineB, isEmpty);
   });
 
   test('reminders never mix across vehicles (RG-ALR)', () async {

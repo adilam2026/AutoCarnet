@@ -1,7 +1,7 @@
 import 'package:autocarnet/core/database/database.dart';
 import 'package:autocarnet/core/utils/mileage_result.dart';
+import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/reminders/data/reminder_repository.dart';
-import 'package:autocarnet/features/timeline/data/timeline_repository.dart';
 import 'package:autocarnet/features/vehicles/data/vehicle_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +12,7 @@ void main() {
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
-    repo = VehicleRepository(db, TimelineRepository(db), ReminderRepository(db));
+    repo = VehicleRepository(db, AuditRepository(db), ReminderRepository(db));
   });
 
   tearDown(() => db.close());

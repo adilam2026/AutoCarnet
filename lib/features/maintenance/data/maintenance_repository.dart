@@ -275,11 +275,14 @@ class MaintenanceRepository {
       newValue: mileage,
     );
 
+    // Same eventType/linkedEntityId as creation: logEvent upserts in place,
+    // so the operation still appears as a single "$category" line reflecting
+    // its current data, never a second "modifié" entry next to the original.
     await _timeline.logEvent(
       vehicleId: vehicleId,
       moduleOrigin: 'maintenance',
-      eventType: 'maintenance_updated',
-      title: '$category modifié',
+      eventType: 'maintenance_added',
+      title: category,
       description: comments,
       linkedEntityId: id,
       linkedEntityType: 'maintenance',
@@ -319,6 +322,7 @@ class MaintenanceRepository {
           .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
     }
     await _reminders.disableForSource('maintenance', id);
+    await _timeline.removeForEntity('maintenance', id);
   }
 }
 

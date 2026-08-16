@@ -111,24 +111,26 @@ class ExpenseRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    // Same eventType/linkedEntityId as creation: logEvent upserts in place.
     await _timeline.logEvent(
       vehicleId: vehicleId,
       moduleOrigin: 'expenses',
-      eventType: 'expense_updated',
-      title: '$category — ${amount.toStringAsFixed(0)} (modifié)',
+      eventType: 'expense_added',
+      title: '$category — ${amount.toStringAsFixed(0)}',
       linkedEntityId: id,
       linkedEntityType: 'expense',
       occurredAt: date,
     );
   }
 
-  Future<void> softDelete(String id) {
-    return (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
+  Future<void> softDelete(String id) async {
+    await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
       ExpensesCompanion(
         isDeleted: const Value(true),
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _timeline.removeForEntity('expense', id);
   }
 
   /// RG-DEP-003: statistics are always scoped to a single vehicle, never

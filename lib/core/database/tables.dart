@@ -16,6 +16,13 @@ class LocalProfiles extends Table {
 
 enum VehicleStatus { active, archived, sold, destroyed }
 
+/// How precisely [Vehicles.firstRegistrationDate] is actually known - an
+/// age-dependent calculation (depreciation, reminders) must never pretend a
+/// day/month the owner never entered.
+enum DatePrecision { full, monthYear, yearOnly }
+
+enum VehicleCondition { excellent, veryGood, good, average, needsWork }
+
 class Vehicles extends Table {
   TextColumn get id => text()();
   TextColumn get brand => text()();
@@ -23,6 +30,8 @@ class Vehicles extends Table {
   TextColumn get trim => text().nullable()();
   IntColumn get year => integer().nullable()();
   DateTimeColumn get firstRegistrationDate => dateTime().nullable()();
+  TextColumn get firstRegistrationDatePrecision =>
+      textEnum<DatePrecision>().nullable()();
   TextColumn get vin => text().nullable()();
   TextColumn get plate => text().nullable()();
   TextColumn get motorization => text().nullable()();
@@ -33,6 +42,7 @@ class Vehicles extends Table {
   TextColumn get photoPath => text().nullable()();
   DateTimeColumn get acquisitionDate => dateTime().nullable()();
   RealColumn get purchasePrice => real().nullable()();
+  TextColumn get condition => textEnum<VehicleCondition>().nullable()();
   TextColumn get comments => text().nullable()();
   RealColumn get currentMileage => real()();
   TextColumn get status =>
@@ -230,6 +240,41 @@ class TimelineEvents extends Table {
   TextColumn get linkedEntityId => text().nullable()();
   TextColumn get linkedEntityType => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Technical/CRUD trail (bloc "Journal d'audit") - deliberately separate
+/// from [TimelineEvents]: a vehicle being created, its sheet being edited,
+/// or its mileage being corrected are data-entry facts, not automobile
+/// interventions, and must never mix into the business history the driver
+/// sees on the vehicle dashboard.
+class AuditEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get vehicleId => text().nullable().references(Vehicles, #id)();
+  TextColumn get entityType => text()(); // vehicle, maintenance, fuel, expense, document...
+  TextColumn get entityId => text().nullable()();
+  TextColumn get action => text()(); // created, updated, status_changed, deleted...
+  TextColumn get summary => text()();
+  DateTimeColumn get occurredAt => dateTime()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A per-vehicle, per-category frequency the owner has explicitly
+/// confirmed (RG: "ne jamais modifier automatiquement une fréquence
+/// configurée sans son accord") - takes priority over
+/// [OperationRecurrenceRules]'s built-in defaults.
+class OperationFrequencyPreferences extends Table {
+  TextColumn get id => text()();
+  TextColumn get vehicleId => text().references(Vehicles, #id)();
+  TextColumn get category => text()();
+  RealColumn get frequencyKm => real().nullable()();
+  IntColumn get frequencyMonths => integer().nullable()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -5,13 +5,13 @@ import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/mileage_result.dart';
+import '../../audit/data/audit_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
-import '../../timeline/data/timeline_repository.dart';
 
 class VehicleRepository {
-  VehicleRepository(this._db, this._timeline, this._reminders);
+  VehicleRepository(this._db, this._audit, this._reminders);
   final AppDatabase _db;
-  final TimelineRepository _timeline;
+  final AuditRepository _audit;
   final ReminderRepository _reminders;
 
   Stream<List<Vehicle>> watchAll() {
@@ -84,14 +84,12 @@ class VehicleRepository {
             createdAt: now,
           ),
         );
-    await _timeline.logEvent(
+    await _audit.log(
       vehicleId: id,
-      moduleOrigin: 'vehicles',
-      eventType: 'vehicle_created',
-      title: '$brand $model ajouté',
-      importance: 'important',
-      linkedEntityId: id,
-      linkedEntityType: 'vehicle',
+      entityType: 'vehicle',
+      entityId: id,
+      action: 'created',
+      summary: '$brand $model ajouté au carnet',
       occurredAt: now,
     );
     return id;
@@ -100,13 +98,12 @@ class VehicleRepository {
   Future<void> updateVehicle(Vehicle vehicle, {String? changeSummary}) async {
     await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id)))
         .write(vehicle.toCompanion(true).copyWith(updatedAt: Value(DateTime.now())));
-    await _timeline.logEvent(
+    await _audit.log(
       vehicleId: vehicle.id,
-      moduleOrigin: 'vehicles',
-      eventType: 'vehicle_updated',
-      title: changeSummary ?? 'Fiche véhicule modifiée',
-      linkedEntityId: vehicle.id,
-      linkedEntityType: 'vehicle',
+      entityType: 'vehicle',
+      entityId: vehicle.id,
+      action: 'updated',
+      summary: changeSummary ?? 'Fiche véhicule modifiée',
     );
   }
 
@@ -116,14 +113,12 @@ class VehicleRepository {
       status: Value(status),
       updatedAt: Value(DateTime.now()),
     ));
-    await _timeline.logEvent(
+    await _audit.log(
       vehicleId: vehicleId,
-      moduleOrigin: 'vehicles',
-      eventType: 'vehicle_status_changed',
-      title: 'Statut changé : ${_statusLabel(status)}',
-      importance: 'important',
-      linkedEntityId: vehicleId,
-      linkedEntityType: 'vehicle',
+      entityType: 'vehicle',
+      entityId: vehicleId,
+      action: 'status_changed',
+      summary: 'Statut changé : ${_statusLabel(status)}',
     );
     // RG-ALR-007: a vehicle that is no longer active stops generating
     // future reminders.
@@ -206,13 +201,12 @@ class VehicleRepository {
       currentMileage: Value(newValue),
       updatedAt: Value(now),
     ));
-    await _timeline.logEvent(
+    await _audit.log(
       vehicleId: vehicleId,
-      moduleOrigin: 'vehicles',
-      eventType: 'mileage_updated',
-      title: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
-      linkedEntityId: vehicleId,
-      linkedEntityType: 'vehicle',
+      entityType: 'vehicle',
+      entityId: vehicleId,
+      action: 'mileage_corrected',
+      summary: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
     );
   }
 
@@ -324,7 +318,7 @@ class VehicleRepository {
 final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
   return VehicleRepository(
     ref.watch(appDatabaseProvider),
-    ref.watch(timelineRepositoryProvider),
+    ref.watch(auditRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
   );
 });

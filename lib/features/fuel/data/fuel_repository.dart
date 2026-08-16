@@ -201,11 +201,13 @@ class FuelRepository {
       newValue: mileage,
     );
 
+    // Same eventType/linkedEntityId as creation: logEvent upserts in place.
     await _timeline.logEvent(
       vehicleId: vehicleId,
       moduleOrigin: 'fuel',
-      eventType: 'fuel_updated',
-      title: 'Plein modifié — ${quantityLiters.toStringAsFixed(1)} L',
+      eventType: 'fuel_added',
+      title: 'Plein ${isFullTank ? 'complet' : 'partiel'} — '
+          '${quantityLiters.toStringAsFixed(1)} L',
       linkedEntityId: id,
       linkedEntityType: 'fuel',
       occurredAt: date,
@@ -226,6 +228,7 @@ class FuelRepository {
             ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
           .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
     }
+    await _timeline.removeForEntity('fuel', id);
   }
 
   /// RG-CARB-005: consumption is only computed between two consecutive full

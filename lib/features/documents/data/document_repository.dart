@@ -227,6 +227,7 @@ class DocumentRepository {
       isDeleted: const Value(true),
       updatedAt: Value(DateTime.now()),
     ));
+    await _timeline.removeForEntity('document', documentId);
   }
 }
 

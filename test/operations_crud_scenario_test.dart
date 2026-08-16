@@ -1,6 +1,7 @@
-import 'dart:io';
 
+import 'dart:io';
 import 'package:autocarnet/core/database/database.dart';
+import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/documents/data/document_repository.dart';
 import 'package:autocarnet/features/expenses/data/expense_repository.dart';
 import 'package:autocarnet/features/fuel/data/fuel_repository.dart';
@@ -39,7 +40,7 @@ void main() {
   void wireRepositories() {
     timeline = TimelineRepository(db);
     reminders = ReminderRepository(db);
-    vehicles = VehicleRepository(db, timeline, reminders);
+    vehicles = VehicleRepository(db, AuditRepository(db), reminders);
     maintenance = MaintenanceRepository(db, timeline, reminders, vehicles);
     fuel = FuelRepository(db, timeline, vehicles);
     expenses = ExpenseRepository(db, timeline);

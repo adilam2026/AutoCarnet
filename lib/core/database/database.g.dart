@@ -489,6 +489,18 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  @override
+  late final GeneratedColumnWithTypeConverter<DatePrecision?, String>
+  firstRegistrationDatePrecision =
+      GeneratedColumn<String>(
+        'first_registration_date_precision',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DatePrecision?>(
+        $VehiclesTable.$converterfirstRegistrationDatePrecisionn,
+      );
   static const VerificationMeta _vinMeta = const VerificationMeta('vin');
   @override
   late final GeneratedColumn<String> vin = GeneratedColumn<String>(
@@ -594,6 +606,15 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<VehicleCondition?, String>
+  condition = GeneratedColumn<String>(
+    'condition',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<VehicleCondition?>($VehiclesTable.$converterconditionn);
   static const VerificationMeta _commentsMeta = const VerificationMeta(
     'comments',
   );
@@ -683,6 +704,7 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     trim,
     year,
     firstRegistrationDate,
+    firstRegistrationDatePrecision,
     vin,
     plate,
     motorization,
@@ -693,6 +715,7 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     photoPath,
     acquisitionDate,
     purchasePrice,
+    condition,
     comments,
     currentMileage,
     status,
@@ -908,6 +931,14 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}first_registration_date'],
       ),
+      firstRegistrationDatePrecision: $VehiclesTable
+          .$converterfirstRegistrationDatePrecisionn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}first_registration_date_precision'],
+            ),
+          ),
       vin: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}vin'],
@@ -948,6 +979,12 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
         DriftSqlType.double,
         data['${effectivePrefix}purchase_price'],
       ),
+      condition: $VehiclesTable.$converterconditionn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}condition'],
+        ),
+      ),
       comments: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}comments'],
@@ -986,6 +1023,19 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     return $VehiclesTable(attachedDatabase, alias);
   }
 
+  static JsonTypeConverter2<DatePrecision, String, String>
+  $converterfirstRegistrationDatePrecision =
+      const EnumNameConverter<DatePrecision>(DatePrecision.values);
+  static JsonTypeConverter2<DatePrecision?, String?, String?>
+  $converterfirstRegistrationDatePrecisionn = JsonTypeConverter2.asNullable(
+    $converterfirstRegistrationDatePrecision,
+  );
+  static JsonTypeConverter2<VehicleCondition, String, String>
+  $convertercondition = const EnumNameConverter<VehicleCondition>(
+    VehicleCondition.values,
+  );
+  static JsonTypeConverter2<VehicleCondition?, String?, String?>
+  $converterconditionn = JsonTypeConverter2.asNullable($convertercondition);
   static JsonTypeConverter2<VehicleStatus, String, String> $converterstatus =
       const EnumNameConverter<VehicleStatus>(VehicleStatus.values);
 }
@@ -997,6 +1047,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
   final String? trim;
   final int? year;
   final DateTime? firstRegistrationDate;
+  final DatePrecision? firstRegistrationDatePrecision;
   final String? vin;
   final String? plate;
   final String? motorization;
@@ -1007,6 +1058,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
   final String? photoPath;
   final DateTime? acquisitionDate;
   final double? purchasePrice;
+  final VehicleCondition? condition;
   final String? comments;
   final double currentMileage;
   final VehicleStatus status;
@@ -1021,6 +1073,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     this.trim,
     this.year,
     this.firstRegistrationDate,
+    this.firstRegistrationDatePrecision,
     this.vin,
     this.plate,
     this.motorization,
@@ -1031,6 +1084,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     this.photoPath,
     this.acquisitionDate,
     this.purchasePrice,
+    this.condition,
     this.comments,
     required this.currentMileage,
     required this.status,
@@ -1054,6 +1108,13 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     if (!nullToAbsent || firstRegistrationDate != null) {
       map['first_registration_date'] = Variable<DateTime>(
         firstRegistrationDate,
+      );
+    }
+    if (!nullToAbsent || firstRegistrationDatePrecision != null) {
+      map['first_registration_date_precision'] = Variable<String>(
+        $VehiclesTable.$converterfirstRegistrationDatePrecisionn.toSql(
+          firstRegistrationDatePrecision,
+        ),
       );
     }
     if (!nullToAbsent || vin != null) {
@@ -1086,6 +1147,11 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     if (!nullToAbsent || purchasePrice != null) {
       map['purchase_price'] = Variable<double>(purchasePrice);
     }
+    if (!nullToAbsent || condition != null) {
+      map['condition'] = Variable<String>(
+        $VehiclesTable.$converterconditionn.toSql(condition),
+      );
+    }
     if (!nullToAbsent || comments != null) {
       map['comments'] = Variable<String>(comments);
     }
@@ -1112,6 +1178,10 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       firstRegistrationDate: firstRegistrationDate == null && nullToAbsent
           ? const Value.absent()
           : Value(firstRegistrationDate),
+      firstRegistrationDatePrecision:
+          firstRegistrationDatePrecision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(firstRegistrationDatePrecision),
       vin: vin == null && nullToAbsent ? const Value.absent() : Value(vin),
       plate: plate == null && nullToAbsent
           ? const Value.absent()
@@ -1140,6 +1210,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       purchasePrice: purchasePrice == null && nullToAbsent
           ? const Value.absent()
           : Value(purchasePrice),
+      condition: condition == null && nullToAbsent
+          ? const Value.absent()
+          : Value(condition),
       comments: comments == null && nullToAbsent
           ? const Value.absent()
           : Value(comments),
@@ -1166,6 +1239,13 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       firstRegistrationDate: serializer.fromJson<DateTime?>(
         json['firstRegistrationDate'],
       ),
+      firstRegistrationDatePrecision: $VehiclesTable
+          .$converterfirstRegistrationDatePrecisionn
+          .fromJson(
+            serializer.fromJson<String?>(
+              json['firstRegistrationDatePrecision'],
+            ),
+          ),
       vin: serializer.fromJson<String?>(json['vin']),
       plate: serializer.fromJson<String?>(json['plate']),
       motorization: serializer.fromJson<String?>(json['motorization']),
@@ -1176,6 +1256,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       acquisitionDate: serializer.fromJson<DateTime?>(json['acquisitionDate']),
       purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
+      condition: $VehiclesTable.$converterconditionn.fromJson(
+        serializer.fromJson<String?>(json['condition']),
+      ),
       comments: serializer.fromJson<String?>(json['comments']),
       currentMileage: serializer.fromJson<double>(json['currentMileage']),
       status: $VehiclesTable.$converterstatus.fromJson(
@@ -1199,6 +1282,11 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       'firstRegistrationDate': serializer.toJson<DateTime?>(
         firstRegistrationDate,
       ),
+      'firstRegistrationDatePrecision': serializer.toJson<String?>(
+        $VehiclesTable.$converterfirstRegistrationDatePrecisionn.toJson(
+          firstRegistrationDatePrecision,
+        ),
+      ),
       'vin': serializer.toJson<String?>(vin),
       'plate': serializer.toJson<String?>(plate),
       'motorization': serializer.toJson<String?>(motorization),
@@ -1209,6 +1297,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       'photoPath': serializer.toJson<String?>(photoPath),
       'acquisitionDate': serializer.toJson<DateTime?>(acquisitionDate),
       'purchasePrice': serializer.toJson<double?>(purchasePrice),
+      'condition': serializer.toJson<String?>(
+        $VehiclesTable.$converterconditionn.toJson(condition),
+      ),
       'comments': serializer.toJson<String?>(comments),
       'currentMileage': serializer.toJson<double>(currentMileage),
       'status': serializer.toJson<String>(
@@ -1228,6 +1319,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     Value<String?> trim = const Value.absent(),
     Value<int?> year = const Value.absent(),
     Value<DateTime?> firstRegistrationDate = const Value.absent(),
+    Value<DatePrecision?> firstRegistrationDatePrecision = const Value.absent(),
     Value<String?> vin = const Value.absent(),
     Value<String?> plate = const Value.absent(),
     Value<String?> motorization = const Value.absent(),
@@ -1238,6 +1330,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     Value<String?> photoPath = const Value.absent(),
     Value<DateTime?> acquisitionDate = const Value.absent(),
     Value<double?> purchasePrice = const Value.absent(),
+    Value<VehicleCondition?> condition = const Value.absent(),
     Value<String?> comments = const Value.absent(),
     double? currentMileage,
     VehicleStatus? status,
@@ -1254,6 +1347,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     firstRegistrationDate: firstRegistrationDate.present
         ? firstRegistrationDate.value
         : this.firstRegistrationDate,
+    firstRegistrationDatePrecision: firstRegistrationDatePrecision.present
+        ? firstRegistrationDatePrecision.value
+        : this.firstRegistrationDatePrecision,
     vin: vin.present ? vin.value : this.vin,
     plate: plate.present ? plate.value : this.plate,
     motorization: motorization.present ? motorization.value : this.motorization,
@@ -1268,6 +1364,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     purchasePrice: purchasePrice.present
         ? purchasePrice.value
         : this.purchasePrice,
+    condition: condition.present ? condition.value : this.condition,
     comments: comments.present ? comments.value : this.comments,
     currentMileage: currentMileage ?? this.currentMileage,
     status: status ?? this.status,
@@ -1286,6 +1383,10 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       firstRegistrationDate: data.firstRegistrationDate.present
           ? data.firstRegistrationDate.value
           : this.firstRegistrationDate,
+      firstRegistrationDatePrecision:
+          data.firstRegistrationDatePrecision.present
+          ? data.firstRegistrationDatePrecision.value
+          : this.firstRegistrationDatePrecision,
       vin: data.vin.present ? data.vin.value : this.vin,
       plate: data.plate.present ? data.plate.value : this.plate,
       motorization: data.motorization.present
@@ -1306,6 +1407,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       purchasePrice: data.purchasePrice.present
           ? data.purchasePrice.value
           : this.purchasePrice,
+      condition: data.condition.present ? data.condition.value : this.condition,
       comments: data.comments.present ? data.comments.value : this.comments,
       currentMileage: data.currentMileage.present
           ? data.currentMileage.value
@@ -1329,6 +1431,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           ..write('trim: $trim, ')
           ..write('year: $year, ')
           ..write('firstRegistrationDate: $firstRegistrationDate, ')
+          ..write(
+            'firstRegistrationDatePrecision: $firstRegistrationDatePrecision, ',
+          )
           ..write('vin: $vin, ')
           ..write('plate: $plate, ')
           ..write('motorization: $motorization, ')
@@ -1339,6 +1444,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           ..write('photoPath: $photoPath, ')
           ..write('acquisitionDate: $acquisitionDate, ')
           ..write('purchasePrice: $purchasePrice, ')
+          ..write('condition: $condition, ')
           ..write('comments: $comments, ')
           ..write('currentMileage: $currentMileage, ')
           ..write('status: $status, ')
@@ -1358,6 +1464,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     trim,
     year,
     firstRegistrationDate,
+    firstRegistrationDatePrecision,
     vin,
     plate,
     motorization,
@@ -1368,6 +1475,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     photoPath,
     acquisitionDate,
     purchasePrice,
+    condition,
     comments,
     currentMileage,
     status,
@@ -1386,6 +1494,8 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           other.trim == this.trim &&
           other.year == this.year &&
           other.firstRegistrationDate == this.firstRegistrationDate &&
+          other.firstRegistrationDatePrecision ==
+              this.firstRegistrationDatePrecision &&
           other.vin == this.vin &&
           other.plate == this.plate &&
           other.motorization == this.motorization &&
@@ -1396,6 +1506,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           other.photoPath == this.photoPath &&
           other.acquisitionDate == this.acquisitionDate &&
           other.purchasePrice == this.purchasePrice &&
+          other.condition == this.condition &&
           other.comments == this.comments &&
           other.currentMileage == this.currentMileage &&
           other.status == this.status &&
@@ -1412,6 +1523,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
   final Value<String?> trim;
   final Value<int?> year;
   final Value<DateTime?> firstRegistrationDate;
+  final Value<DatePrecision?> firstRegistrationDatePrecision;
   final Value<String?> vin;
   final Value<String?> plate;
   final Value<String?> motorization;
@@ -1422,6 +1534,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
   final Value<String?> photoPath;
   final Value<DateTime?> acquisitionDate;
   final Value<double?> purchasePrice;
+  final Value<VehicleCondition?> condition;
   final Value<String?> comments;
   final Value<double> currentMileage;
   final Value<VehicleStatus> status;
@@ -1437,6 +1550,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.trim = const Value.absent(),
     this.year = const Value.absent(),
     this.firstRegistrationDate = const Value.absent(),
+    this.firstRegistrationDatePrecision = const Value.absent(),
     this.vin = const Value.absent(),
     this.plate = const Value.absent(),
     this.motorization = const Value.absent(),
@@ -1447,6 +1561,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.photoPath = const Value.absent(),
     this.acquisitionDate = const Value.absent(),
     this.purchasePrice = const Value.absent(),
+    this.condition = const Value.absent(),
     this.comments = const Value.absent(),
     this.currentMileage = const Value.absent(),
     this.status = const Value.absent(),
@@ -1463,6 +1578,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.trim = const Value.absent(),
     this.year = const Value.absent(),
     this.firstRegistrationDate = const Value.absent(),
+    this.firstRegistrationDatePrecision = const Value.absent(),
     this.vin = const Value.absent(),
     this.plate = const Value.absent(),
     this.motorization = const Value.absent(),
@@ -1473,6 +1589,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.photoPath = const Value.absent(),
     this.acquisitionDate = const Value.absent(),
     this.purchasePrice = const Value.absent(),
+    this.condition = const Value.absent(),
     this.comments = const Value.absent(),
     required double currentMileage,
     this.status = const Value.absent(),
@@ -1494,6 +1611,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Expression<String>? trim,
     Expression<int>? year,
     Expression<DateTime>? firstRegistrationDate,
+    Expression<String>? firstRegistrationDatePrecision,
     Expression<String>? vin,
     Expression<String>? plate,
     Expression<String>? motorization,
@@ -1504,6 +1622,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Expression<String>? photoPath,
     Expression<DateTime>? acquisitionDate,
     Expression<double>? purchasePrice,
+    Expression<String>? condition,
     Expression<String>? comments,
     Expression<double>? currentMileage,
     Expression<String>? status,
@@ -1521,6 +1640,8 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       if (year != null) 'year': year,
       if (firstRegistrationDate != null)
         'first_registration_date': firstRegistrationDate,
+      if (firstRegistrationDatePrecision != null)
+        'first_registration_date_precision': firstRegistrationDatePrecision,
       if (vin != null) 'vin': vin,
       if (plate != null) 'plate': plate,
       if (motorization != null) 'motorization': motorization,
@@ -1531,6 +1652,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       if (photoPath != null) 'photo_path': photoPath,
       if (acquisitionDate != null) 'acquisition_date': acquisitionDate,
       if (purchasePrice != null) 'purchase_price': purchasePrice,
+      if (condition != null) 'condition': condition,
       if (comments != null) 'comments': comments,
       if (currentMileage != null) 'current_mileage': currentMileage,
       if (status != null) 'status': status,
@@ -1549,6 +1671,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Value<String?>? trim,
     Value<int?>? year,
     Value<DateTime?>? firstRegistrationDate,
+    Value<DatePrecision?>? firstRegistrationDatePrecision,
     Value<String?>? vin,
     Value<String?>? plate,
     Value<String?>? motorization,
@@ -1559,6 +1682,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Value<String?>? photoPath,
     Value<DateTime?>? acquisitionDate,
     Value<double?>? purchasePrice,
+    Value<VehicleCondition?>? condition,
     Value<String?>? comments,
     Value<double>? currentMileage,
     Value<VehicleStatus>? status,
@@ -1576,6 +1700,8 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       year: year ?? this.year,
       firstRegistrationDate:
           firstRegistrationDate ?? this.firstRegistrationDate,
+      firstRegistrationDatePrecision:
+          firstRegistrationDatePrecision ?? this.firstRegistrationDatePrecision,
       vin: vin ?? this.vin,
       plate: plate ?? this.plate,
       motorization: motorization ?? this.motorization,
@@ -1586,6 +1712,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       photoPath: photoPath ?? this.photoPath,
       acquisitionDate: acquisitionDate ?? this.acquisitionDate,
       purchasePrice: purchasePrice ?? this.purchasePrice,
+      condition: condition ?? this.condition,
       comments: comments ?? this.comments,
       currentMileage: currentMileage ?? this.currentMileage,
       status: status ?? this.status,
@@ -1620,6 +1747,13 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
         firstRegistrationDate.value,
       );
     }
+    if (firstRegistrationDatePrecision.present) {
+      map['first_registration_date_precision'] = Variable<String>(
+        $VehiclesTable.$converterfirstRegistrationDatePrecisionn.toSql(
+          firstRegistrationDatePrecision.value,
+        ),
+      );
+    }
     if (vin.present) {
       map['vin'] = Variable<String>(vin.value);
     }
@@ -1649,6 +1783,11 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     }
     if (purchasePrice.present) {
       map['purchase_price'] = Variable<double>(purchasePrice.value);
+    }
+    if (condition.present) {
+      map['condition'] = Variable<String>(
+        $VehiclesTable.$converterconditionn.toSql(condition.value),
+      );
     }
     if (comments.present) {
       map['comments'] = Variable<String>(comments.value);
@@ -1688,6 +1827,9 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
           ..write('trim: $trim, ')
           ..write('year: $year, ')
           ..write('firstRegistrationDate: $firstRegistrationDate, ')
+          ..write(
+            'firstRegistrationDatePrecision: $firstRegistrationDatePrecision, ',
+          )
           ..write('vin: $vin, ')
           ..write('plate: $plate, ')
           ..write('motorization: $motorization, ')
@@ -1698,6 +1840,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
           ..write('photoPath: $photoPath, ')
           ..write('acquisitionDate: $acquisitionDate, ')
           ..write('purchasePrice: $purchasePrice, ')
+          ..write('condition: $condition, ')
           ..write('comments: $comments, ')
           ..write('currentMileage: $currentMileage, ')
           ..write('status: $status, ')
@@ -8634,6 +8777,969 @@ class TimelineEventsCompanion extends UpdateCompanion<TimelineEvent> {
   }
 }
 
+class $AuditEventsTable extends AuditEvents
+    with TableInfo<$AuditEventsTable, AuditEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuditEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vehicleIdMeta = const VerificationMeta(
+    'vehicleId',
+  );
+  @override
+  late final GeneratedColumn<String> vehicleId = GeneratedColumn<String>(
+    'vehicle_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES vehicles (id)',
+    ),
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _summaryMeta = const VerificationMeta(
+    'summary',
+  );
+  @override
+  late final GeneratedColumn<String> summary = GeneratedColumn<String>(
+    'summary',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> occurredAt = GeneratedColumn<DateTime>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    vehicleId,
+    entityType,
+    entityId,
+    action,
+    summary,
+    occurredAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'audit_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuditEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('vehicle_id')) {
+      context.handle(
+        _vehicleIdMeta,
+        vehicleId.isAcceptableOrUnknown(data['vehicle_id']!, _vehicleIdMeta),
+      );
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('summary')) {
+      context.handle(
+        _summaryMeta,
+        summary.isAcceptableOrUnknown(data['summary']!, _summaryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_summaryMeta);
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuditEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuditEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      vehicleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vehicle_id'],
+      ),
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      ),
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      summary: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary'],
+      )!,
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AuditEventsTable createAlias(String alias) {
+    return $AuditEventsTable(attachedDatabase, alias);
+  }
+}
+
+class AuditEvent extends DataClass implements Insertable<AuditEvent> {
+  final String id;
+  final String? vehicleId;
+  final String entityType;
+  final String? entityId;
+  final String action;
+  final String summary;
+  final DateTime occurredAt;
+  final DateTime createdAt;
+  const AuditEvent({
+    required this.id,
+    this.vehicleId,
+    required this.entityType,
+    this.entityId,
+    required this.action,
+    required this.summary,
+    required this.occurredAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || vehicleId != null) {
+      map['vehicle_id'] = Variable<String>(vehicleId);
+    }
+    map['entity_type'] = Variable<String>(entityType);
+    if (!nullToAbsent || entityId != null) {
+      map['entity_id'] = Variable<String>(entityId);
+    }
+    map['action'] = Variable<String>(action);
+    map['summary'] = Variable<String>(summary);
+    map['occurred_at'] = Variable<DateTime>(occurredAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AuditEventsCompanion toCompanion(bool nullToAbsent) {
+    return AuditEventsCompanion(
+      id: Value(id),
+      vehicleId: vehicleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vehicleId),
+      entityType: Value(entityType),
+      entityId: entityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entityId),
+      action: Value(action),
+      summary: Value(summary),
+      occurredAt: Value(occurredAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AuditEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuditEvent(
+      id: serializer.fromJson<String>(json['id']),
+      vehicleId: serializer.fromJson<String?>(json['vehicleId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String?>(json['entityId']),
+      action: serializer.fromJson<String>(json['action']),
+      summary: serializer.fromJson<String>(json['summary']),
+      occurredAt: serializer.fromJson<DateTime>(json['occurredAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'vehicleId': serializer.toJson<String?>(vehicleId),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String?>(entityId),
+      'action': serializer.toJson<String>(action),
+      'summary': serializer.toJson<String>(summary),
+      'occurredAt': serializer.toJson<DateTime>(occurredAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AuditEvent copyWith({
+    String? id,
+    Value<String?> vehicleId = const Value.absent(),
+    String? entityType,
+    Value<String?> entityId = const Value.absent(),
+    String? action,
+    String? summary,
+    DateTime? occurredAt,
+    DateTime? createdAt,
+  }) => AuditEvent(
+    id: id ?? this.id,
+    vehicleId: vehicleId.present ? vehicleId.value : this.vehicleId,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId.present ? entityId.value : this.entityId,
+    action: action ?? this.action,
+    summary: summary ?? this.summary,
+    occurredAt: occurredAt ?? this.occurredAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AuditEvent copyWithCompanion(AuditEventsCompanion data) {
+    return AuditEvent(
+      id: data.id.present ? data.id.value : this.id,
+      vehicleId: data.vehicleId.present ? data.vehicleId.value : this.vehicleId,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      action: data.action.present ? data.action.value : this.action,
+      summary: data.summary.present ? data.summary.value : this.summary,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditEvent(')
+          ..write('id: $id, ')
+          ..write('vehicleId: $vehicleId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('summary: $summary, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    vehicleId,
+    entityType,
+    entityId,
+    action,
+    summary,
+    occurredAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuditEvent &&
+          other.id == this.id &&
+          other.vehicleId == this.vehicleId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.action == this.action &&
+          other.summary == this.summary &&
+          other.occurredAt == this.occurredAt &&
+          other.createdAt == this.createdAt);
+}
+
+class AuditEventsCompanion extends UpdateCompanion<AuditEvent> {
+  final Value<String> id;
+  final Value<String?> vehicleId;
+  final Value<String> entityType;
+  final Value<String?> entityId;
+  final Value<String> action;
+  final Value<String> summary;
+  final Value<DateTime> occurredAt;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AuditEventsCompanion({
+    this.id = const Value.absent(),
+    this.vehicleId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.summary = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AuditEventsCompanion.insert({
+    required String id,
+    this.vehicleId = const Value.absent(),
+    required String entityType,
+    this.entityId = const Value.absent(),
+    required String action,
+    required String summary,
+    required DateTime occurredAt,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       entityType = Value(entityType),
+       action = Value(action),
+       summary = Value(summary),
+       occurredAt = Value(occurredAt),
+       createdAt = Value(createdAt);
+  static Insertable<AuditEvent> custom({
+    Expression<String>? id,
+    Expression<String>? vehicleId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? action,
+    Expression<String>? summary,
+    Expression<DateTime>? occurredAt,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (vehicleId != null) 'vehicle_id': vehicleId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (action != null) 'action': action,
+      if (summary != null) 'summary': summary,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AuditEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? vehicleId,
+    Value<String>? entityType,
+    Value<String?>? entityId,
+    Value<String>? action,
+    Value<String>? summary,
+    Value<DateTime>? occurredAt,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AuditEventsCompanion(
+      id: id ?? this.id,
+      vehicleId: vehicleId ?? this.vehicleId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      action: action ?? this.action,
+      summary: summary ?? this.summary,
+      occurredAt: occurredAt ?? this.occurredAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (vehicleId.present) {
+      map['vehicle_id'] = Variable<String>(vehicleId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (summary.present) {
+      map['summary'] = Variable<String>(summary.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('vehicleId: $vehicleId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('summary: $summary, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OperationFrequencyPreferencesTable extends OperationFrequencyPreferences
+    with
+        TableInfo<
+          $OperationFrequencyPreferencesTable,
+          OperationFrequencyPreference
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OperationFrequencyPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vehicleIdMeta = const VerificationMeta(
+    'vehicleId',
+  );
+  @override
+  late final GeneratedColumn<String> vehicleId = GeneratedColumn<String>(
+    'vehicle_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES vehicles (id)',
+    ),
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _frequencyKmMeta = const VerificationMeta(
+    'frequencyKm',
+  );
+  @override
+  late final GeneratedColumn<double> frequencyKm = GeneratedColumn<double>(
+    'frequency_km',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _frequencyMonthsMeta = const VerificationMeta(
+    'frequencyMonths',
+  );
+  @override
+  late final GeneratedColumn<int> frequencyMonths = GeneratedColumn<int>(
+    'frequency_months',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    vehicleId,
+    category,
+    frequencyKm,
+    frequencyMonths,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'operation_frequency_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OperationFrequencyPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('vehicle_id')) {
+      context.handle(
+        _vehicleIdMeta,
+        vehicleId.isAcceptableOrUnknown(data['vehicle_id']!, _vehicleIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_vehicleIdMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryMeta);
+    }
+    if (data.containsKey('frequency_km')) {
+      context.handle(
+        _frequencyKmMeta,
+        frequencyKm.isAcceptableOrUnknown(
+          data['frequency_km']!,
+          _frequencyKmMeta,
+        ),
+      );
+    }
+    if (data.containsKey('frequency_months')) {
+      context.handle(
+        _frequencyMonthsMeta,
+        frequencyMonths.isAcceptableOrUnknown(
+          data['frequency_months']!,
+          _frequencyMonthsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OperationFrequencyPreference map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OperationFrequencyPreference(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      vehicleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vehicle_id'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      frequencyKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}frequency_km'],
+      ),
+      frequencyMonths: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}frequency_months'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $OperationFrequencyPreferencesTable createAlias(String alias) {
+    return $OperationFrequencyPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class OperationFrequencyPreference extends DataClass
+    implements Insertable<OperationFrequencyPreference> {
+  final String id;
+  final String vehicleId;
+  final String category;
+  final double? frequencyKm;
+  final int? frequencyMonths;
+  final DateTime updatedAt;
+  const OperationFrequencyPreference({
+    required this.id,
+    required this.vehicleId,
+    required this.category,
+    this.frequencyKm,
+    this.frequencyMonths,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['vehicle_id'] = Variable<String>(vehicleId);
+    map['category'] = Variable<String>(category);
+    if (!nullToAbsent || frequencyKm != null) {
+      map['frequency_km'] = Variable<double>(frequencyKm);
+    }
+    if (!nullToAbsent || frequencyMonths != null) {
+      map['frequency_months'] = Variable<int>(frequencyMonths);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  OperationFrequencyPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return OperationFrequencyPreferencesCompanion(
+      id: Value(id),
+      vehicleId: Value(vehicleId),
+      category: Value(category),
+      frequencyKm: frequencyKm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(frequencyKm),
+      frequencyMonths: frequencyMonths == null && nullToAbsent
+          ? const Value.absent()
+          : Value(frequencyMonths),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory OperationFrequencyPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OperationFrequencyPreference(
+      id: serializer.fromJson<String>(json['id']),
+      vehicleId: serializer.fromJson<String>(json['vehicleId']),
+      category: serializer.fromJson<String>(json['category']),
+      frequencyKm: serializer.fromJson<double?>(json['frequencyKm']),
+      frequencyMonths: serializer.fromJson<int?>(json['frequencyMonths']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'vehicleId': serializer.toJson<String>(vehicleId),
+      'category': serializer.toJson<String>(category),
+      'frequencyKm': serializer.toJson<double?>(frequencyKm),
+      'frequencyMonths': serializer.toJson<int?>(frequencyMonths),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  OperationFrequencyPreference copyWith({
+    String? id,
+    String? vehicleId,
+    String? category,
+    Value<double?> frequencyKm = const Value.absent(),
+    Value<int?> frequencyMonths = const Value.absent(),
+    DateTime? updatedAt,
+  }) => OperationFrequencyPreference(
+    id: id ?? this.id,
+    vehicleId: vehicleId ?? this.vehicleId,
+    category: category ?? this.category,
+    frequencyKm: frequencyKm.present ? frequencyKm.value : this.frequencyKm,
+    frequencyMonths: frequencyMonths.present
+        ? frequencyMonths.value
+        : this.frequencyMonths,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  OperationFrequencyPreference copyWithCompanion(
+    OperationFrequencyPreferencesCompanion data,
+  ) {
+    return OperationFrequencyPreference(
+      id: data.id.present ? data.id.value : this.id,
+      vehicleId: data.vehicleId.present ? data.vehicleId.value : this.vehicleId,
+      category: data.category.present ? data.category.value : this.category,
+      frequencyKm: data.frequencyKm.present
+          ? data.frequencyKm.value
+          : this.frequencyKm,
+      frequencyMonths: data.frequencyMonths.present
+          ? data.frequencyMonths.value
+          : this.frequencyMonths,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OperationFrequencyPreference(')
+          ..write('id: $id, ')
+          ..write('vehicleId: $vehicleId, ')
+          ..write('category: $category, ')
+          ..write('frequencyKm: $frequencyKm, ')
+          ..write('frequencyMonths: $frequencyMonths, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    vehicleId,
+    category,
+    frequencyKm,
+    frequencyMonths,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OperationFrequencyPreference &&
+          other.id == this.id &&
+          other.vehicleId == this.vehicleId &&
+          other.category == this.category &&
+          other.frequencyKm == this.frequencyKm &&
+          other.frequencyMonths == this.frequencyMonths &&
+          other.updatedAt == this.updatedAt);
+}
+
+class OperationFrequencyPreferencesCompanion
+    extends UpdateCompanion<OperationFrequencyPreference> {
+  final Value<String> id;
+  final Value<String> vehicleId;
+  final Value<String> category;
+  final Value<double?> frequencyKm;
+  final Value<int?> frequencyMonths;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const OperationFrequencyPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.vehicleId = const Value.absent(),
+    this.category = const Value.absent(),
+    this.frequencyKm = const Value.absent(),
+    this.frequencyMonths = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OperationFrequencyPreferencesCompanion.insert({
+    required String id,
+    required String vehicleId,
+    required String category,
+    this.frequencyKm = const Value.absent(),
+    this.frequencyMonths = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       vehicleId = Value(vehicleId),
+       category = Value(category),
+       updatedAt = Value(updatedAt);
+  static Insertable<OperationFrequencyPreference> custom({
+    Expression<String>? id,
+    Expression<String>? vehicleId,
+    Expression<String>? category,
+    Expression<double>? frequencyKm,
+    Expression<int>? frequencyMonths,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (vehicleId != null) 'vehicle_id': vehicleId,
+      if (category != null) 'category': category,
+      if (frequencyKm != null) 'frequency_km': frequencyKm,
+      if (frequencyMonths != null) 'frequency_months': frequencyMonths,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OperationFrequencyPreferencesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? vehicleId,
+    Value<String>? category,
+    Value<double?>? frequencyKm,
+    Value<int?>? frequencyMonths,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return OperationFrequencyPreferencesCompanion(
+      id: id ?? this.id,
+      vehicleId: vehicleId ?? this.vehicleId,
+      category: category ?? this.category,
+      frequencyKm: frequencyKm ?? this.frequencyKm,
+      frequencyMonths: frequencyMonths ?? this.frequencyMonths,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (vehicleId.present) {
+      map['vehicle_id'] = Variable<String>(vehicleId.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (frequencyKm.present) {
+      map['frequency_km'] = Variable<double>(frequencyKm.value);
+    }
+    if (frequencyMonths.present) {
+      map['frequency_months'] = Variable<int>(frequencyMonths.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OperationFrequencyPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('vehicleId: $vehicleId, ')
+          ..write('category: $category, ')
+          ..write('frequencyKm: $frequencyKm, ')
+          ..write('frequencyMonths: $frequencyMonths, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $RemindersTable extends Reminders
     with TableInfo<$RemindersTable, Reminder> {
   @override
@@ -9377,6 +10483,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExpensesTable expenses = $ExpensesTable(this);
   late final $FuelEntriesTable fuelEntries = $FuelEntriesTable(this);
   late final $TimelineEventsTable timelineEvents = $TimelineEventsTable(this);
+  late final $AuditEventsTable auditEvents = $AuditEventsTable(this);
+  late final $OperationFrequencyPreferencesTable operationFrequencyPreferences =
+      $OperationFrequencyPreferencesTable(this);
   late final $RemindersTable reminders = $RemindersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -9395,6 +10504,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     expenses,
     fuelEntries,
     timelineEvents,
+    auditEvents,
+    operationFrequencyPreferences,
     reminders,
   ];
 }
@@ -9632,6 +10743,7 @@ typedef $$VehiclesTableCreateCompanionBuilder =
       Value<String?> trim,
       Value<int?> year,
       Value<DateTime?> firstRegistrationDate,
+      Value<DatePrecision?> firstRegistrationDatePrecision,
       Value<String?> vin,
       Value<String?> plate,
       Value<String?> motorization,
@@ -9642,6 +10754,7 @@ typedef $$VehiclesTableCreateCompanionBuilder =
       Value<String?> photoPath,
       Value<DateTime?> acquisitionDate,
       Value<double?> purchasePrice,
+      Value<VehicleCondition?> condition,
       Value<String?> comments,
       required double currentMileage,
       Value<VehicleStatus> status,
@@ -9659,6 +10772,7 @@ typedef $$VehiclesTableUpdateCompanionBuilder =
       Value<String?> trim,
       Value<int?> year,
       Value<DateTime?> firstRegistrationDate,
+      Value<DatePrecision?> firstRegistrationDatePrecision,
       Value<String?> vin,
       Value<String?> plate,
       Value<String?> motorization,
@@ -9669,6 +10783,7 @@ typedef $$VehiclesTableUpdateCompanionBuilder =
       Value<String?> photoPath,
       Value<DateTime?> acquisitionDate,
       Value<double?> purchasePrice,
+      Value<VehicleCondition?> condition,
       Value<String?> comments,
       Value<double> currentMileage,
       Value<VehicleStatus> status,
@@ -9795,6 +10910,49 @@ final class $$VehiclesTableReferences
     );
   }
 
+  static MultiTypedResultKey<$AuditEventsTable, List<AuditEvent>>
+  _auditEventsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.auditEvents,
+    aliasName: 'vehicles__id__audit_events__vehicle_id',
+  );
+
+  $$AuditEventsTableProcessedTableManager get auditEventsRefs {
+    final manager = $$AuditEventsTableTableManager(
+      $_db,
+      $_db.auditEvents,
+    ).filter((f) => f.vehicleId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_auditEventsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $OperationFrequencyPreferencesTable,
+    List<OperationFrequencyPreference>
+  >
+  _operationFrequencyPreferencesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.operationFrequencyPreferences,
+        aliasName: 'vehicles__id__operation_frequency_preferences__vehicle_id',
+      );
+
+  $$OperationFrequencyPreferencesTableProcessedTableManager
+  get operationFrequencyPreferencesRefs {
+    final manager = $$OperationFrequencyPreferencesTableTableManager(
+      $_db,
+      $_db.operationFrequencyPreferences,
+    ).filter((f) => f.vehicleId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _operationFrequencyPreferencesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$RemindersTable, List<Reminder>>
   _remindersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.reminders,
@@ -9853,6 +11011,12 @@ class $$VehiclesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<DatePrecision?, DatePrecision, String>
+  get firstRegistrationDatePrecision => $composableBuilder(
+    column: $table.firstRegistrationDatePrecision,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
   ColumnFilters<String> get vin => $composableBuilder(
     column: $table.vin,
     builder: (column) => ColumnFilters(column),
@@ -9901,6 +11065,12 @@ class $$VehiclesTableFilterComposer
   ColumnFilters<double> get purchasePrice => $composableBuilder(
     column: $table.purchasePrice,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<VehicleCondition?, VehicleCondition, String>
+  get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get comments => $composableBuilder(
@@ -10089,6 +11259,60 @@ class $$VehiclesTableFilterComposer
     return f(composer);
   }
 
+  Expression<bool> auditEventsRefs(
+    Expression<bool> Function($$AuditEventsTableFilterComposer f) f,
+  ) {
+    final $$AuditEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.auditEvents,
+      getReferencedColumn: (t) => t.vehicleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AuditEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.auditEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> operationFrequencyPreferencesRefs(
+    Expression<bool> Function(
+      $$OperationFrequencyPreferencesTableFilterComposer f,
+    )
+    f,
+  ) {
+    final $$OperationFrequencyPreferencesTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.operationFrequencyPreferences,
+          getReferencedColumn: (t) => t.vehicleId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OperationFrequencyPreferencesTableFilterComposer(
+                $db: $db,
+                $table: $db.operationFrequencyPreferences,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<bool> remindersRefs(
     Expression<bool> Function($$RemindersTableFilterComposer f) f,
   ) {
@@ -10154,6 +11378,12 @@ class $$VehiclesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get firstRegistrationDatePrecision =>
+      $composableBuilder(
+        column: $table.firstRegistrationDatePrecision,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get vin => $composableBuilder(
     column: $table.vin,
     builder: (column) => ColumnOrderings(column),
@@ -10201,6 +11431,11 @@ class $$VehiclesTableOrderingComposer
 
   ColumnOrderings<double> get purchasePrice => $composableBuilder(
     column: $table.purchasePrice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get condition => $composableBuilder(
+    column: $table.condition,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10269,6 +11504,12 @@ class $$VehiclesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<DatePrecision?, String>
+  get firstRegistrationDatePrecision => $composableBuilder(
+    column: $table.firstRegistrationDatePrecision,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get vin =>
       $composableBuilder(column: $table.vin, builder: (column) => column);
 
@@ -10308,6 +11549,9 @@ class $$VehiclesTableAnnotationComposer
     column: $table.purchasePrice,
     builder: (column) => column,
   );
+
+  GeneratedColumnWithTypeConverter<VehicleCondition?, String> get condition =>
+      $composableBuilder(column: $table.condition, builder: (column) => column);
 
   GeneratedColumn<String> get comments =>
       $composableBuilder(column: $table.comments, builder: (column) => column);
@@ -10485,6 +11729,60 @@ class $$VehiclesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> auditEventsRefs<T extends Object>(
+    Expression<T> Function($$AuditEventsTableAnnotationComposer a) f,
+  ) {
+    final $$AuditEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.auditEvents,
+      getReferencedColumn: (t) => t.vehicleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AuditEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.auditEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> operationFrequencyPreferencesRefs<T extends Object>(
+    Expression<T> Function(
+      $$OperationFrequencyPreferencesTableAnnotationComposer a,
+    )
+    f,
+  ) {
+    final $$OperationFrequencyPreferencesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.operationFrequencyPreferences,
+          getReferencedColumn: (t) => t.vehicleId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OperationFrequencyPreferencesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.operationFrequencyPreferences,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> remindersRefs<T extends Object>(
     Expression<T> Function($$RemindersTableAnnotationComposer a) f,
   ) {
@@ -10531,6 +11829,8 @@ class $$VehiclesTableTableManager
             bool expensesRefs,
             bool fuelEntriesRefs,
             bool timelineEventsRefs,
+            bool auditEventsRefs,
+            bool operationFrequencyPreferencesRefs,
             bool remindersRefs,
           })
         > {
@@ -10553,6 +11853,8 @@ class $$VehiclesTableTableManager
                 Value<String?> trim = const Value.absent(),
                 Value<int?> year = const Value.absent(),
                 Value<DateTime?> firstRegistrationDate = const Value.absent(),
+                Value<DatePrecision?> firstRegistrationDatePrecision =
+                    const Value.absent(),
                 Value<String?> vin = const Value.absent(),
                 Value<String?> plate = const Value.absent(),
                 Value<String?> motorization = const Value.absent(),
@@ -10563,6 +11865,7 @@ class $$VehiclesTableTableManager
                 Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> acquisitionDate = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
+                Value<VehicleCondition?> condition = const Value.absent(),
                 Value<String?> comments = const Value.absent(),
                 Value<double> currentMileage = const Value.absent(),
                 Value<VehicleStatus> status = const Value.absent(),
@@ -10578,6 +11881,7 @@ class $$VehiclesTableTableManager
                 trim: trim,
                 year: year,
                 firstRegistrationDate: firstRegistrationDate,
+                firstRegistrationDatePrecision: firstRegistrationDatePrecision,
                 vin: vin,
                 plate: plate,
                 motorization: motorization,
@@ -10588,6 +11892,7 @@ class $$VehiclesTableTableManager
                 photoPath: photoPath,
                 acquisitionDate: acquisitionDate,
                 purchasePrice: purchasePrice,
+                condition: condition,
                 comments: comments,
                 currentMileage: currentMileage,
                 status: status,
@@ -10605,6 +11910,8 @@ class $$VehiclesTableTableManager
                 Value<String?> trim = const Value.absent(),
                 Value<int?> year = const Value.absent(),
                 Value<DateTime?> firstRegistrationDate = const Value.absent(),
+                Value<DatePrecision?> firstRegistrationDatePrecision =
+                    const Value.absent(),
                 Value<String?> vin = const Value.absent(),
                 Value<String?> plate = const Value.absent(),
                 Value<String?> motorization = const Value.absent(),
@@ -10615,6 +11922,7 @@ class $$VehiclesTableTableManager
                 Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> acquisitionDate = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
+                Value<VehicleCondition?> condition = const Value.absent(),
                 Value<String?> comments = const Value.absent(),
                 required double currentMileage,
                 Value<VehicleStatus> status = const Value.absent(),
@@ -10630,6 +11938,7 @@ class $$VehiclesTableTableManager
                 trim: trim,
                 year: year,
                 firstRegistrationDate: firstRegistrationDate,
+                firstRegistrationDatePrecision: firstRegistrationDatePrecision,
                 vin: vin,
                 plate: plate,
                 motorization: motorization,
@@ -10640,6 +11949,7 @@ class $$VehiclesTableTableManager
                 photoPath: photoPath,
                 acquisitionDate: acquisitionDate,
                 purchasePrice: purchasePrice,
+                condition: condition,
                 comments: comments,
                 currentMileage: currentMileage,
                 status: status,
@@ -10665,6 +11975,8 @@ class $$VehiclesTableTableManager
                 expensesRefs = false,
                 fuelEntriesRefs = false,
                 timelineEventsRefs = false,
+                auditEventsRefs = false,
+                operationFrequencyPreferencesRefs = false,
                 remindersRefs = false,
               }) {
                 return PrefetchHooks(
@@ -10676,6 +11988,9 @@ class $$VehiclesTableTableManager
                     if (expensesRefs) db.expenses,
                     if (fuelEntriesRefs) db.fuelEntries,
                     if (timelineEventsRefs) db.timelineEvents,
+                    if (auditEventsRefs) db.auditEvents,
+                    if (operationFrequencyPreferencesRefs)
+                      db.operationFrequencyPreferences,
                     if (remindersRefs) db.reminders,
                   ],
                   addJoins: null,
@@ -10807,6 +12122,48 @@ class $$VehiclesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (auditEventsRefs)
+                        await $_getPrefetchedData<
+                          Vehicle,
+                          $VehiclesTable,
+                          AuditEvent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$VehiclesTableReferences
+                              ._auditEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$VehiclesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).auditEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.vehicleId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (operationFrequencyPreferencesRefs)
+                        await $_getPrefetchedData<
+                          Vehicle,
+                          $VehiclesTable,
+                          OperationFrequencyPreference
+                        >(
+                          currentTable: table,
+                          referencedTable: $$VehiclesTableReferences
+                              ._operationFrequencyPreferencesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$VehiclesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).operationFrequencyPreferencesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.vehicleId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (remindersRefs)
                         await $_getPrefetchedData<
                           Vehicle,
@@ -10855,6 +12212,8 @@ typedef $$VehiclesTableProcessedTableManager =
         bool expensesRefs,
         bool fuelEntriesRefs,
         bool timelineEventsRefs,
+        bool auditEventsRefs,
+        bool operationFrequencyPreferencesRefs,
         bool remindersRefs,
       })
     >;
@@ -16691,6 +18050,752 @@ typedef $$TimelineEventsTableProcessedTableManager =
       TimelineEvent,
       PrefetchHooks Function({bool vehicleId})
     >;
+typedef $$AuditEventsTableCreateCompanionBuilder =
+    AuditEventsCompanion Function({
+      required String id,
+      Value<String?> vehicleId,
+      required String entityType,
+      Value<String?> entityId,
+      required String action,
+      required String summary,
+      required DateTime occurredAt,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$AuditEventsTableUpdateCompanionBuilder =
+    AuditEventsCompanion Function({
+      Value<String> id,
+      Value<String?> vehicleId,
+      Value<String> entityType,
+      Value<String?> entityId,
+      Value<String> action,
+      Value<String> summary,
+      Value<DateTime> occurredAt,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$AuditEventsTableReferences
+    extends BaseReferences<_$AppDatabase, $AuditEventsTable, AuditEvent> {
+  $$AuditEventsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $VehiclesTable _vehicleIdTable(_$AppDatabase db) =>
+      db.vehicles.createAlias('audit_events__vehicle_id__vehicles__id');
+
+  $$VehiclesTableProcessedTableManager? get vehicleId {
+    final $_column = $_itemColumn<String>('vehicle_id');
+    if ($_column == null) return null;
+    final manager = $$VehiclesTableTableManager(
+      $_db,
+      $_db.vehicles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_vehicleIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AuditEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $AuditEventsTable> {
+  $$AuditEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summary => $composableBuilder(
+    column: $table.summary,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$VehiclesTableFilterComposer get vehicleId {
+    final $$VehiclesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableFilterComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AuditEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AuditEventsTable> {
+  $$AuditEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get summary => $composableBuilder(
+    column: $table.summary,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$VehiclesTableOrderingComposer get vehicleId {
+    final $$VehiclesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableOrderingComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AuditEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AuditEventsTable> {
+  $$AuditEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get summary =>
+      $composableBuilder(column: $table.summary, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$VehiclesTableAnnotationComposer get vehicleId {
+    final $$VehiclesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AuditEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AuditEventsTable,
+          AuditEvent,
+          $$AuditEventsTableFilterComposer,
+          $$AuditEventsTableOrderingComposer,
+          $$AuditEventsTableAnnotationComposer,
+          $$AuditEventsTableCreateCompanionBuilder,
+          $$AuditEventsTableUpdateCompanionBuilder,
+          (AuditEvent, $$AuditEventsTableReferences),
+          AuditEvent,
+          PrefetchHooks Function({bool vehicleId})
+        > {
+  $$AuditEventsTableTableManager(_$AppDatabase db, $AuditEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuditEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuditEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AuditEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> vehicleId = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String?> entityId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String> summary = const Value.absent(),
+                Value<DateTime> occurredAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AuditEventsCompanion(
+                id: id,
+                vehicleId: vehicleId,
+                entityType: entityType,
+                entityId: entityId,
+                action: action,
+                summary: summary,
+                occurredAt: occurredAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> vehicleId = const Value.absent(),
+                required String entityType,
+                Value<String?> entityId = const Value.absent(),
+                required String action,
+                required String summary,
+                required DateTime occurredAt,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AuditEventsCompanion.insert(
+                id: id,
+                vehicleId: vehicleId,
+                entityType: entityType,
+                entityId: entityId,
+                action: action,
+                summary: summary,
+                occurredAt: occurredAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AuditEventsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({vehicleId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (vehicleId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.vehicleId,
+                                referencedTable: $$AuditEventsTableReferences
+                                    ._vehicleIdTable(db),
+                                referencedColumn: $$AuditEventsTableReferences
+                                    ._vehicleIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AuditEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AuditEventsTable,
+      AuditEvent,
+      $$AuditEventsTableFilterComposer,
+      $$AuditEventsTableOrderingComposer,
+      $$AuditEventsTableAnnotationComposer,
+      $$AuditEventsTableCreateCompanionBuilder,
+      $$AuditEventsTableUpdateCompanionBuilder,
+      (AuditEvent, $$AuditEventsTableReferences),
+      AuditEvent,
+      PrefetchHooks Function({bool vehicleId})
+    >;
+typedef $$OperationFrequencyPreferencesTableCreateCompanionBuilder =
+    OperationFrequencyPreferencesCompanion Function({
+      required String id,
+      required String vehicleId,
+      required String category,
+      Value<double?> frequencyKm,
+      Value<int?> frequencyMonths,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$OperationFrequencyPreferencesTableUpdateCompanionBuilder =
+    OperationFrequencyPreferencesCompanion Function({
+      Value<String> id,
+      Value<String> vehicleId,
+      Value<String> category,
+      Value<double?> frequencyKm,
+      Value<int?> frequencyMonths,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$OperationFrequencyPreferencesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $OperationFrequencyPreferencesTable,
+          OperationFrequencyPreference
+        > {
+  $$OperationFrequencyPreferencesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $VehiclesTable _vehicleIdTable(_$AppDatabase db) => db.vehicles
+      .createAlias('operation_frequency_preferences__vehicle_id__vehicles__id');
+
+  $$VehiclesTableProcessedTableManager get vehicleId {
+    final $_column = $_itemColumn<String>('vehicle_id')!;
+
+    final manager = $$VehiclesTableTableManager(
+      $_db,
+      $_db.vehicles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_vehicleIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$OperationFrequencyPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $OperationFrequencyPreferencesTable> {
+  $$OperationFrequencyPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get frequencyKm => $composableBuilder(
+    column: $table.frequencyKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frequencyMonths => $composableBuilder(
+    column: $table.frequencyMonths,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$VehiclesTableFilterComposer get vehicleId {
+    final $$VehiclesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableFilterComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OperationFrequencyPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $OperationFrequencyPreferencesTable> {
+  $$OperationFrequencyPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get frequencyKm => $composableBuilder(
+    column: $table.frequencyKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get frequencyMonths => $composableBuilder(
+    column: $table.frequencyMonths,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$VehiclesTableOrderingComposer get vehicleId {
+    final $$VehiclesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableOrderingComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OperationFrequencyPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OperationFrequencyPreferencesTable> {
+  $$OperationFrequencyPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<double> get frequencyKm => $composableBuilder(
+    column: $table.frequencyKm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get frequencyMonths => $composableBuilder(
+    column: $table.frequencyMonths,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$VehiclesTableAnnotationComposer get vehicleId {
+    final $$VehiclesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.vehicleId,
+      referencedTable: $db.vehicles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VehiclesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.vehicles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OperationFrequencyPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OperationFrequencyPreferencesTable,
+          OperationFrequencyPreference,
+          $$OperationFrequencyPreferencesTableFilterComposer,
+          $$OperationFrequencyPreferencesTableOrderingComposer,
+          $$OperationFrequencyPreferencesTableAnnotationComposer,
+          $$OperationFrequencyPreferencesTableCreateCompanionBuilder,
+          $$OperationFrequencyPreferencesTableUpdateCompanionBuilder,
+          (
+            OperationFrequencyPreference,
+            $$OperationFrequencyPreferencesTableReferences,
+          ),
+          OperationFrequencyPreference,
+          PrefetchHooks Function({bool vehicleId})
+        > {
+  $$OperationFrequencyPreferencesTableTableManager(
+    _$AppDatabase db,
+    $OperationFrequencyPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OperationFrequencyPreferencesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$OperationFrequencyPreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$OperationFrequencyPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> vehicleId = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<double?> frequencyKm = const Value.absent(),
+                Value<int?> frequencyMonths = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OperationFrequencyPreferencesCompanion(
+                id: id,
+                vehicleId: vehicleId,
+                category: category,
+                frequencyKm: frequencyKm,
+                frequencyMonths: frequencyMonths,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String vehicleId,
+                required String category,
+                Value<double?> frequencyKm = const Value.absent(),
+                Value<int?> frequencyMonths = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => OperationFrequencyPreferencesCompanion.insert(
+                id: id,
+                vehicleId: vehicleId,
+                category: category,
+                frequencyKm: frequencyKm,
+                frequencyMonths: frequencyMonths,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$OperationFrequencyPreferencesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({vehicleId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (vehicleId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.vehicleId,
+                                referencedTable:
+                                    $$OperationFrequencyPreferencesTableReferences
+                                        ._vehicleIdTable(db),
+                                referencedColumn:
+                                    $$OperationFrequencyPreferencesTableReferences
+                                        ._vehicleIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$OperationFrequencyPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OperationFrequencyPreferencesTable,
+      OperationFrequencyPreference,
+      $$OperationFrequencyPreferencesTableFilterComposer,
+      $$OperationFrequencyPreferencesTableOrderingComposer,
+      $$OperationFrequencyPreferencesTableAnnotationComposer,
+      $$OperationFrequencyPreferencesTableCreateCompanionBuilder,
+      $$OperationFrequencyPreferencesTableUpdateCompanionBuilder,
+      (
+        OperationFrequencyPreference,
+        $$OperationFrequencyPreferencesTableReferences,
+      ),
+      OperationFrequencyPreference,
+      PrefetchHooks Function({bool vehicleId})
+    >;
 typedef $$RemindersTableCreateCompanionBuilder =
     RemindersCompanion Function({
       required String id,
@@ -17176,6 +19281,14 @@ class $AppDatabaseManager {
       $$FuelEntriesTableTableManager(_db, _db.fuelEntries);
   $$TimelineEventsTableTableManager get timelineEvents =>
       $$TimelineEventsTableTableManager(_db, _db.timelineEvents);
+  $$AuditEventsTableTableManager get auditEvents =>
+      $$AuditEventsTableTableManager(_db, _db.auditEvents);
+  $$OperationFrequencyPreferencesTableTableManager
+  get operationFrequencyPreferences =>
+      $$OperationFrequencyPreferencesTableTableManager(
+        _db,
+        _db.operationFrequencyPreferences,
+      );
   $$RemindersTableTableManager get reminders =>
       $$RemindersTableTableManager(_db, _db.reminders);
 }
