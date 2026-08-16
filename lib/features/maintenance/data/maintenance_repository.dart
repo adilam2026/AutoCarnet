@@ -42,6 +42,11 @@ class MaintenanceRepository {
     return query.watch();
   }
 
+  Future<MaintenanceEntry?> getById(String id) {
+    return (_db.select(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+        .getSingleOrNull();
+  }
+
   Stream<List<MaintenancePart>> watchParts(String maintenanceEntryId) {
     return (_db.select(_db.maintenanceParts)
           ..where((p) => p.maintenanceEntryId.equals(maintenanceEntryId)))
@@ -159,6 +164,140 @@ class MaintenanceRepository {
     }
 
     return id;
+  }
+
+  /// Edits an existing operation in place: updates the entry, replaces its
+  /// parts wholesale, keeps its linked expense (creating or dropping one if
+  /// createLinkedExpense/cost changed) and its mileage-history row in sync,
+  /// and regenerates its timeline entry and reminder instead of leaving
+  /// stale ones behind.
+  Future<void> updateEntry({
+    required String id,
+    required String vehicleId,
+    required String category,
+    required DateTime date,
+    required double mileage,
+    String currency = 'MAD',
+    String? providerId,
+    double laborCost = 0,
+    String? comments,
+    DateTime? nextDueDate,
+    double? nextDueMileage,
+    List<NewMaintenancePart> parts = const [],
+    bool createLinkedExpense = true,
+  }) async {
+    final now = DateTime.now();
+    final existing = await (_db.select(_db.maintenanceEntries)
+          ..where((m) => m.id.equals(id)))
+        .getSingle();
+    final partsCost =
+        parts.fold<double>(0, (sum, p) => sum + p.quantity * p.unitPrice);
+    final totalCost = partsCost + laborCost;
+
+    var linkedExpenseId = existing.linkedExpenseId;
+    if (createLinkedExpense && totalCost > 0) {
+      if (linkedExpenseId != null) {
+        await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+            .write(ExpensesCompanion(
+          category: Value(category),
+          date: Value(date),
+          amount: Value(totalCost),
+          currency: Value(currency),
+          providerId: Value(providerId),
+          mileage: Value(mileage),
+          updatedAt: Value(now),
+        ));
+      } else {
+        linkedExpenseId = newId();
+        await _db.into(_db.expenses).insert(
+              ExpensesCompanion.insert(
+                id: linkedExpenseId,
+                vehicleId: vehicleId,
+                category: category,
+                date: date,
+                amount: totalCost,
+                currency: Value(currency),
+                providerId: Value(providerId),
+                mileage: Value(mileage),
+                comments: const Value('Généré depuis l\'entretien'),
+                linkedMaintenanceId: Value(id),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
+    } else if (linkedExpenseId != null) {
+      await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+          .write(ExpensesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ));
+      linkedExpenseId = null;
+    }
+
+    await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+        .write(MaintenanceEntriesCompanion(
+      category: Value(category),
+      date: Value(date),
+      mileage: Value(mileage),
+      providerId: Value(providerId),
+      partsCost: Value(partsCost),
+      laborCost: Value(laborCost),
+      currency: Value(currency),
+      comments: Value(comments),
+      nextDueDate: Value(nextDueDate),
+      nextDueMileage: Value(nextDueMileage),
+      linkedExpenseId: Value(linkedExpenseId),
+      updatedAt: Value(now),
+    ));
+
+    await (_db.delete(_db.maintenanceParts)
+          ..where((p) => p.maintenanceEntryId.equals(id)))
+        .go();
+    for (final part in parts) {
+      await _db.into(_db.maintenanceParts).insert(
+            MaintenancePartsCompanion.insert(
+              id: newId(),
+              maintenanceEntryId: id,
+              designation: part.designation,
+              reference: Value(part.reference),
+              brand: Value(part.brand),
+              quantity: Value(part.quantity),
+              unitPrice: Value(part.unitPrice),
+            ),
+          );
+    }
+
+    await _vehicles.updateOperationMileage(
+      vehicleId: vehicleId,
+      source: 'maintenance',
+      sourceId: id,
+      newValue: mileage,
+    );
+
+    await _timeline.logEvent(
+      vehicleId: vehicleId,
+      moduleOrigin: 'maintenance',
+      eventType: 'maintenance_updated',
+      title: '$category modifié',
+      description: comments,
+      linkedEntityId: id,
+      linkedEntityType: 'maintenance',
+      occurredAt: date,
+    );
+
+    if (nextDueDate != null || nextDueMileage != null) {
+      await _reminders.upsertForSource(
+        vehicleId: vehicleId,
+        sourceType: 'maintenance',
+        sourceId: id,
+        title: '$category à prévoir',
+        dueDate: nextDueDate,
+        dueMileage: nextDueMileage,
+      );
+    } else {
+      await _reminders.disableForSource('maintenance', id);
+    }
   }
 
   Future<void> softDelete(String id) async {

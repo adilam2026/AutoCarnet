@@ -249,6 +249,54 @@ class VehicleRepository {
     }
   }
 
+  /// Corrects the mileage value already recorded for a given operation
+  /// (editing a maintenance/fuel entry after the fact) instead of adding a
+  /// new history row - there is still exactly one mileage entry per
+  /// operation. The vehicle's current mileage is recomputed as the max of
+  /// all entries so a downward correction can never leave a stale, too-high
+  /// current mileage behind.
+  Future<void> updateOperationMileage({
+    required String vehicleId,
+    required String source,
+    required String sourceId,
+    required double newValue,
+  }) async {
+    final now = DateTime.now();
+    final existing = await (_db.select(_db.mileageEntries)
+          ..where((m) => m.source.equals(source) & m.sourceId.equals(sourceId)))
+        .getSingleOrNull();
+    if (existing != null) {
+      await (_db.update(_db.mileageEntries)..where((m) => m.id.equals(existing.id)))
+          .write(MileageEntriesCompanion(
+        value: Value(newValue),
+        recordedAt: Value(now),
+      ));
+    } else {
+      await _db.into(_db.mileageEntries).insert(
+            MileageEntriesCompanion.insert(
+              id: newId(),
+              vehicleId: vehicleId,
+              value: newValue,
+              recordedAt: now,
+              source: source,
+              sourceId: Value(sourceId),
+              createdAt: now,
+            ),
+          );
+    }
+    final all = await (_db.select(_db.mileageEntries)
+          ..where((m) => m.vehicleId.equals(vehicleId)))
+        .get();
+    if (all.isNotEmpty) {
+      final maxValue = all.map((m) => m.value).reduce((a, b) => a > b ? a : b);
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+          .write(VehiclesCompanion(
+        currentMileage: Value(maxValue),
+        updatedAt: Value(now),
+      ));
+    }
+  }
+
   /// Completeness score (RG-VEH-004): purely about how filled-in the sheet
   /// is, independent of the health score.
   double completeness(Vehicle v) {

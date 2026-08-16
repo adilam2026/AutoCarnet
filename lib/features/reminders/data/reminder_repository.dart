@@ -119,6 +119,15 @@ class ReminderRepository {
       ..orderBy([(r) => OrderingTerm.asc(r.dueDate)]);
     return query.watch();
   }
+
+  /// Every reminder regardless of status, so the Alertes screen can also
+  /// show what's already been handled ("Traitées" filter) instead of only
+  /// ever showing what's still outstanding.
+  Stream<List<Reminder>> watchAll() {
+    final query = _db.select(_db.reminders)
+      ..orderBy([(r) => OrderingTerm.asc(r.dueDate)]);
+    return query.watch();
+  }
 }
 
 final reminderRepositoryProvider = Provider<ReminderRepository>((ref) {
@@ -132,4 +141,8 @@ final vehicleActiveRemindersProvider =
 
 final allActiveRemindersProvider = StreamProvider<List<Reminder>>((ref) {
   return ref.watch(reminderRepositoryProvider).watchAllActive();
+});
+
+final allRemindersProvider = StreamProvider<List<Reminder>>((ref) {
+  return ref.watch(reminderRepositoryProvider).watchAll();
 });

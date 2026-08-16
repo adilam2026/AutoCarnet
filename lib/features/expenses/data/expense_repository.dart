@@ -31,6 +31,10 @@ class ExpenseRepository {
   final AppDatabase _db;
   final TimelineRepository _timeline;
 
+  Future<Expense?> getById(String id) {
+    return (_db.select(_db.expenses)..where((e) => e.id.equals(id))).getSingleOrNull();
+  }
+
   Stream<List<Expense>> watchForVehicle(String vehicleId) {
     final query = _db.select(_db.expenses)
       ..where((e) => e.vehicleId.equals(vehicleId) & e.isDeleted.equals(false))
@@ -77,6 +81,45 @@ class ExpenseRepository {
       occurredAt: date,
     );
     return id;
+  }
+
+  /// Only ever called for a standalone expense (no linkedMaintenanceId/
+  /// linkedFuelId) - one generated from an operation must be edited from
+  /// that operation instead, so its amount always matches the source.
+  Future<void> updateExpense({
+    required String id,
+    required String vehicleId,
+    required String category,
+    required DateTime date,
+    required double amount,
+    String currency = 'MAD',
+    String? providerId,
+    double? mileage,
+    String? paymentMethod,
+    String? comments,
+  }) async {
+    await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
+      ExpensesCompanion(
+        category: Value(category),
+        date: Value(date),
+        amount: Value(amount),
+        currency: Value(currency),
+        providerId: Value(providerId),
+        mileage: Value(mileage),
+        paymentMethod: Value(paymentMethod),
+        comments: Value(comments),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await _timeline.logEvent(
+      vehicleId: vehicleId,
+      moduleOrigin: 'expenses',
+      eventType: 'expense_updated',
+      title: '$category — ${amount.toStringAsFixed(0)} (modifié)',
+      linkedEntityId: id,
+      linkedEntityType: 'expense',
+      occurredAt: date,
+    );
   }
 
   Future<void> softDelete(String id) {

@@ -20,6 +20,11 @@ class ProviderRepository {
     return query.watch();
   }
 
+  Future<ServiceProvider?> getById(String id) {
+    return (_db.select(_db.serviceProviders)..where((p) => p.id.equals(id)))
+        .getSingleOrNull();
+  }
+
   Future<List<ServiceProvider>> search(String term) {
     final query = _db.select(_db.serviceProviders)
       ..where((p) => p.name.like('%$term%') & p.isArchived.equals(false))

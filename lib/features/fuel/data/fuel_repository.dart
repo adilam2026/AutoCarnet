@@ -32,6 +32,11 @@ class FuelRepository {
     return query.watch();
   }
 
+  Future<FuelEntry?> getById(String id) {
+    return (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id)))
+        .getSingleOrNull();
+  }
+
   Future<String> createEntry({
     required String vehicleId,
     required DateTime date,
@@ -109,6 +114,102 @@ class FuelRepository {
     );
 
     return id;
+  }
+
+  /// Edits an existing fuel entry in place: updates the entry, keeps its
+  /// linked expense and mileage-history row in sync instead of leaving
+  /// stale ones behind.
+  Future<void> updateEntry({
+    required String id,
+    required String vehicleId,
+    required DateTime date,
+    required double mileage,
+    required String fuelType,
+    required double quantityLiters,
+    required double pricePerLiter,
+    String currency = 'MAD',
+    String? providerId,
+    bool isFullTank = true,
+    String? comments,
+    bool createLinkedExpense = true,
+  }) async {
+    final now = DateTime.now();
+    final existing =
+        await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingle();
+    final totalAmount = quantityLiters * pricePerLiter;
+
+    var linkedExpenseId = existing.linkedExpenseId;
+    if (createLinkedExpense) {
+      if (linkedExpenseId != null) {
+        await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+            .write(ExpensesCompanion(
+          date: Value(date),
+          amount: Value(totalAmount),
+          currency: Value(currency),
+          providerId: Value(providerId),
+          mileage: Value(mileage),
+          updatedAt: Value(now),
+        ));
+      } else {
+        linkedExpenseId = newId();
+        await _db.into(_db.expenses).insert(
+              ExpensesCompanion.insert(
+                id: linkedExpenseId,
+                vehicleId: vehicleId,
+                category: 'Carburant',
+                date: date,
+                amount: totalAmount,
+                currency: Value(currency),
+                providerId: Value(providerId),
+                mileage: Value(mileage),
+                comments: const Value('Généré depuis un plein'),
+                linkedFuelId: Value(id),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
+    } else if (linkedExpenseId != null) {
+      await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+          .write(ExpensesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ));
+      linkedExpenseId = null;
+    }
+
+    await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
+      FuelEntriesCompanion(
+        date: Value(date),
+        mileage: Value(mileage),
+        providerId: Value(providerId),
+        fuelType: Value(fuelType),
+        quantityLiters: Value(quantityLiters),
+        pricePerLiter: Value(pricePerLiter),
+        totalAmount: Value(totalAmount),
+        isFullTank: Value(isFullTank),
+        comments: Value(comments),
+        linkedExpenseId: Value(linkedExpenseId),
+        updatedAt: Value(now),
+      ),
+    );
+
+    await _vehicles.updateOperationMileage(
+      vehicleId: vehicleId,
+      source: 'fuel',
+      sourceId: id,
+      newValue: mileage,
+    );
+
+    await _timeline.logEvent(
+      vehicleId: vehicleId,
+      moduleOrigin: 'fuel',
+      eventType: 'fuel_updated',
+      title: 'Plein modifié — ${quantityLiters.toStringAsFixed(1)} L',
+      linkedEntityId: id,
+      linkedEntityType: 'fuel',
+      occurredAt: date,
+    );
   }
 
   Future<void> softDelete(String id) {

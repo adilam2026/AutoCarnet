@@ -39,6 +39,19 @@ class DocumentRepository {
   final TimelineRepository _timeline;
   final ReminderRepository _reminders;
 
+  Future<DocumentWithVersion?> getById(String id) async {
+    final doc = await (_db.select(_db.documents)..where((d) => d.id.equals(id)))
+        .getSingleOrNull();
+    if (doc == null) return null;
+    DocumentVersion? version;
+    if (doc.currentVersionId != null) {
+      version = await (_db.select(_db.documentVersions)
+            ..where((v) => v.id.equals(doc.currentVersionId!)))
+          .getSingleOrNull();
+    }
+    return DocumentWithVersion(doc, version);
+  }
+
   Stream<List<DocumentWithVersion>> watchForVehicle(String vehicleId) {
     final query = _db.select(_db.documents)
       ..where((d) => d.vehicleId.equals(vehicleId) & d.isDeleted.equals(false))
