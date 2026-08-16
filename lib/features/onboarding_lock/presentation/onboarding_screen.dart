@@ -31,48 +31,53 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(
-                Icons.directions_car_filled,
-                size: 72,
-                color: Theme.of(context).colorScheme.primary,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Icons.directions_car_filled,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Bienvenue sur AutoCarnet',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Le compagnon numérique de vos véhicules, disponible même '
+                    'sans connexion.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  TextField(
+                    controller: _nameCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Votre nom'),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton(
+                    onPressed: _saving ? null : _start,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Commencer'),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Bienvenue sur AutoCarnet',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Le compagnon numérique de vos véhicules, disponible même '
-                'sans connexion.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              TextField(
-                controller: _nameCtrl,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Votre nom'),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _saving ? null : _start,
-                child: _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Commencer'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -63,49 +63,54 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final locked = _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(
-                Icons.lock_outline,
-                size: 56,
-                color: Theme.of(context).colorScheme.primary,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 56,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  TextField(
+                    controller: _pinCtrl,
+                    obscureText: true,
+                    enabled: !locked,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: const InputDecoration(labelText: 'Code'),
+                    onSubmitted: (_) => _submit(),
+                  ),
+                  if (_error != null)
+                    Text(
+                      _error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  FilledButton(
+                    onPressed: (_checking || locked) ? null : _submit,
+                    child: const Text('Déverrouiller'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final ok = await ref
+                          .read(pinServiceProvider)
+                          .authenticateWithBiometrics();
+                      if (ok) widget.onUnlocked();
+                    },
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Utiliser la biométrie'),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _pinCtrl,
-                obscureText: true,
-                enabled: !locked,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: const InputDecoration(labelText: 'Code'),
-                onSubmitted: (_) => _submit(),
-              ),
-              if (_error != null)
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                onPressed: (_checking || locked) ? null : _submit,
-                child: const Text('Déverrouiller'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton.icon(
-                onPressed: () async {
-                  final ok = await ref
-                      .read(pinServiceProvider)
-                      .authenticateWithBiometrics();
-                  if (ok) widget.onUnlocked();
-                },
-                icon: const Icon(Icons.fingerprint),
-                label: const Text('Utiliser la biométrie'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
