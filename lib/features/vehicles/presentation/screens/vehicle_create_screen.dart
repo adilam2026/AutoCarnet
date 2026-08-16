@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/feedback.dart';
 import '../../data/vehicle_repository.dart';
+import '../widgets/brand_model_fields.dart';
 
 /// Principe 2 (saisie minimale): only brand, model and current mileage are
 /// asked upfront. Everything else is completed later from the vehicle sheet.
@@ -21,6 +22,7 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
   final _brandCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
   final _mileageCtrl = TextEditingController();
+  String _brand = '';
   bool _saving = false;
 
   @override
@@ -54,82 +56,79 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Nouveau véhicule')),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withValues(alpha: 0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.directions_car_filled,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.6),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Trois informations suffisent pour commencer. Vous pourrez '
-                'compléter la fiche plus tard.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+              child: Icon(
+                Icons.directions_car_filled,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              TextFormField(
-                controller: _brandCtrl,
-                decoration: const InputDecoration(labelText: 'Marque *'),
-                textCapitalization: TextCapitalization.words,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Trois informations suffisent pour commencer. Vous pourrez '
+              'compléter la fiche plus tard.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            BrandField(
+              controller: _brandCtrl,
+              onChanged: (v) => setState(() => _brand = v),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ModelField(
+              controller: _modelCtrl,
+              brand: _brand,
+              onChanged: (_) {},
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _mileageCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Kilométrage actuel *',
+                suffixText: 'km',
               ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _modelCtrl,
-                decoration: const InputDecoration(labelText: 'Modèle *'),
-                textCapitalization: TextCapitalization.words,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: false,
               ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _mileageCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Kilométrage actuel *',
-                  suffixText: 'km',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: false,
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Champ requis';
-                  if (double.tryParse(v.trim()) == null) {
-                    return 'Nombre invalide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Enregistrer'),
-              ),
-            ],
-          ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Champ requis';
+                if (double.tryParse(v.trim()) == null) {
+                  return 'Nombre invalide';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enregistrer'),
+            ),
+          ],
         ),
       ),
     );

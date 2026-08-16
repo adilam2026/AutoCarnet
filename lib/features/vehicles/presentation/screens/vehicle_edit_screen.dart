@@ -6,7 +6,10 @@ import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/feedback.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../../fuel/domain/fuel_types.dart';
 import '../../data/vehicle_repository.dart';
+import '../../domain/vehicle_reference_data.dart';
+import '../widgets/brand_model_fields.dart';
 
 /// Every field beyond the 3 required at creation lives here - the fiche is
 /// completed progressively, never all at once (Principe 2).
@@ -22,14 +25,17 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   late final TextEditingController _brand;
   late final TextEditingController _model;
   late final TextEditingController _trim;
-  late final TextEditingController _year;
   late final TextEditingController _vin;
   late final TextEditingController _plate;
   late final TextEditingController _motorization;
-  late final TextEditingController _fuelType;
-  late final TextEditingController _transmission;
   late final TextEditingController _color;
+  late final TextEditingController _purchasePrice;
   late final TextEditingController _comments;
+  String _brandValue = '';
+  int? _year;
+  String? _fuelType;
+  String? _transmission;
+  DateTime? _acquisitionDate;
   bool _saving = false;
 
   @override
@@ -39,14 +45,19 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _brand = TextEditingController(text: v.brand);
     _model = TextEditingController(text: v.model);
     _trim = TextEditingController(text: v.trim ?? '');
-    _year = TextEditingController(text: v.year?.toString() ?? '');
     _vin = TextEditingController(text: v.vin ?? '');
     _plate = TextEditingController(text: v.plate ?? '');
     _motorization = TextEditingController(text: v.motorization ?? '');
-    _fuelType = TextEditingController(text: v.fuelType ?? '');
-    _transmission = TextEditingController(text: v.transmission ?? '');
     _color = TextEditingController(text: v.color ?? '');
+    _purchasePrice =
+        TextEditingController(text: v.purchasePrice?.toStringAsFixed(0) ?? '');
     _comments = TextEditingController(text: v.comments ?? '');
+    _brandValue = v.brand;
+    _year = v.year;
+    _fuelType = fuelTypes.contains(v.fuelType) ? v.fuelType : null;
+    _transmission =
+        transmissionTypes.contains(v.transmission) ? v.transmission : null;
+    _acquisitionDate = v.acquisitionDate;
   }
 
   @override
@@ -54,15 +65,23 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _brand.dispose();
     _model.dispose();
     _trim.dispose();
-    _year.dispose();
     _vin.dispose();
     _plate.dispose();
     _motorization.dispose();
-    _fuelType.dispose();
-    _transmission.dispose();
     _color.dispose();
+    _purchasePrice.dispose();
     _comments.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAcquisitionDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _acquisitionDate ?? DateTime.now(),
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _acquisitionDate = picked);
   }
 
   Future<void> _save() async {
@@ -72,18 +91,17 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         brand: _brand.text.trim(),
         model: _model.text.trim(),
         trim: Value(_trim.text.trim().isEmpty ? null : _trim.text.trim()),
-        year: Value(int.tryParse(_year.text.trim())),
+        year: Value(_year),
         vin: Value(_vin.text.trim().isEmpty ? null : _vin.text.trim()),
         plate: Value(_plate.text.trim().isEmpty ? null : _plate.text.trim()),
         motorization: Value(_motorization.text.trim().isEmpty
             ? null
             : _motorization.text.trim()),
-        fuelType: Value(
-            _fuelType.text.trim().isEmpty ? null : _fuelType.text.trim()),
-        transmission: Value(_transmission.text.trim().isEmpty
-            ? null
-            : _transmission.text.trim()),
+        fuelType: Value(_fuelType),
+        transmission: Value(_transmission),
         color: Value(_color.text.trim().isEmpty ? null : _color.text.trim()),
+        acquisitionDate: Value(_acquisitionDate),
+        purchasePrice: Value(double.tryParse(_purchasePrice.text.trim())),
         comments: Value(
             _comments.text.trim().isEmpty ? null : _comments.text.trim()),
       );
@@ -99,6 +117,9 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentYear = DateTime.now().year;
+    final years = [for (var y = currentYear + 1; y >= 1980; y--) y];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Modifier la fiche'),
@@ -120,24 +141,27 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         children: [
           const SectionHeader('Identité'),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
-              controller: _brand,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Marque')),
+          BrandField(
+            controller: _brand,
+            onChanged: (v) => setState(() => _brandValue = v),
+          ),
           const SizedBox(height: AppSpacing.md),
-          TextField(
-              controller: _model,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Modèle')),
+          ModelField(controller: _model, brand: _brandValue, onChanged: (_) {}),
           const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _trim,
               decoration: const InputDecoration(labelText: 'Version / finition')),
           const SizedBox(height: AppSpacing.md),
-          TextField(
-            controller: _year,
+          DropdownButtonFormField<int>(
+            initialValue: years.contains(_year) ? _year : null,
             decoration: const InputDecoration(labelText: 'Année'),
-            keyboardType: TextInputType.number,
+            hint: const Text('Sélectionner'),
+            isExpanded: true,
+            items: [
+              for (final y in years)
+                DropdownMenuItem(value: y, child: Text('$y')),
+            ],
+            onChanged: (v) => setState(() => _year = v),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Identification'),
@@ -158,18 +182,55 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
               controller: _motorization,
               decoration: const InputDecoration(labelText: 'Motorisation')),
           const SizedBox(height: AppSpacing.md),
-          TextField(
-              controller: _fuelType,
-              decoration: const InputDecoration(labelText: 'Carburant')),
+          DropdownButtonFormField<String>(
+            initialValue: _fuelType,
+            decoration: const InputDecoration(labelText: 'Carburant'),
+            hint: const Text('Sélectionner'),
+            isExpanded: true,
+            items: [
+              for (final f in fuelTypes) DropdownMenuItem(value: f, child: Text(f)),
+            ],
+            onChanged: (v) => setState(() => _fuelType = v),
+          ),
           const SizedBox(height: AppSpacing.md),
-          TextField(
-              controller: _transmission,
-              decoration: const InputDecoration(labelText: 'Transmission')),
+          DropdownButtonFormField<String>(
+            initialValue: _transmission,
+            decoration: const InputDecoration(labelText: 'Boîte de vitesses'),
+            hint: const Text('Sélectionner'),
+            isExpanded: true,
+            items: [
+              for (final t in transmissionTypes)
+                DropdownMenuItem(value: t, child: Text(t)),
+            ],
+            onChanged: (v) => setState(() => _transmission = v),
+          ),
           const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _color,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Couleur')),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Acquisition'),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton(
+            onPressed: _pickAcquisitionDate,
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
+            ),
+            child: Text(
+              _acquisitionDate == null
+                  ? 'Date d\'acquisition'
+                  : 'Acquis le ${_fmt(_acquisitionDate!)}',
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _purchasePrice,
+            decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Notes'),
           const SizedBox(height: AppSpacing.sm),
@@ -183,4 +244,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
       ),
     );
   }
+
+  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }

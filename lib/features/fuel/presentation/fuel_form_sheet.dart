@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
+import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/fuel_repository.dart';
 import '../domain/fuel_types.dart';
@@ -69,6 +71,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
       await ref.read(fuelRepositoryProvider).createEntry(
             vehicleId: widget.vehicleId,
             date: _date,
+            currency: ref.read(defaultCurrencyProvider),
             mileage: double.parse(_mileageCtrl.text.trim()),
             fuelType: _fuelType,
             quantityLiters: double.parse(_quantityCtrl.text.trim()),
@@ -92,7 +95,9 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
         left: AppSpacing.md,
         right: AppSpacing.md,
         top: AppSpacing.md,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            sheetSystemBottomInset(context) +
+            AppSpacing.md,
       ),
       child: Form(
         key: _formKey,

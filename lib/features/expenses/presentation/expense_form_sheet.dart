@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
+import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/expense_repository.dart';
 import '../domain/expense_categories.dart';
@@ -52,6 +54,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
             category: _category,
             date: _date,
             amount: double.parse(_amountCtrl.text.trim()),
+            currency: ref.read(defaultCurrencyProvider),
             providerId: providerId,
             comments: _commentsCtrl.text.trim().isEmpty
                 ? null
@@ -73,7 +76,9 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
         left: AppSpacing.md,
         right: AppSpacing.md,
         top: AppSpacing.md,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            sheetSystemBottomInset(context) +
+            AppSpacing.md,
       ),
       child: Form(
         key: _formKey,

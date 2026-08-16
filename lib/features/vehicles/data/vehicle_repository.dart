@@ -252,6 +252,9 @@ class VehicleRepository {
   /// Completeness score (RG-VEH-004): purely about how filled-in the sheet
   /// is, independent of the health score.
   double completeness(Vehicle v) {
+    // Only counts fields actually reachable from VehicleEditScreen - a
+    // field the UI can never fill in must never keep completeness from
+    // reaching 100% (photoPath: photo capture is a later phase).
     final fields = <Object?>[
       v.trim,
       v.year,
@@ -261,7 +264,6 @@ class VehicleRepository {
       v.fuelType,
       v.transmission,
       v.color,
-      v.photoPath,
       v.acquisitionDate,
       v.purchasePrice,
       v.comments,

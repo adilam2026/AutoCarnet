@@ -63,3 +63,15 @@ final localProfileRepositoryProvider = Provider<LocalProfileRepository>((ref) {
 final localProfileProvider = StreamProvider<LocalProfile?>((ref) {
   return ref.watch(localProfileRepositoryProvider).watch();
 });
+
+/// Real, wired setting: every new expense/entretien/plein defaults to this
+/// currency instead of a hardcoded value (Principe 3: a preference set once
+/// applies everywhere, it isn't cosmetic).
+final defaultCurrencyProvider = Provider<String>((ref) {
+  return ref.watch(localProfileProvider).maybeWhen(
+        data: (p) => p?.currency ?? 'MAD',
+        orElse: () => 'MAD',
+      );
+});
+
+const List<String> availableCurrencies = ['MAD', 'EUR', 'USD', 'GBP', 'CHF'];

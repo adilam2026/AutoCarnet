@@ -34,6 +34,8 @@ dependencies:
 
   # Biometric unlock
   local_auth: ^2.3.0
+  pdf: ^3.13.0
+  printing: ^5.15.0
 
 dev_dependencies:
   flutter_test:

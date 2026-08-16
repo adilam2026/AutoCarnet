@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/document_repository.dart';
@@ -145,7 +146,9 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
         left: AppSpacing.md,
         right: AppSpacing.md,
         top: AppSpacing.md,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            sheetSystemBottomInset(context) +
+            AppSpacing.md,
       ),
       child: Form(
         key: _formKey,

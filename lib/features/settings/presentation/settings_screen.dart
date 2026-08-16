@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/widgets/section_header.dart';
@@ -80,27 +81,94 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _onEditDisplayName(LocalProfile profile) async {
+    final controller = TextEditingController(text: profile.displayName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nom et prénom'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Nom affiché'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || newName == profile.displayName) return;
+    await ref
+        .read(localProfileRepositoryProvider)
+        .updatePreferences(profile.id, displayName: newName);
+    if (mounted) {
+      showAppSnackBar(context, 'Nom mis à jour', icon: Icons.check_circle_outline);
+    }
+  }
+
+  Future<void> _onChangeCurrency(LocalProfile profile, String currency) async {
+    if (currency == profile.currency) return;
+    await ref
+        .read(localProfileRepositoryProvider)
+        .updatePreferences(profile.id, currency: currency);
+    if (mounted) {
+      showAppSnackBar(context, 'Devise mise à jour', icon: Icons.check_circle_outline);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(localProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Paramètres')),
+      appBar: AppBar(title: const Text('Compte & sécurité')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           const SectionHeader('Profil'),
           const SizedBox(height: AppSpacing.sm),
           profileAsync.maybeWhen(
-            data: (profile) => Card(
-              child: ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(profile?.displayName ?? '—'),
-                subtitle: Text(
-                  'Devise : ${profile?.currency ?? '—'} • Unité : ${profile?.distanceUnit ?? '—'}',
-                ),
-              ),
-            ),
+            data: (profile) => profile == null
+                ? const SizedBox.shrink()
+                : Card(
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.person_outline),
+                          title: Text(profile.displayName),
+                          subtitle: const Text('Nom et prénom'),
+                          trailing: const Icon(Icons.edit_outlined),
+                          onTap: () => _onEditDisplayName(profile),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.payments_outlined),
+                          title: const Text('Devise'),
+                          subtitle: Text(profile.currency),
+                          trailing: DropdownButton<String>(
+                            value: availableCurrencies.contains(profile.currency)
+                                ? profile.currency
+                                : availableCurrencies.first,
+                            underline: const SizedBox.shrink(),
+                            items: availableCurrencies
+                                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) _onChangeCurrency(profile, v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
             orElse: () => const SizedBox.shrink(),
           ),
           const SizedBox(height: AppSpacing.lg),

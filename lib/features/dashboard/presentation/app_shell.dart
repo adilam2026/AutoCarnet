@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
+import '../../resale/presentation/resale_body.dart';
 import 'alerts_body.dart';
-import 'resale_body.dart';
 import 'vehicles_list_body.dart';
 
 /// Root navigation shell: a hamburger drawer for the full menu, and a
@@ -158,8 +158,8 @@ class _AppDrawer extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Paramètres'),
+              leading: const Icon(Icons.manage_accounts_outlined),
+              title: const Text('Compte & sécurité'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/settings');
@@ -192,9 +192,9 @@ class _MoreMenuBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Paramètres'),
-            subtitle: const Text('Profil, sécurité, verrouillage'),
+            leading: const Icon(Icons.manage_accounts_outlined),
+            title: const Text('Compte & sécurité'),
+            subtitle: const Text('Profil, devise, code PIN, biométrie'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings'),
           ),

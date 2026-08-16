@@ -17,6 +17,7 @@ import '../../../reminders/data/reminder_repository.dart';
 import '../../data/vehicle_repository.dart';
 import '../../domain/vehicle_health.dart';
 import '../providers/vehicle_form_providers.dart';
+import '../widgets/add_operation_sheet.dart';
 import '../widgets/mileage_update_sheet.dart';
 import 'vehicle_edit_screen.dart';
 
@@ -62,7 +63,6 @@ class _VehicleHomeBody extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Hero(
               tag: 'vehicle-avatar-${vehicle.id}',
@@ -73,7 +73,7 @@ class _VehicleHomeBody extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Flexible(
+            Expanded(
               child: Text(
                 '${vehicle.brand} ${vehicle.model}',
                 maxLines: 1,
@@ -138,22 +138,42 @@ class _VehicleHomeBody extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _HealthDot(health: health),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: _HealthDot(health: health),
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: Text(
-                          '${vehicle.currentMileage.toStringAsFixed(0)} km',
-                          style: Theme.of(context).textTheme.titleLarge,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Kilométrage',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                            Text(
+                              '${vehicle.currentMileage.toStringAsFixed(0)} km',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ],
                         ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => showMileageUpdateSheet(context, ref, vehicle),
-                        child: const Text('Mettre à jour'),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => showMileageUpdateSheet(context, ref, vehicle),
+                      child: const Text('Mettre à jour le kilométrage'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       Expanded(
@@ -168,6 +188,8 @@ class _VehicleHomeBody extends ConsumerWidget {
                       const SizedBox(width: AppSpacing.sm),
                       Text(
                         '${(completeness * 100).round()} % complète',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                     ],
@@ -278,6 +300,11 @@ class _VehicleHomeBody extends ConsumerWidget {
             onTap: () => context.push('/vehicles/${vehicle.id}/timeline'),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showAddOperationSheet(context, ref, vehicle: vehicle),
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter une opération'),
       ),
     );
   }

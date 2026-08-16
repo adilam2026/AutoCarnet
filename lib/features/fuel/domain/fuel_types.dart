@@ -1,9 +1,10 @@
 const List<String> fuelTypes = [
   'Essence',
   'Diesel',
-  'GPL',
   'Hybride',
+  'Hybride rechargeable',
   'Électrique',
+  'GPL',
   'Hydrogène',
   'Autre',
 ];

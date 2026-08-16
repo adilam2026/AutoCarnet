@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/feedback.dart';
+import '../../../../core/utils/layout.dart';
 import '../../../../core/utils/mileage_result.dart';
 import '../../../../core/widgets/sheet_handle.dart';
 import '../../data/vehicle_repository.dart';
@@ -30,12 +31,16 @@ Future<void> showMileageUpdateSheet(
           left: AppSpacing.md,
           right: AppSpacing.md,
           top: AppSpacing.sm,
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + AppSpacing.md,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom +
+              sheetSystemBottomInset(sheetContext) +
+              AppSpacing.md,
         ),
-        child: _MileageUpdateForm(
-          vehicle: vehicle,
-          controller: controller,
-          ref: ref,
+        child: SingleChildScrollView(
+          child: _MileageUpdateForm(
+            vehicle: vehicle,
+            controller: controller,
+            ref: ref,
+          ),
         ),
       );
     },

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
+import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/maintenance_repository.dart';
 import '../domain/maintenance_categories.dart';
@@ -83,6 +85,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
             vehicleId: widget.vehicleId,
             category: _category,
             date: _date,
+            currency: ref.read(defaultCurrencyProvider),
             mileage: double.parse(_mileageCtrl.text.trim()),
             providerId: providerId,
             laborCost: double.tryParse(_laborCtrl.text) ?? 0,
@@ -108,7 +111,9 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
         left: AppSpacing.md,
         right: AppSpacing.md,
         top: AppSpacing.md,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            sheetSystemBottomInset(context) +
+            AppSpacing.md,
       ),
       child: Form(
         key: _formKey,
