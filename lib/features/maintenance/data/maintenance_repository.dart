@@ -301,11 +301,23 @@ class MaintenanceRepository {
   }
 
   Future<void> softDelete(String id) async {
+    final entry =
+        await (_db.select(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+            .getSingleOrNull();
+    final now = DateTime.now();
     await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
         .write(MaintenanceEntriesCompanion(
       isDeleted: const Value(true),
-      updatedAt: Value(DateTime.now()),
+      updatedAt: Value(now),
     ));
+    if (entry?.linkedExpenseId != null) {
+      // Never leave the auto-generated expense behind pointing at a
+      // deleted operation - it was never independently editable, it
+      // shouldn't be independently deletable-and-forgotten either.
+      await (_db.update(_db.expenses)
+            ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
+          .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
+    }
     await _reminders.disableForSource('maintenance', id);
   }
 }

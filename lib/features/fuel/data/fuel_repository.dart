@@ -212,13 +212,20 @@ class FuelRepository {
     );
   }
 
-  Future<void> softDelete(String id) {
-    return (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
-      FuelEntriesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(DateTime.now()),
-      ),
+  Future<void> softDelete(String id) async {
+    final entry =
+        await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingleOrNull();
+    final now = DateTime.now();
+    await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
+      FuelEntriesCompanion(isDeleted: const Value(true), updatedAt: Value(now)),
     );
+    if (entry?.linkedExpenseId != null) {
+      // Never leave the auto-generated expense behind pointing at a
+      // deleted fill-up.
+      await (_db.update(_db.expenses)
+            ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
+          .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
+    }
   }
 
   /// RG-CARB-005: consumption is only computed between two consecutive full

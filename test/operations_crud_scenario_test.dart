@@ -188,6 +188,24 @@ void main() {
     expect(afterCorrection.currentMileage, 79000);
   });
 
+  test('deleting an operation also removes its auto-generated linked '
+      'expense, instead of leaving it orphaned in Dépenses', () async {
+    final before = await (db.select(db.maintenanceEntries)
+          ..where((m) => m.id.equals(vidangeId)))
+        .getSingle();
+    expect(before.linkedExpenseId, isNotNull);
+
+    await maintenance.softDelete(vidangeId);
+
+    final linkedExpense = await (db.select(db.expenses)
+          ..where((e) => e.id.equals(before.linkedExpenseId!)))
+        .getSingle();
+    expect(linkedExpense.isDeleted, isTrue);
+
+    final visibleExpenses = await expenses.watchForVehicle(vehicleId).first;
+    expect(visibleExpenses.any((e) => e.id == before.linkedExpenseId), isFalse);
+  });
+
   test('8. every operation logs a timeline event with the right link', () async {
     final events = await timeline.watchForVehicle(vehicleId).first;
     final vidangeEvent = events.firstWhere((e) => e.linkedEntityId == vidangeId);
