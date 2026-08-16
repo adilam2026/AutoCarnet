@@ -125,9 +125,13 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
     _nextDueDate = source.nextDueDate;
     _nextDueMileageCtrl.text = source.nextDueMileage?.toStringAsFixed(0) ?? '';
     // The source already carries its own next-due values (or intentionally
-    // none) - never override them with a fresh suggestion.
+    // none) - never silently override them with a fresh suggestion. The
+    // resolved frequency is still loaded so the UI can offer to recompute
+    // it on demand (bloc 23: editing an operation's mileage must be able
+    // to keep its next-due échéance coherent with the rule in force).
     _nextDueMileageUserEdited = true;
     _nextDueDateUserEdited = true;
+    await _loadFrequencyAndSuggest();
 
     if (source.providerId != null) {
       final provider =
@@ -153,12 +157,16 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
     if (mounted) setState(() => _ready = true);
   }
 
-  /// Only ever runs for a brand-new entry (bloc 2.1/2.2): a vidange or
-  /// révision periodic category gets a default +10 000 km suggestion (or
-  /// the vehicle's own configured frequency if one exists), anything else
-  /// stays empty - no invented échéance for a one-off diagnostic or repair.
+  /// Loads the resolved frequency for the current category (vehicle-
+  /// specific override or AutoCarnet default) and, only for a brand-new
+  /// entry, applies it as the next-due suggestion (bloc 2.1/2.2) - a
+  /// vidange or révision periodic category gets a default +10 000 km,
+  /// anything else stays empty. When editing, [_applySuggestion] still
+  /// refreshes [_resolvedFrequency] so the "Modifier"/recompute affordance
+  /// stays available (bloc 23: an edited operation's next-due échéance
+  /// must be able to stay coherent with the rule in force) without ever
+  /// silently overwriting the operation's own saved value.
   Future<void> _loadFrequencyAndSuggest() async {
-    if (!_isNewEntry) return;
     final override =
         await ref.read(operationFrequencyRepositoryProvider).getFor(widget.vehicleId, _category);
     _applySuggestion(
@@ -229,6 +237,22 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
       showAppSnackBar(context, 'Fréquence mémorisée pour ce véhicule',
           icon: Icons.check_circle_outline);
     }
+  }
+
+  /// Explicit, user-initiated recompute of the next-due échéance from the
+  /// entry's current mileage and the frequency in force - lets an edited
+  /// operation's échéance stay coherent with the rule without ever
+  /// silently overwriting a value the owner customized on their own.
+  void _recalculateNextDue() {
+    _nextDueMileageUserEdited = false;
+    _nextDueDateUserEdited = false;
+    _applySuggestion(
+      vehicleFrequencyKm:
+          _resolvedFrequency?.isVehicleSpecific == true ? _resolvedFrequency!.frequencyKm : null,
+      vehicleFrequencyMonths: _resolvedFrequency?.isVehicleSpecific == true
+          ? _resolvedFrequency!.frequencyMonths
+          : null,
+    );
   }
 
   Future<void> _save() async {
@@ -553,7 +577,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                       ),
                     ],
                   ),
-                  if (_isNewEntry && (_resolvedFrequency?.isRecurrent ?? false))
+                  if (_resolvedFrequency?.isRecurrent ?? false)
                     Padding(
                       padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Row(
@@ -568,6 +592,12 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                               style: Theme.of(context).textTheme.labelSmall,
                             ),
                           ),
+                          if (_isEditing)
+                            TextButton(
+                              onPressed: _recalculateNextDue,
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                              child: const Text('Recalculer'),
+                            ),
                           TextButton(
                             onPressed: _editFrequency,
                             style: TextButton.styleFrom(padding: EdgeInsets.zero),

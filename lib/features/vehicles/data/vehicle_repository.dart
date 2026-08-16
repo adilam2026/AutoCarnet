@@ -308,6 +308,8 @@ class VehicleRepository {
       v.color,
       v.acquisitionDate,
       v.purchasePrice,
+      v.firstRegistrationDate,
+      v.condition,
       v.comments,
     ];
     final filled = fields.where((f) => f != null && f != '').length;
