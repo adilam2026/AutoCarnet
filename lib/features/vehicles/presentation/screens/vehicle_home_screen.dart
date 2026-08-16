@@ -15,10 +15,9 @@ import '../../../expenses/data/expense_repository.dart';
 import '../../../fuel/data/fuel_repository.dart';
 import '../../../maintenance/data/maintenance_repository.dart';
 import '../../../maintenance/domain/revision_estimation.dart';
+import '../../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../../reminders/data/reminder_repository.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
-import '../../../timeline/data/timeline_repository.dart';
-import '../../../timeline/domain/timeline_navigation.dart';
 import '../../data/vehicle_repository.dart';
 import '../../domain/vehicle_health.dart';
 import '../providers/vehicle_form_providers.dart';
@@ -67,7 +66,7 @@ class _VehicleHomeBody extends ConsumerWidget {
     final driverDocuments = ref.watch(driverDocumentsProvider).value ?? const [];
     final mileageHistory =
         ref.watch(vehicleMileageHistoryProvider(vehicle.id)).value ?? const [];
-    final timelineEvents = ref.watch(vehicleTimelineProvider(vehicle.id)).value ?? const [];
+    final recentOperations = [...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date));
 
     final health = computeVehicleHealthScore(
       activeReminders: activeReminders,
@@ -187,7 +186,7 @@ class _VehicleHomeBody extends ConsumerWidget {
           const SizedBox(height: AppSpacing.lg),
           SectionHeader(
             'Dernières opérations',
-            trailing: timelineEvents.isEmpty
+            trailing: recentOperations.isEmpty
                 ? null
                 : TextButton(
                     onPressed: () => context.push('/vehicles/${vehicle.id}/timeline'),
@@ -196,9 +195,8 @@ class _VehicleHomeBody extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           _RecentOperationsCard(
-            events: timelineEvents.take(3).toList(),
+            entries: recentOperations.take(3).toList(),
             vehicle: vehicle,
-            onSeeAll: () => context.push('/vehicles/${vehicle.id}/timeline'),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Aperçu'),
@@ -536,25 +534,26 @@ class _TodoCard extends StatelessWidget {
   }
 }
 
+/// Only real automobile interventions - never vehicle-created, fiche-
+/// modifiée or kilométrage-mis-à-jour noise, which belong to the audit
+/// trail instead (bloc "historique métier vs journal d'audit").
 class _RecentOperationsCard extends ConsumerWidget {
   const _RecentOperationsCard({
-    required this.events,
+    required this.entries,
     required this.vehicle,
-    required this.onSeeAll,
   });
-  final List<TimelineEvent> events;
+  final List<MaintenanceEntry> entries;
   final Vehicle vehicle;
-  final VoidCallback onSeeAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (events.isEmpty) {
+    if (entries.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Text(
-            'Aucune opération enregistrée pour l\'instant. Ajoutez votre '
-            'premier entretien, plein ou document pour commencer le carnet.',
+            'Aucune opération enregistrée pour l\'instant. Commencez votre '
+            'carnet avec votre dernière vidange ou révision.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
@@ -563,17 +562,30 @@ class _RecentOperationsCard extends ConsumerWidget {
     return Card(
       child: Column(
         children: [
-          for (var i = 0; i < events.length; i++) ...[
+          for (var i = 0; i < entries.length; i++) ...[
             ListTile(
               dense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 0),
-              title: Text(events[i].title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(_fmt(events[i].occurredAt)),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => openTimelineEventSource(context, ref, events[i], vehicle),
+              title: Text(entries[i].category,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${_fmt(entries[i].date)} · ${entries[i].mileage.toStringAsFixed(0)} km',
+              ),
+              trailing: Text(
+                (entries[i].partsCost + entries[i].laborCost) > 0
+                    ? '${(entries[i].partsCost + entries[i].laborCost).toStringAsFixed(0)} ${entries[i].currency}'
+                    : '',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () => showMaintenanceFormSheet(
+                context,
+                vehicleId: vehicle.id,
+                currentMileage: vehicle.currentMileage,
+                editing: entries[i],
+              ),
             ),
-            if (i < events.length - 1) const Divider(height: 1),
+            if (i < entries.length - 1) const Divider(height: 1),
           ],
         ],
       ),
