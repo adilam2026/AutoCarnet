@@ -173,10 +173,12 @@ class _VehicleHomeBody extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          SectionHeader(revisionEstimate != null ? 'Prochaine révision' : 'À faire prochainement'),
+          const SectionHeader('À faire prochainement'),
           const SizedBox(height: AppSpacing.sm),
-          if (revisionEstimate != null)
+          if (revisionEstimate != null) ...[
             _NextRevisionCard(estimate: revisionEstimate, title: nextMaintenanceReminder!.title),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           _TodoCard(
             reminders: activeReminders,
             currentMileage: vehicle.currentMileage,

@@ -107,17 +107,18 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
       _initialProviderName = provider?.name;
     }
 
-    if (_isEditing) {
-      final existingParts =
-          await ref.read(maintenanceRepositoryProvider).watchParts(source.id).first;
-      for (final p in existingParts) {
-        final row = _PartRow();
-        row.designationCtrl.text = p.designation;
-        row.quantityCtrl.text = p.quantity.toStringAsFixed(
-            p.quantity == p.quantity.roundToDouble() ? 0 : 2);
-        row.unitPriceCtrl.text = p.unitPrice.toStringAsFixed(2);
-        _parts.add(row);
-      }
+    // Both editing and duplicating start from the source's existing parts -
+    // duplicating an operation means "this happened again", not "this
+    // happened again but I have to retype every part".
+    final existingParts =
+        await ref.read(maintenanceRepositoryProvider).watchParts(source.id).first;
+    for (final p in existingParts) {
+      final row = _PartRow();
+      row.designationCtrl.text = p.designation;
+      row.quantityCtrl.text = p.quantity.toStringAsFixed(
+          p.quantity == p.quantity.roundToDouble() ? 0 : 2);
+      row.unitPriceCtrl.text = p.unitPrice.toStringAsFixed(2);
+      _parts.add(row);
     }
 
     if (mounted) setState(() => _ready = true);
