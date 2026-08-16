@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/dismissible_delete.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
@@ -18,6 +19,7 @@ class DocumentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final docsAsync = ref.watch(vehicleDocumentsProvider(vehicleId));
     return Scaffold(
+      appBar: AppBar(title: const Text('Documents')),
       body: docsAsync.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(message: e.toString()),
@@ -35,8 +37,8 @@ class DocumentsTab extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
             itemCount: docs.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) {

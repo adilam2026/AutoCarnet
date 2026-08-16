@@ -42,7 +42,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
           );
       if (!mounted) return;
       showAppSnackBar(context, 'Véhicule ajouté', icon: Icons.check_circle_outline);
-      context.go('/vehicles/$id');
+      // pushReplacement (not go) so the shell stays underneath on the
+      // navigation stack and the back button returns to "Mes véhicules".
+      context.pushReplacement('/vehicles/$id');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

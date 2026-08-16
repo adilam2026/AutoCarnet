@@ -7,7 +7,6 @@ import '../../../core/widgets/section_header.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/data/pin_service.dart';
 import '../../onboarding_lock/presentation/pin_dialogs.dart';
-import '../../providers/data/provider_repository.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -84,7 +83,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(localProfileProvider);
-    final providersAsync = ref.watch(providersListProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
@@ -149,34 +147,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ],
                     ],
                   ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('Prestataires'),
-          const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: providersAsync.maybeWhen(
-              data: (providers) => providers.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(AppSpacing.md),
-                      child: Text('Aucun prestataire enregistré pour le moment'),
-                    )
-                  : Column(
-                      children: [
-                        for (var i = 0; i < providers.length; i++) ...[
-                          if (i > 0) const Divider(height: 1),
-                          ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.storefront_outlined),
-                            title: Text(providers[i].name),
-                            subtitle: providers[i].city != null
-                                ? Text(providers[i].city!)
-                                : null,
-                          ),
-                        ],
-                      ],
-                    ),
-              orElse: () => const SizedBox.shrink(),
-            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           Center(

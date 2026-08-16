@@ -2,25 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/dashboard/presentation/home_screen.dart';
+import '../../features/dashboard/presentation/app_shell.dart';
+import '../../features/documents/presentation/documents_tab.dart';
+import '../../features/expenses/presentation/expenses_tab.dart';
+import '../../features/fuel/presentation/fuel_tab.dart';
+import '../../features/maintenance/presentation/maintenance_tab.dart';
+import '../../features/providers/presentation/providers_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/timeline/presentation/timeline_tab.dart';
 import '../../features/vehicles/presentation/screens/vehicle_create_screen.dart';
-import '../../features/vehicles/presentation/screens/vehicle_detail_screen.dart';
+import '../../features/vehicles/presentation/screens/vehicle_home_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/', builder: (context, state) => const AppShell()),
       GoRoute(
         path: '/vehicles/new',
         builder: (context, state) => const VehicleCreateScreen(),
       ),
       GoRoute(
         path: '/vehicles/:id',
-        builder: (context, state) => VehicleDetailScreen(
+        builder: (context, state) => VehicleHomeScreen(
           vehicleId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/vehicles/:id/documents',
+        builder: (context, state) => DocumentsTab(
+          vehicleId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/vehicles/:id/maintenance',
+        builder: (context, state) => MaintenanceTab(
+          vehicleId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/vehicles/:id/expenses',
+        builder: (context, state) => ExpensesTab(
+          vehicleId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/vehicles/:id/fuel',
+        builder: (context, state) => FuelTab(
+          vehicleId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/vehicles/:id/timeline',
+        builder: (context, state) => TimelineTab(
+          vehicleId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/providers',
+        builder: (context, state) => const ProvidersScreen(),
       ),
       GoRoute(
         path: '/settings',

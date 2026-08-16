@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/layout.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../data/timeline_repository.dart';
@@ -21,7 +22,9 @@ class TimelineTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(vehicleTimelineProvider(vehicleId));
-    return eventsAsync.when(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Timeline')),
+      body: eventsAsync.when(
       loading: () => const LoadingView(),
       error: (e, _) => ErrorView(message: e.toString()),
       data: (events) {
@@ -36,8 +39,8 @@ class TimelineTab extends ConsumerWidget {
         }
         final scheme = Theme.of(context).colorScheme;
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
           itemCount: events.length,
           itemBuilder: (context, i) {
             final e = events[i];
@@ -102,6 +105,7 @@ class TimelineTab extends ConsumerWidget {
           },
         );
       },
+      ),
     );
   }
 
