@@ -28,7 +28,29 @@ select tablename, policyname from pg_policies where schemaname = 'public' order 
 Chaque table doit apparaître avec `rowsecurity = true` et 4 policies
 (select/insert/update/delete).
 
-## Ce qui n'est PAS encore dans cette migration
+## Configuration requise pour que la vérification par email fonctionne
+
+L'app envoie un **code à 6 chiffres** (jamais un simple lien magique) pour
+vérifier l'adresse email à la création de compte et pour "mot de passe
+oublié" — plus simple et plus fiable qu'un lien profond (deep link) que je
+ne peux pas tester moi-même sans appareil réel. Par défaut, Supabase envoie
+un lien et n'affiche pas le code dans l'email. Il faut donc éditer 2
+templates :
+
+1. Dashboard → **Authentication** → **Email Templates**.
+2. Ouvre **Confirm signup** : remplace le bouton/lien par un texte qui
+   affiche `{{ .Token }}` (le code à 6 chiffres). Exemple minimal :
+   ```
+   Votre code de vérification AutoCarnet : {{ .Token }}
+   ```
+3. Fais la même chose sur **Reset Password** (utilisé pour "mot de passe
+   oublié").
+4. Sauvegarde chaque template.
+
+Sans cette étape, les emails partiront quand même mais l'utilisateur ne
+verra aucun code à saisir dans l'app.
+
+## Ce qui n'est PAS encore fait
 
 - **Stockage des pièces jointes** (photos, PDF de documents) : nécessite un
   bucket Supabase Storage + ses propres policies, pas encore créé.
@@ -39,11 +61,18 @@ Chaque table doit apparaître avec `rowsecurity = true` et 4 policies
   utilisateurs ↔ niveau de permission) et des policies RLS plus complexes —
   volontairement pas construit tant que ce n'est pas confirmé comme
   nécessaire, pour ne pas complexifier la sécurité sans usage réel.
-- **Le moteur de synchronisation lui-même** (file d'attente locale → cloud,
-  déclenchement automatique, résolution de conflits) : c'est le code Flutter
-  qui vient après ce schéma, pas encore écrit.
-- **L'authentification email** (écrans de création de compte, vérification,
-  mot de passe oublié) côté app : vient aussi après.
+- **Le moteur de synchronisation** (file d'attente locale → cloud,
+  déclenchement automatique, résolution de conflits, gestion des
+  appareils/`devices`) : le compte email fonctionne (création, vérification,
+  connexion, mot de passe oublié, déconnexion simple/tous appareils), mais
+  aucune donnée (véhicules, entretiens...) n'est encore synchronisée entre
+  appareils. C'est la prochaine étape.
+- **Test réel de bout en bout** : je n'ai ni téléphone ni boîte mail réelle
+  pour recevoir un code de vérification depuis ce sandbox - je ne peux donc
+  pas reproduire moi-même le scénario complet "créer un compte → recevoir le
+  code → le saisir → être connecté". Le code compile et passe l'analyse
+  statique, mais **toi seul peux valider ce parcours réellement** avant de
+  le considérer fiable.
 
 ## Notes de conception
 

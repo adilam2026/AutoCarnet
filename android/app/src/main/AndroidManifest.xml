@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for the Supabase account/sync calls (bloc 7-13). AutoCarnet
+         stays offline-first regardless - these permissions only let the app
+         attempt a network call, they never force one. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application
         android:label="AutoCarnet"
         android:name="${applicationName}"

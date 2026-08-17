@@ -5,6 +5,7 @@ import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/data/pin_service.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
@@ -144,6 +145,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(sessionLockRequestProvider.notifier).state++;
   }
 
+  /// Closes the Supabase account session (bloc 6/9) - unlike [_onLogout],
+  /// this actually invalidates the cloud session's tokens, not just the
+  /// local PIN unlock state, and sends the gate back to account
+  /// authentication rather than the PIN screen.
+  Future<void> _onAccountSignOut({required bool everywhere}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(everywhere
+            ? 'Se déconnecter de tous les appareils ?'
+            : 'Se déconnecter du compte ?'),
+        content: Text(everywhere
+            ? 'Toutes les sessions de ce compte, sur tous les appareils, '
+                'seront fermées. Vos données restent sur le cloud.'
+            : 'La session de ce compte sera fermée sur cet appareil. Vos '
+                'données restent sur le cloud.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final account = ref.read(accountRepositoryProvider);
+    if (everywhere) {
+      await account.signOutEverywhere();
+    } else {
+      await account.signOut();
+    }
+    ref.read(accountSignOutRequestProvider.notifier).state++;
+  }
+
   Future<void> _onChangeCurrency(LocalProfile profile, String currency) async {
     if (currency == profile.currency) return;
     await ref
@@ -157,12 +196,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(localProfileProvider);
+    // Watched purely to rebuild this screen when the session changes -
+    // isSignedIn below always reflects the current Supabase state.
+    ref.watch(authStateChangesProvider);
+    final account = ref.read(accountRepositoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Compte & sécurité')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          if (account.isSignedIn) ...[
+            const SectionHeader('Compte'),
+            const SizedBox(height: AppSpacing.sm),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.alternate_email),
+                    title: Text(account.currentUser?.email ?? ''),
+                    subtitle: const Text('Compte AutoCarnet'),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('Se déconnecter du compte'),
+                    onTap: () => _onAccountSignOut(everywhere: false),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.devices_other_outlined),
+                    title: const Text('Se déconnecter de tous les appareils'),
+                    onTap: () => _onAccountSignOut(everywhere: true),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           const SectionHeader('Profil'),
           const SizedBox(height: AppSpacing.sm),
           profileAsync.maybeWhen(
@@ -259,8 +330,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: AppSpacing.xl),
           Center(
             child: Text(
-              'AutoCarnet fonctionne entièrement hors connexion.\n'
-              'Vos données restent stockées sur cet appareil.',
+              account.isSignedIn
+                  ? 'AutoCarnet fonctionne entièrement hors connexion.\n'
+                      'La synchronisation entre appareils n\'est pas encore '
+                      'active - vos données restent sur cet appareil pour '
+                      'le moment.'
+                  : 'AutoCarnet fonctionne entièrement hors connexion.\n'
+                      'Vos données restent stockées sur cet appareil.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
