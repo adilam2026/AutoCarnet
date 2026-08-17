@@ -10,6 +10,12 @@ import 'pin_setup_screen.dart';
 
 enum _GateStep { loading, onboarding, pinSetup, locked, unlocked }
 
+/// Bumped by "Se déconnecter" (Compte & sécurité) to force the app back to
+/// its lock screen on this device - the closest thing to "closing the
+/// session" available before account authentication exists (bloc 6). Local
+/// data is never touched.
+final sessionLockRequestProvider = StateProvider<int>((ref) => 0);
+
 /// Root gatekeeper: onboarding (first launch) -> optional PIN setup ->
 /// PIN/biometric lock on every subsequent launch -> the actual app. Wraps
 /// the router as MaterialApp.router's `builder` so navigation state is
@@ -43,6 +49,12 @@ class _AppGateState extends ConsumerState<AppGate> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(localProfileProvider);
+
+    ref.listen<int>(sessionLockRequestProvider, (previous, next) {
+      if (previous != null && next != previous) {
+        _evaluate(profileAsync.valueOrNull?.id);
+      }
+    });
 
     return profileAsync.when(
       loading: () => const _Splash(),

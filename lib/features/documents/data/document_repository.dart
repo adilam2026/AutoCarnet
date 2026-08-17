@@ -6,6 +6,7 @@ import '../../../core/database/providers.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../timeline/data/timeline_repository.dart';
+import '../domain/document_renewal_rules.dart';
 
 /// A document + the state of its currently active version, joined for
 /// convenient display (list screens never need to know about the
@@ -143,12 +144,20 @@ class DocumentRepository {
           vehicleId: vehicleId,
           sourceType: 'document',
           sourceId: versionId,
-          title: '$type à renouveler',
+          title: _reminderTitle(type, expiryDate),
           dueDate: expiryDate,
         );
       }
     }
     return docId;
+  }
+
+  /// A civil-year-bound document (vignette) reads better as "Vignette 2027
+  /// à payer" than a generic "à renouveler" - every other type keeps the
+  /// generic wording.
+  String _reminderTitle(String type, DateTime expiryDate) {
+    if (isCivilYearBound(type)) return '$type ${expiryDate.year} à payer';
+    return '$type à renouveler';
   }
 
   /// Renewal creates a new version and flips the previous one to "replaced"
@@ -214,7 +223,7 @@ class DocumentRepository {
           vehicleId: doc.vehicleId!,
           sourceType: 'document',
           sourceId: newVersionId,
-          title: '${doc.type} à renouveler',
+          title: _reminderTitle(doc.type, expiryDate),
           dueDate: expiryDate,
         );
       }

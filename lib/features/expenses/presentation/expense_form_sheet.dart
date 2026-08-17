@@ -56,6 +56,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
   final _amountCtrl = TextEditingController();
   final _commentsCtrl = TextEditingController();
   ServiceProvider? _selectedProvider;
+  String _providerText = '';
   String? _initialProviderName;
   bool _saving = false;
   bool _deleting = false;
@@ -86,6 +87,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
           await ref.read(providerRepositoryProvider).getById(source.providerId!);
       _selectedProvider = provider;
       _initialProviderName = provider?.name;
+      _providerText = provider?.name ?? '';
     }
     if (mounted) setState(() => _ready = true);
   }
@@ -97,7 +99,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
       final providerId = await resolveOrCreateProvider(
         ref,
         selected: _selectedProvider,
-        typedText: '',
+        typedText: _providerText,
       );
       final repo = ref.read(expenseRepositoryProvider);
       if (_isEditing) {
@@ -270,6 +272,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
                   ProviderPickerField(
                     initialName: _initialProviderName,
                     onSelected: (p) => _selectedProvider = p,
+                    onTextChanged: (text) => _providerText = text,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(

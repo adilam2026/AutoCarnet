@@ -11,11 +11,17 @@ class ProviderPickerField extends ConsumerStatefulWidget {
   const ProviderPickerField({
     super.key,
     required this.onSelected,
+    this.onTextChanged,
     this.initialName,
     this.label = 'Prestataire',
   });
 
   final ValueChanged<ServiceProvider?> onSelected;
+  /// Raw text currently typed, kept in sync even when it doesn't match an
+  /// existing suggestion - callers need this at save time so a genuinely
+  /// new provider still gets remembered (bloc: "mémoriser les garages /
+  /// prestataires saisis").
+  final ValueChanged<String>? onTextChanged;
   final String? initialName;
   final String label;
 
@@ -50,6 +56,7 @@ class _ProviderPickerFieldState extends ConsumerState<ProviderPickerField> {
               _selected = null;
               widget.onSelected(null);
             }
+            widget.onTextChanged?.call(text);
           },
         );
       },
@@ -94,5 +101,10 @@ Future<String?> resolveOrCreateProvider(
   if (selected != null) return selected.id;
   final text = typedText.trim();
   if (text.isEmpty) return null;
-  return ref.read(providerRepositoryProvider).createProvider(name: text);
+  final repo = ref.read(providerRepositoryProvider);
+  // A strong match ("Audi Casa" vs "Garage Audi Casablanca") reuses the
+  // existing référentiel entry instead of spawning a near-duplicate one.
+  final duplicate = await repo.findLikelyDuplicate(text);
+  if (duplicate != null) return duplicate.id;
+  return repo.createProvider(name: text);
 }

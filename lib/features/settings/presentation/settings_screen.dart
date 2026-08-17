@@ -7,6 +7,7 @@ import '../../../core/utils/feedback.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/data/pin_service.dart';
+import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../onboarding_lock/presentation/pin_dialogs.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -114,6 +115,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Reverrouille l'application sur cet appareil (bloc 6) - la donnée
+  /// locale n'est jamais touchée, seul l'état de déverrouillage l'est.
+  /// "Se déconnecter de tous les appareils" nécessite le compte cloud à
+  /// venir et n'est donc pas proposé tant qu'il n'existe pas.
+  Future<void> _onLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Se déconnecter ?'),
+        content: const Text(
+          'L\'application se reverrouille sur cet appareil. Vos données '
+          'restent enregistrées et ne sont pas supprimées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    ref.read(sessionLockRequestProvider.notifier).state++;
+  }
+
   Future<void> _onChangeCurrency(LocalProfile profile, String currency) async {
     if (currency == profile.currency) return;
     await ref
@@ -211,6 +241,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           title: const Text('Déverrouillage biométrique'),
                           value: _biometricEnabled,
                           onChanged: _onBiometricToggled,
+                        ),
+                      ],
+                      if (_pinEnabled) ...[
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.logout),
+                          title: const Text('Se déconnecter'),
+                          subtitle: const Text(
+                              'Reverrouille l\'application sur cet appareil'),
+                          onTap: _onLogout,
                         ),
                       ],
                     ],

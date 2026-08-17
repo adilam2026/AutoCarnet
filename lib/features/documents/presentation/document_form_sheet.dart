@@ -8,6 +8,7 @@ import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/document_repository.dart';
+import '../domain/document_renewal_rules.dart';
 import '../domain/document_types.dart';
 
 /// Used both for creating a document and for renewing one - renewal simply
@@ -59,8 +60,9 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
   final _commentsCtrl = TextEditingController();
   DateTime? _issueDate;
   DateTime? _expiryDate;
+  bool _expiryUserEdited = false;
   ServiceProvider? _selectedProvider;
-  final _providerTextCtrl = TextEditingController();
+  String _providerText = '';
   bool _saving = false;
 
   bool get isRenewal => widget.renewing != null;
@@ -75,6 +77,23 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
     _numberCtrl.text = widget.renewingVersion?.documentNumber ?? '';
     _costCtrl.text = widget.renewingVersion?.cost?.toString() ?? '';
     _issueDate = DateTime.now();
+    _applyDefaultExpirySuggestion();
+  }
+
+  /// Assurance / visite technique renew on a fixed 12-month AutoCarnet
+  /// default (blocs 3-4) - always just a suggestion, never applied once the
+  /// owner has picked their own expiry date.
+  void _applyDefaultExpirySuggestion() {
+    if (_expiryUserEdited) return;
+    final issue = _issueDate;
+    if (issue == null) return;
+    if (isCivilYearBound(_type)) {
+      _expiryDate = civilYearDueDate(issue);
+      return;
+    }
+    final months = defaultRenewalMonths(_type);
+    if (months == null) return;
+    _expiryDate = DateTime(issue.year, issue.month + months, issue.day);
   }
 
   Future<void> _pickDate({required bool isExpiry}) async {
@@ -87,9 +106,11 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
     if (picked == null) return;
     setState(() {
       if (isExpiry) {
+        _expiryUserEdited = true;
         _expiryDate = picked;
       } else {
         _issueDate = picked;
+        _applyDefaultExpirySuggestion();
       }
     });
   }
@@ -101,7 +122,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
       final providerId = await resolveOrCreateProvider(
         ref,
         selected: _selectedProvider,
-        typedText: _providerTextCtrl.text,
+        typedText: _providerText,
       );
       final repo = ref.read(documentRepositoryProvider);
       final cost = double.tryParse(_costCtrl.text.trim());
@@ -177,7 +198,10 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
                 items: _availableTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
-                onChanged: (v) => setState(() => _type = v!),
+                onChanged: (v) => setState(() {
+                  _type = v!;
+                  _applyDefaultExpirySuggestion();
+                }),
               ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(
@@ -206,10 +230,30 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
                 ),
               ],
             ),
+            if (!_expiryUserEdited && isCivilYearBound(_type) && _issueDate != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Text(
+                  'Vignette liée à l\'année civile : prochaine échéance '
+                  'suggérée au 1er janvier ${_issueDate!.year + 1} '
+                  '(modifiable).',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              )
+            else if (!_expiryUserEdited && defaultRenewalMonths(_type) != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Text(
+                  'Échéance suggérée par AutoCarnet : délivrance + '
+                  '${defaultRenewalMonths(_type)} mois (modifiable).',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
             const SizedBox(height: AppSpacing.md),
             ProviderPickerField(
               label: 'Organisme / prestataire',
               onSelected: (p) => _selectedProvider = p,
+              onTextChanged: (text) => _providerText = text,
             ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(

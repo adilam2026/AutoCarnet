@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart' as core_db;
 import '../../../core/utils/id_generator.dart';
+import '../domain/provider_matching.dart';
 
 /// Single referential of professionals reused by every module instead of
 /// retyping a garage/station name each time (Principe 3).
@@ -31,6 +32,20 @@ class ProviderRepository {
       ..orderBy([(p) => OrderingTerm.asc(p.name)])
       ..limit(20);
     return query.get();
+  }
+
+  /// Looks for an existing provider that's very likely the same one typed
+  /// differently ("Garage Audi Casablanca" / "Audi Casablanca" / "Audi
+  /// Casa") so a new operation never spawns a near-duplicate referential
+  /// entry.
+  Future<ServiceProvider?> findLikelyDuplicate(String name) async {
+    final all = await (_db.select(_db.serviceProviders)
+          ..where((p) => p.isArchived.equals(false)))
+        .get();
+    for (final p in all) {
+      if (isLikelyDuplicate(name, p.name)) return p;
+    }
+    return null;
   }
 
   Future<String> createProvider({

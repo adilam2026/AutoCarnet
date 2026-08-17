@@ -59,6 +59,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
   final _priceCtrl = TextEditingController();
   bool _isFullTank = true;
   ServiceProvider? _selectedProvider;
+  String _providerText = '';
   String? _initialProviderName;
   bool _saving = false;
   bool _deleting = false;
@@ -92,6 +93,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
           await ref.read(providerRepositoryProvider).getById(source.providerId!);
       _selectedProvider = provider;
       _initialProviderName = provider?.name;
+      _providerText = provider?.name ?? '';
     }
     if (mounted) setState(() => _ready = true);
   }
@@ -109,7 +111,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
       final providerId = await resolveOrCreateProvider(
         ref,
         selected: _selectedProvider,
-        typedText: '',
+        typedText: _providerText,
       );
       final repo = ref.read(fuelRepositoryProvider);
       if (_isEditing) {
@@ -317,6 +319,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
                     label: 'Station-service',
                     initialName: _initialProviderName,
                     onSelected: (p) => _selectedProvider = p,
+                    onTextChanged: (text) => _providerText = text,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(

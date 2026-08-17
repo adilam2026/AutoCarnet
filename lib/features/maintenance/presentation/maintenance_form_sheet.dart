@@ -68,8 +68,10 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
   final _laborCtrl = TextEditingController(text: '0');
   final _commentsCtrl = TextEditingController();
   ServiceProvider? _selectedProvider;
+  String _providerText = '';
   String? _initialProviderName;
   final List<_PartRow> _parts = [];
+  bool _detailedCosts = false;
   bool _createExpense = true;
   bool _saving = false;
   bool _deleting = false;
@@ -161,6 +163,7 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
           await ref.read(providerRepositoryProvider).getById(source.providerId!);
       _selectedProvider = provider;
       _initialProviderName = provider?.name;
+      _providerText = provider?.name ?? '';
     }
 
     // Both editing and duplicating start from the source's existing parts -
@@ -176,6 +179,9 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
       row.unitPriceCtrl.text = p.unitPrice.toStringAsFixed(2);
       _parts.add(row);
     }
+    // An entry that already has an itemized breakdown keeps showing it -
+    // only a plain total (no parts) gets the simplified "Montant" field.
+    _detailedCosts = _parts.isNotEmpty;
 
     if (mounted) setState(() => _ready = true);
   }
@@ -285,16 +291,21 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
       final providerId = await resolveOrCreateProvider(
         ref,
         selected: _selectedProvider,
-        typedText: '',
+        typedText: _providerText,
       );
-      final parts = _parts
-          .where((p) => p.designationCtrl.text.trim().isNotEmpty)
-          .map((p) => NewMaintenancePart(
-                designation: p.designationCtrl.text.trim(),
-                quantity: double.tryParse(p.quantityCtrl.text) ?? 1,
-                unitPrice: double.tryParse(p.unitPriceCtrl.text) ?? 0,
-              ))
-          .toList();
+      // In simple mode the "Montant" field alone carries the total - any
+      // part rows left over from a previous "Détailler" toggle are never
+      // sent, so the amount is never counted twice.
+      final parts = !_detailedCosts
+          ? const <NewMaintenancePart>[]
+          : _parts
+              .where((p) => p.designationCtrl.text.trim().isNotEmpty)
+              .map((p) => NewMaintenancePart(
+                    designation: p.designationCtrl.text.trim(),
+                    quantity: double.tryParse(p.quantityCtrl.text) ?? 1,
+                    unitPrice: double.tryParse(p.unitPriceCtrl.text) ?? 0,
+                  ))
+              .toList();
       final nextDueMileage = double.tryParse(_nextDueMileageCtrl.text.trim());
       final repo = ref.read(maintenanceRepositoryProvider);
       if (_isEditing) {
@@ -495,66 +506,99 @@ class _MaintenanceFormSheetState extends ConsumerState<_MaintenanceFormSheet> {
                   ProviderPickerField(
                     initialName: _initialProviderName,
                     onSelected: (p) => _selectedProvider = p,
+                    onTextChanged: (text) => _providerText = text,
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Pièces remplacées',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      TextButton.icon(
-                        onPressed: () => setState(() => _parts.add(_PartRow())),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Ajouter'),
-                      ),
-                    ],
-                  ),
-                  for (final part in _parts)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextField(
-                              controller: part.designationCtrl,
-                              decoration:
-                                  const InputDecoration(labelText: 'Désignation'),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: TextField(
-                              controller: part.quantityCtrl,
-                              decoration: const InputDecoration(labelText: 'Qté'),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: TextField(
-                              controller: part.unitPriceCtrl,
-                              decoration:
-                                  const InputDecoration(labelText: 'Prix unit.'),
-                              keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () => setState(() => _parts.remove(part)),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text('Montant', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
-                  TextFormField(
-                    controller: _laborCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Main-d\'œuvre'),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                  ),
+                  if (!_detailedCosts) ...[
+                    TextFormField(
+                      controller: _laborCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Montant total',
+                        suffixText: ref.read(defaultCurrencyProvider),
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    TextButton(
+                      onPressed: () => setState(() => _detailedCosts = true),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      child: const Text('Détailler pièces et main-d\'œuvre'),
+                    ),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Pièces remplacées',
+                            style: Theme.of(context).textTheme.labelLarge),
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _parts.add(_PartRow())),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Ajouter'),
+                        ),
+                      ],
+                    ),
+                    for (final part in _parts)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: part.designationCtrl,
+                                decoration: const InputDecoration(
+                                    labelText: 'Désignation'),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: TextField(
+                                controller: part.quantityCtrl,
+                                decoration:
+                                    const InputDecoration(labelText: 'Qté'),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: TextField(
+                                controller: part.unitPriceCtrl,
+                                decoration: const InputDecoration(
+                                    labelText: 'Prix unit.'),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () =>
+                                  setState(() => _parts.remove(part)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextFormField(
+                      controller: _laborCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Main-d\'œuvre',
+                        suffixText: ref.read(defaultCurrencyProvider),
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    TextButton(
+                      onPressed: () => setState(() => _detailedCosts = false),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      child: const Text('Revenir au montant simple'),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: _commentsCtrl,
