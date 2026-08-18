@@ -213,12 +213,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: Icon(account.currentUser?.email != null
-                        ? Icons.alternate_email
-                        : Icons.chat_bubble_outline),
-                    title: Text(account.currentUser?.email ??
-                        account.currentUser?.phone ??
-                        ''),
+                    leading: const Icon(Icons.alternate_email),
+                    title: Text(account.currentUser?.email ?? ''),
                     subtitle: const Text('Compte AutoCarnet'),
                   ),
                   const Divider(height: 1),
