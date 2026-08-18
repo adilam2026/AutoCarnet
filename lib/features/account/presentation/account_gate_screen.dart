@@ -88,14 +88,33 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
       setState(() => _error = 'Les deux mots de passe ne correspondent pas');
       return;
     }
-    await _run(
-      () => _repo.signUp(
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await _repo.signUp(
         displayName: _nameCtrl.text,
         email: _emailCtrl.text,
         password: _passwordCtrl.text,
-      ),
-      onSuccess: _Step.verifyEmail,
-    );
+      );
+      if (!mounted) return;
+      // If the project doesn't require email confirmation, signUp() already
+      // returns a live session - there's no code to enter, so skip straight
+      // to the app instead of showing a verify-email step that would just
+      // wait forever for an email that was never sent.
+      if (_repo.isSignedIn) {
+        widget.onAuthenticated();
+      } else {
+        _goTo(_Step.verifyEmail);
+      }
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Une erreur est survenue : $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submitVerifyEmail() async {
