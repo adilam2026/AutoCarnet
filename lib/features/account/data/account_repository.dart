@@ -19,6 +19,31 @@ class AccountRepository {
 
   Stream<AuthState> get onAuthStateChange => _client.auth.onAuthStateChange;
 
+  /// Sends a 6-digit code to [phone] (E.164 format, e.g. +212612345678) over
+  /// WhatsApp. This single call covers both signup and sign-in - Supabase's
+  /// phone OTP endpoint auto-creates the account on a new number and just
+  /// re-sends the code on an existing one, so the app never has to know in
+  /// advance which case it's in. [displayName] is only used the first time
+  /// (a new number): it's carried as user metadata so the existing
+  /// handle_new_user() trigger can seed the profile with it, exactly like
+  /// the email flow.
+  Future<void> sendPhoneCode(String phone, {String? displayName}) async {
+    await _client.auth.signInWithOtp(
+      phone: phone,
+      channel: OtpChannel.whatsapp,
+      data: (displayName != null && displayName.trim().isNotEmpty)
+          ? {'display_name': displayName.trim()}
+          : null,
+    );
+  }
+
+  /// Verifying the code signs the user in directly - phone auth has no
+  /// separate "confirm" step like email does, this call alone produces a
+  /// live session.
+  Future<void> verifyPhoneCode({required String phone, required String code}) async {
+    await _client.auth.verifyOTP(phone: phone, token: code.trim(), type: OtpType.sms);
+  }
+
   /// Step 1 of account creation - the account exists right away but stays
   /// unverified until [confirmSignUp] succeeds (bloc 8: "le compte n'est
   /// complètement activé qu'après vérification de l'adresse").

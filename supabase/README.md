@@ -28,6 +28,41 @@ select tablename, policyname from pg_policies where schemaname = 'public' order 
 Chaque table doit apparaître avec `rowsecurity = true` et 4 policies
 (select/insert/update/delete).
 
+## Configuration requise pour que la connexion par WhatsApp fonctionne
+
+L'app propose maintenant **WhatsApp en premier** pour créer un compte ou se
+connecter : l'utilisateur saisit son numéro (indicatif + numéro, jamais en
+texte libre), reçoit un code à 6 chiffres par WhatsApp, le saisit — et c'est
+tout, pas besoin d'adresse email. L'email reste disponible en solution de
+repli ("Utiliser une adresse email à la place").
+
+Ça vient directement de l'authentification téléphone de Supabase, mais
+Supabase n'envoie jamais de SMS/WhatsApp lui-même — il faut brancher un
+fournisseur externe. **C'est la seule étape que je ne peux pas faire moi-même**
+(ça demande de créer un compte chez ce fournisseur, avec vérification
+d'identité) :
+
+1. Crée un compte sur [twilio.com](https://www.twilio.com) (offre d'essai
+   gratuite avec crédit offert — suffisant pour tester ; au-delà, la
+   facturation WhatsApp via Twilio est de l'ordre de quelques centimes par
+   message, ce n'est pas totalement gratuit à grande échelle mais très bas
+   coût, contrairement à l'email il n'y a pas de limite artificielle bloquante).
+2. Dans Twilio, active le canal **WhatsApp** (Messaging → Try it out →
+   Send a WhatsApp message, ou pour la production : WhatsApp Senders — ça
+   demande une vérification Meta Business, qui prend quelques jours).
+3. Récupère ton **Account SID** et ton **Auth Token** Twilio (jamais à me
+   les donner en clair dans le chat — comme pour tout mot de passe/clé
+   secrète : à saisir uniquement dans le dashboard Supabase, jamais ici).
+4. Dashboard Supabase → **Authentication** → **Sign In / Providers** →
+   ouvre le fournisseur **Phone** → active-le → choisis **Twilio** comme
+   SMS provider → colle l'Account SID et l'Auth Token → dans le champ
+   "Message Service SID / Sender", indique ton numéro WhatsApp Twilio.
+5. Sauvegarde.
+
+Sans cette étape, le bouton "Continuer avec WhatsApp" affichera une erreur
+Supabase claire (pas un blocage silencieux) — le chemin email reste
+utilisable en attendant.
+
 ## Configuration requise pour que la vérification par email fonctionne
 
 L'app envoie un **code à 6 chiffres** (jamais un simple lien magique) pour

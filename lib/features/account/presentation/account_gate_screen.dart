@@ -7,6 +7,9 @@ import '../data/account_repository.dart';
 
 enum _Step {
   choice,
+  phoneEntry,
+  verifyPhone,
+  emailChoice,
   signUp,
   verifyEmail,
   login,
@@ -14,6 +17,25 @@ enum _Step {
   forgotCode,
   forgotNewPassword,
 }
+
+/// A short, non-exhaustive list of country codes for the phone entry step
+/// (RG - "le téléphone doit être saisi à partir d'un indicatif, jamais en
+/// texte libre, pour éviter les numéros erronés"). Morocco first since it's
+/// this app's home market (see the MAD default currency elsewhere).
+const _countryCodes = <(String flag, String code, String label)>[
+  ('🇲🇦', '+212', 'Maroc'),
+  ('🇫🇷', '+33', 'France'),
+  ('🇪🇸', '+34', 'Espagne'),
+  ('🇩🇿', '+213', 'Algérie'),
+  ('🇹🇳', '+216', 'Tunisie'),
+  ('🇧🇪', '+32', 'Belgique'),
+  ('🇨🇭', '+41', 'Suisse'),
+  ('🇬🇧', '+44', 'Royaume-Uni'),
+  ('🇩🇪', '+49', 'Allemagne'),
+  ('🇮🇹', '+39', 'Italie'),
+  ('🇳🇱', '+31', 'Pays-Bas'),
+  ('🇺🇸', '+1', 'États-Unis/Canada'),
+];
 
 /// The account-first flow (bloc 7-9): create/verify a cloud account, or sign
 /// back in on a new device. [onContinueOffline] is the escape hatch that
@@ -46,6 +68,12 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
   final _codeCtrl = TextEditingController();
   final _newPasswordCtrl = TextEditingController();
   final _newPasswordConfirmCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  String _countryCode = _countryCodes.first.$2;
+  // The verified E.164 number for this session - fixed once the OTP step
+  // starts, so a code sent to one number can never be typed in against a
+  // different one.
+  String? _verifyingPhone;
 
   AccountRepository get _repo => ref.read(accountRepositoryProvider);
 
@@ -108,6 +136,55 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
       } else {
         _goTo(_Step.verifyEmail);
       }
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Une erreur est survenue : $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitPhoneEntry() async {
+    final digits = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 6) {
+      setState(() => _error = 'Numéro de téléphone invalide');
+      return;
+    }
+    // Local numbers are often typed with a leading trunk 0 (e.g. "0612345678")
+    // which must be dropped for the E.164 form Supabase expects.
+    final localDigits = digits.startsWith('0') ? digits.substring(1) : digits;
+    final phone = '$_countryCode$localDigits';
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await _repo.sendPhoneCode(phone, displayName: _nameCtrl.text);
+      if (!mounted) return;
+      _verifyingPhone = phone;
+      _goTo(_Step.verifyPhone);
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Une erreur est survenue : $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitVerifyPhone() async {
+    if (_codeCtrl.text.trim().length < 6) {
+      setState(() => _error = 'Le code contient 6 chiffres');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await _repo.verifyPhoneCode(phone: _verifyingPhone!, code: _codeCtrl.text);
+      if (mounted) widget.onAuthenticated();
     } on AuthException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
@@ -221,6 +298,7 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
     _codeCtrl.dispose();
     _newPasswordCtrl.dispose();
     _newPasswordConfirmCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -249,6 +327,12 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
     switch (_step) {
       case _Step.choice:
         return _choiceContent(context);
+      case _Step.phoneEntry:
+        return _phoneEntryContent(context);
+      case _Step.verifyPhone:
+        return _verifyPhoneContent(context);
+      case _Step.emailChoice:
+        return _emailChoiceContent(context);
       case _Step.signUp:
         return _signUpContent(context);
       case _Step.verifyEmail:
@@ -271,20 +355,115 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
             textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Créez un compte pour retrouver vos véhicules sur tous vos appareils, '
-          'ou continuez sans connexion.',
+          'Connectez-vous avec votre numéro pour retrouver vos véhicules sur '
+          'tous vos appareils, ou continuez sans connexion.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: AppSpacing.xl),
-        FilledButton(onPressed: () => _goTo(_Step.signUp), child: const Text('Créer un compte')),
+        FilledButton.icon(
+          onPressed: () => _goTo(_Step.phoneEntry),
+          icon: const Icon(Icons.chat_bubble_outline),
+          label: const Text('Continuer avec WhatsApp'),
+        ),
         const SizedBox(height: AppSpacing.sm),
-        OutlinedButton(onPressed: () => _goTo(_Step.login), child: const Text('Se connecter')),
+        TextButton(
+          onPressed: () => _goTo(_Step.emailChoice),
+          child: const Text('Utiliser une adresse email à la place'),
+        ),
         const SizedBox(height: AppSpacing.lg),
         TextButton(
           onPressed: widget.onContinueOffline,
           child: const Text('Continuer hors connexion'),
         ),
+      ];
+
+  List<Widget> _phoneEntryContent(BuildContext context) => [
+        _BackButton(onPressed: () => _goTo(_Step.choice)),
+        Icon(Icons.chat_bubble_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: AppSpacing.md),
+        Text('Continuer avec WhatsApp',
+            textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Un code de vérification à 6 chiffres vous sera envoyé par WhatsApp.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        TextField(
+          controller: _nameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Nom et prénom (facultatif)'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<String>(
+              value: _countryCode,
+              items: _countryCodes
+                  .map((c) => DropdownMenuItem(value: c.$2, child: Text('${c.$1} ${c.$2}')))
+                  .toList(),
+              onChanged: (v) => setState(() => _countryCode = v ?? _countryCode),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Numéro de téléphone'),
+              ),
+            ),
+          ],
+        ),
+        _errorText(context),
+        const SizedBox(height: AppSpacing.md),
+        _submitButton('Recevoir le code par WhatsApp', _busy ? null : _submitPhoneEntry),
+      ];
+
+  List<Widget> _verifyPhoneContent(BuildContext context) => [
+        Icon(Icons.chat_bubble_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: AppSpacing.md),
+        Text('Vérifiez votre WhatsApp',
+            textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Un code à 6 chiffres a été envoyé à ${_verifyingPhone ?? ''} par WhatsApp.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        TextField(
+          controller: _codeCtrl,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 24, letterSpacing: 8),
+          decoration: const InputDecoration(counterText: ''),
+        ),
+        _errorText(context),
+        const SizedBox(height: AppSpacing.sm),
+        _submitButton('Vérifier', _busy ? null : _submitVerifyPhone),
+        const SizedBox(height: AppSpacing.sm),
+        TextButton(
+          onPressed: _busy || _verifyingPhone == null
+              ? null
+              : () => _run(
+                    () => _repo.sendPhoneCode(_verifyingPhone!, displayName: _nameCtrl.text),
+                    onSuccess: _Step.verifyPhone,
+                  ),
+          child: const Text('Renvoyer le code'),
+        ),
+      ];
+
+  List<Widget> _emailChoiceContent(BuildContext context) => [
+        _BackButton(onPressed: () => _goTo(_Step.choice)),
+        Text('Compte par email', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: AppSpacing.lg),
+        FilledButton(onPressed: () => _goTo(_Step.signUp), child: const Text('Créer un compte')),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton(onPressed: () => _goTo(_Step.login), child: const Text('Se connecter')),
       ];
 
   List<Widget> _signUpContent(BuildContext context) => [
