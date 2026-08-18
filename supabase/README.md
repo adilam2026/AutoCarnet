@@ -2,7 +2,10 @@
 
 ## Comment appliquer la migration
 
-1. Ouvre le dashboard Supabase de ton projet (`gecqlxxhflnxlpderkyu`).
+1. Ouvre le dashboard Supabase de ton projet (`ugrypnavzzqsvuyxkphl`, "AutoCarnetV2" -
+   le projet d'origine `gecqlxxhflnxlpderkyu` a été abandonné : son service
+   d'authentification avait cessé de recharger ses réglages dashboard, même
+   après redémarrage, aucune vraie donnée n'y avait encore été créée).
 2. Menu de gauche → **SQL Editor** → **New query**.
 3. Colle tout le contenu de `migrations/0001_init.sql`.
 4. Clique **Run**.
