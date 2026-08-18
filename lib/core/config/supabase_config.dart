@@ -6,7 +6,11 @@
 class SupabaseConfig {
   const SupabaseConfig._();
 
-  static const url = 'https://gecqlxxhflnxlpderkyu.supabase.co';
+  // AutoCarnetV2 - replaces the original project, which got stuck in a state
+  // where dashboard settings (Confirm email, custom SMTP) stopped being
+  // picked up by its auth server even after a restart. No real user data
+  // was lost - only test/schema data existed there.
+  static const url = 'https://ugrypnavzzqsvuyxkphl.supabase.co';
   static const anonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlY3FseHhoZmxueGxwZGVya3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMTk3MzIsImV4cCI6MjEwMTg5NTczMn0.teWibXTc5oQlo6T3lhwadsxe7pvyp70hHEpuCq1orG8';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncnlwbmF2enpxc3Z1eXhrcGhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNjY1NjIsImV4cCI6MjEwMjY0MjU2Mn0.W7SdC2ztHtn5hvJUptNOP5Q4OhYxxOHXZgfz6S2Rfw4';
 }
