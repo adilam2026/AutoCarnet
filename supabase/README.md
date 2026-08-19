@@ -59,6 +59,21 @@ Sans cette étape, les emails partiront quand même mais l'utilisateur ne
 verra aucun code à saisir dans l'app - juste un lien cassé (l'app n'utilise
 jamais ce lien, elle attend uniquement le code).
 
+## Synchronisation cloud (véhicules) — appliquer la migration 0003
+
+Étape supplémentaire pour activer le temps quasi-réel (nécessaire uniquement
+si tu veux que deux appareils/comptes voient les mêmes véhicules se
+synchroniser automatiquement, pas seulement au prochain lancement de l'app) :
+
+1. SQL Editor → **New query**.
+2. Colle le contenu de `migrations/0003_enable_realtime.sql`.
+3. **Run**.
+
+Sans cette étape, la synchronisation continue de fonctionner (push au
+démarrage + toutes les 2 minutes), mais les changements d'un autre appareil
+n'apparaissent qu'au prochain passage périodique au lieu d'en quelques
+secondes.
+
 ## Ce qui n'est PAS encore fait
 
 - **Stockage des pièces jointes** (photos, PDF de documents) : nécessite un
@@ -68,20 +83,22 @@ jamais ce lien, elle attend uniquement le code).
   mono-utilisateur strict (chaque ligne appartient à un seul `user_id`).
   Le partage nécessiterait une table `vehicle_members` (véhicule ↔
   utilisateurs ↔ niveau de permission) et des policies RLS plus complexes —
-  volontairement pas construit tant que ce n'est pas confirmé comme
-  nécessaire, pour ne pas complexifier la sécurité sans usage réel.
-- **Le moteur de synchronisation** (file d'attente locale → cloud,
-  déclenchement automatique, résolution de conflits, gestion des
-  appareils/`devices`) : le compte email fonctionne (création et connexion
-  par code à 6 chiffres, déconnexion simple/tous appareils), mais aucune
-  donnée (véhicules, entretiens...) n'est encore synchronisée entre
-  appareils. C'est la prochaine étape.
-- **Test réel de bout en bout** : je n'ai ni téléphone ni boîte mail réelle
-  pour recevoir un code de vérification depuis ce sandbox - je ne peux donc
-  pas reproduire moi-même le scénario complet "créer un compte → recevoir le
-  code → le saisir → être connecté". Le code compile et passe l'analyse
-  statique, mais **toi seul peux valider ce parcours réellement** avant de
-  le considérer fiable.
+  **c'est la prochaine étape en cours**, demandée explicitement (connexion
+  visible + partage collaboratif d'un véhicule).
+- **Synchronisation au-delà de la fiche véhicule** : seule la table
+  `vehicles` est aujourd'hui synchronisée (push automatique à chaque
+  modification locale + pull périodique/temps réel via Supabase Realtime,
+  résolution de conflit "dernier écrit gagne" sur `updated_at`). Entretiens,
+  documents, dépenses, etc. restent pour l'instant strictement locaux à
+  chaque appareil - à étendre au même moteur une fois le partage construit
+  dessus.
+- **Test réel de bout en bout à deux comptes** : je n'ai ni deuxième
+  téléphone ni boîte mail réelle pour recevoir un code de vérification
+  depuis ce sandbox - je ne peux donc pas reproduire moi-même le parcours
+  complet "compte A partage → compte B rejoint avec le code → les deux
+  voient les mêmes données se synchroniser". Le code compile, passe
+  l'analyse statique et les tests unitaires, mais **ce parcours à deux
+  comptes doit être validé par toi** avant d'être considéré fiable.
 
 ## Notes de conception
 

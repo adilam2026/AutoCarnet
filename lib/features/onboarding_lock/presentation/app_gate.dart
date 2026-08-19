@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/sync/sync_coordinator.dart';
 import '../../../core/utils/connectivity.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../account/data/account_repository.dart';
@@ -130,11 +131,34 @@ class _AppGateState extends ConsumerState<AppGate> {
           _GateStep.locked => LockScreen(
               onUnlocked: () => setState(() => _step = _GateStep.unlocked),
             ),
-          _GateStep.unlocked => widget.child,
+          _GateStep.unlocked => _UnlockedApp(child: widget.child),
         };
       },
     );
   }
+}
+
+/// Starts the cloud sync coordinator exactly once per app-unlocked session
+/// (the very moment collaboration data could matter), never before the
+/// gate settles - starting it during onboarding/auth would just mean every
+/// pass no-ops until a session exists, so this simply avoids the churn.
+class _UnlockedApp extends ConsumerStatefulWidget {
+  const _UnlockedApp({required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<_UnlockedApp> createState() => _UnlockedAppState();
+}
+
+class _UnlockedAppState extends ConsumerState<_UnlockedApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(syncCoordinatorProvider).start();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _Splash extends StatelessWidget {

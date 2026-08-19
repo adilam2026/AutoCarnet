@@ -1,18 +1,29 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/vehicle_sync_service.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/mileage_result.dart';
 import '../../audit/data/audit_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
 
 class VehicleRepository {
-  VehicleRepository(this._db, this._audit, this._reminders);
+  VehicleRepository(this._db, this._audit, this._reminders, [this._sync]);
   final AppDatabase _db;
   final AuditRepository _audit;
   final ReminderRepository _reminders;
+  // Optional: absent in unit tests (no Supabase session to sync to). When
+  // present, every local write nudges a fire-and-forget cloud sync pass -
+  // never awaited, so a slow/offline network can never delay a local save.
+  final VehicleSyncService? _sync;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncNow());
+  }
 
   Stream<List<Vehicle>> watchAll() {
     final query = _db.select(_db.vehicles)
@@ -92,12 +103,17 @@ class VehicleRepository {
       summary: '$brand $model ajouté au carnet',
       occurredAt: now,
     );
+    _nudgeSync();
     return id;
   }
 
   Future<void> updateVehicle(Vehicle vehicle, {String? changeSummary}) async {
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id)))
-        .write(vehicle.toCompanion(true).copyWith(updatedAt: Value(DateTime.now())));
+    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
+      vehicle.toCompanion(true).copyWith(
+            updatedAt: Value(DateTime.now()),
+            syncStatus: const Value('pendingSync'),
+          ),
+    );
     await _audit.log(
       vehicleId: vehicle.id,
       entityType: 'vehicle',
@@ -105,6 +121,7 @@ class VehicleRepository {
       action: 'updated',
       summary: changeSummary ?? 'Fiche véhicule modifiée',
     );
+    _nudgeSync();
   }
 
   Future<void> setStatus(String vehicleId, VehicleStatus status) async {
@@ -112,6 +129,7 @@ class VehicleRepository {
         .write(VehiclesCompanion(
       status: Value(status),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
     await _audit.log(
       vehicleId: vehicleId,
@@ -125,6 +143,7 @@ class VehicleRepository {
     if (status != VehicleStatus.active) {
       await _reminders.disableAllForVehicle(vehicleId);
     }
+    _nudgeSync();
   }
 
   /// Removes a vehicle added by mistake - unlike [setStatus] (archived/
@@ -137,8 +156,10 @@ class VehicleRepository {
         .write(VehiclesCompanion(
       isDeleted: const Value(true),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
     await _reminders.disableAllForVehicle(vehicleId);
+    _nudgeSync();
   }
 
   String _statusLabel(VehicleStatus s) => switch (s) {
@@ -214,6 +235,7 @@ class VehicleRepository {
         .write(VehiclesCompanion(
       currentMileage: Value(newValue),
       updatedAt: Value(now),
+      syncStatus: const Value('pendingSync'),
     ));
     await _audit.log(
       vehicleId: vehicleId,
@@ -222,6 +244,7 @@ class VehicleRepository {
       action: 'mileage_corrected',
       summary: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
     );
+    _nudgeSync();
   }
 
   /// Called by other modules (maintenance, fuel...) when they log an
@@ -253,8 +276,10 @@ class VehicleRepository {
           .write(VehiclesCompanion(
         currentMileage: Value(value),
         updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
       ));
     }
+    _nudgeSync();
   }
 
   /// Corrects the mileage value already recorded for a given operation
@@ -335,6 +360,7 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(auditRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
+    ref.watch(vehicleSyncServiceProvider),
   );
 });
 
