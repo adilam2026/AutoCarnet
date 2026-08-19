@@ -60,13 +60,15 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           TextField(
             controller: widget.pinCtrl,
             obscureText: true,
-            keyboardType: TextInputType.text,
+            keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            // Never let Android's autofill/passcode-suggestion overlay
-            // hijack this field - on some devices it silently replaces
-            // whatever the user is mid-typing with a cached value on
-            // backspace.
-            autofillHints: const [],
+            // TextField's own default for autofillHints is `const []`,
+            // NOT null - which still builds a real (generic, hint-less)
+            // AutofillConfiguration and lets Android's autofill layer
+            // attach to this field. Only an explicit `null` here actually
+            // disables it. A local PIN has no legitimate autofill use
+            // case, so it's fully opted out.
+            autofillHints: null,
             enableSuggestions: false,
             autocorrect: false,
             maxLength: 6,
@@ -75,13 +77,15 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           TextField(
             controller: widget.confirmCtrl,
             obscureText: true,
-            keyboardType: TextInputType.text,
+            keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            // Never let Android's autofill/passcode-suggestion overlay
-            // hijack this field - on some devices it silently replaces
-            // whatever the user is mid-typing with a cached value on
-            // backspace.
-            autofillHints: const [],
+            // TextField's own default for autofillHints is `const []`,
+            // NOT null - which still builds a real (generic, hint-less)
+            // AutofillConfiguration and lets Android's autofill layer
+            // attach to this field. Only an explicit `null` here actually
+            // disables it. A local PIN has no legitimate autofill use
+            // case, so it's fully opted out.
+            autofillHints: null,
             enableSuggestions: false,
             autocorrect: false,
             maxLength: 6,
@@ -127,13 +131,15 @@ Future<bool> showConfirmCurrentPinDialog(
           content: TextField(
             controller: ctrl,
             obscureText: true,
-            keyboardType: TextInputType.text,
+            keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            // Never let Android's autofill/passcode-suggestion overlay
-            // hijack this field - on some devices it silently replaces
-            // whatever the user is mid-typing with a cached value on
-            // backspace.
-            autofillHints: const [],
+            // TextField's own default for autofillHints is `const []`,
+            // NOT null - which still builds a real (generic, hint-less)
+            // AutofillConfiguration and lets Android's autofill layer
+            // attach to this field. Only an explicit `null` here actually
+            // disables it. A local PIN has no legitimate autofill use
+            // case, so it's fully opted out.
+            autofillHints: null,
             enableSuggestions: false,
             autocorrect: false,
             maxLength: 6,

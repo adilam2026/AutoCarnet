@@ -189,12 +189,14 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
         const SizedBox(height: AppSpacing.lg),
         TextField(
           controller: _codeCtrl,
-          keyboardType: TextInputType.text,
+          keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          // Never let Android's autofill/OTP-suggestion overlay hijack
-          // this field - on some devices it silently replaces whatever
-          // the user is mid-typing with a cached value on backspace.
-          autofillHints: const [],
+          // The correct, positive hint for a one-time code: lets Android
+          // offer the code from a copied clipboard/notification without
+          // the generic hint-less autofill config TextField would
+          // otherwise default to (autofillHints: const [] - not null -
+          // which still enables autofill, just with no hint to guide it).
+          autofillHints: const [AutofillHints.oneTimeCode],
           enableSuggestions: false,
           autocorrect: false,
           maxLength: 6,

@@ -139,13 +139,17 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     controller: _pinCtrl,
                     obscureText: true,
                     enabled: !locked,
-                    keyboardType: TextInputType.text,
+                    keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    // Never let Android's autofill/passcode-suggestion
-                    // overlay hijack this field - on some devices it
-                    // silently replaces whatever the user is mid-typing
-                    // with a cached value the moment they backspace.
-                    autofillHints: const [],
+                    // TextField's own default for autofillHints is
+                    // `const []`, NOT null - which still builds a real
+                    // (generic, hint-less) AutofillConfiguration and lets
+                    // Android's autofill/password-manager layer attach to
+                    // this field. Only an explicit `null` here actually
+                    // produces AutofillConfiguration.disabled. A local PIN
+                    // has no legitimate autofill use case, so it's fully
+                    // opted out - never a stale value silently restored.
+                    autofillHints: null,
                     enableSuggestions: false,
                     autocorrect: false,
                     maxLength: 6,
