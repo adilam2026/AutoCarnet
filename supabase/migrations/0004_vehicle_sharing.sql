@@ -49,23 +49,6 @@ exception when others then
 end;
 $$;
 
--- A user's own profile stays visible as before; additionally, anyone who
--- shares at least one vehicle (as owner or as fellow member) with another
--- user can see that user's name/email - needed for both the "Partage et
--- accès" screen and the invite preview ("owner_display_name"). Scoped
--- strictly to actual shared vehicles, never a global directory.
-alter policy "select own profile" on public.profiles
-  using (
-    auth.uid() = id
-    or exists (
-      select 1
-      from public.vehicle_members vm
-      join public.vehicles v on v.id = vm.vehicle_id
-      where (v.user_id = auth.uid() or vm.user_id = auth.uid())
-        and (profiles.id = v.user_id or profiles.id = vm.user_id)
-    )
-  );
-
 -- 2. vehicle_members - who (besides the owner) can access a vehicle, and
 --    at what level. -----------------------------------------------------
 create table public.vehicle_members (
@@ -128,6 +111,24 @@ create policy "owner revokes member" on public.vehicle_members
     exists (
       select 1 from public.vehicles v
       where v.id = vehicle_members.vehicle_id and v.user_id = auth.uid()
+    )
+  );
+
+-- Now that vehicle_members exists, extend profiles visibility: a user's
+-- own profile stays visible as before; additionally, anyone who shares at
+-- least one vehicle (as owner or as fellow member) with another user can
+-- see that user's name/email - needed for both the "Partage et accès"
+-- screen and the invite preview ("owner_display_name"). Scoped strictly to
+-- actual shared vehicles, never a global directory.
+alter policy "select own profile" on public.profiles
+  using (
+    auth.uid() = id
+    or exists (
+      select 1
+      from public.vehicle_members vm
+      join public.vehicles v on v.id = vm.vehicle_id
+      where (v.user_id = auth.uid() or vm.user_id = auth.uid())
+        and (profiles.id = v.user_id or profiles.id = vm.user_id)
     )
   );
 
