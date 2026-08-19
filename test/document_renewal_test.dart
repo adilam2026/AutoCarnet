@@ -18,6 +18,10 @@ void main() {
       expect(defaultRenewalMonths('Visite technique'), 12);
     });
 
+    test('permis de conduire defaults to 120 months (10 years)', () {
+      expect(defaultRenewalMonths('Permis de conduire'), 120);
+    });
+
     test('a document type without a default rule returns null', () {
       expect(defaultRenewalMonths('Carte grise'), isNull);
     });
@@ -40,6 +44,15 @@ void main() {
       expect(suggested, DateTime(2027, 5, 12));
     });
 
+    test('permis de conduire délivré le 01/03/2020 -> expire le '
+        '01/03/2030 (10 ans)', () {
+      final issued = DateTime(2020, 3, 1);
+      final months = defaultRenewalMonths('Permis de conduire')!;
+      final suggested =
+          DateTime(issued.year, issued.month + months, issued.day);
+      expect(suggested, DateTime(2030, 3, 1));
+    });
+
     test('vignette is civil-year bound, never a fixed 12-month interval',
         () {
       expect(isCivilYearBound('Vignette'), isTrue);
@@ -47,12 +60,13 @@ void main() {
     });
 
     test(
-        'TEST 25: vignette payée en cours d\'année reste due au 1er janvier '
-        'de l\'année suivante, jamais "date de paiement + 12 mois"', () {
-      expect(civilYearDueDate(DateTime(2026, 8, 16)), DateTime(2027, 1, 1));
-      // Paid in January still lands on the *following* civil year - a
-      // fixed +12-months rule would wrongly land in the same month.
-      expect(civilYearDueDate(DateTime(2026, 1, 5)), DateTime(2027, 1, 1));
+        'TEST 25: la vignette de l\'année Y échoit (au sens des rappels) au '
+        '31 janvier Y+1, jamais "date de paiement + 12 mois" - le délai de '
+        'grâce accordé par l\'État est intégré à l\'échéance elle-même', () {
+      expect(civilYearDueDate(2026), DateTime(2027, 1, 31));
+      // Peu importe le mois où elle a été payée dans l'année, seule
+      // l'année civile choisie compte.
+      expect(civilYearDueDate(2025), DateTime(2026, 1, 31));
     });
   });
 
@@ -94,50 +108,51 @@ void main() {
     });
 
     test(
-        'TEST 25: paying the vignette creates a reminder for the next civil '
-        'year, worded "Vignette YYYY à payer"', () async {
-      final paidOn = DateTime(2026, 3, 1);
-      final due = civilYearDueDate(paidOn);
+        'TEST 25: buying the vignette for a civil year creates a reminder '
+        'due 31/01 of the following year, worded "Vignette YYYY à payer"',
+        () async {
+      const vignetteYear = 2026;
+      final due = civilYearDueDate(vignetteYear);
       await documents.createDocument(
         vehicleId: vehicleId,
         type: 'Vignette',
-        issueDate: paidOn,
+        issueDate: DateTime(vignetteYear, 1, 1),
         expiryDate: due,
       );
       final active = await reminders.watchActiveForVehicle(vehicleId).first;
       expect(active, hasLength(1));
-      expect(active.first.title, 'Vignette 2027 à payer');
-      expect(active.first.dueDate, DateTime(2027, 1, 1));
+      expect(active.first.title, 'Vignette 2026 à payer');
+      expect(active.first.dueDate, DateTime(2027, 1, 31));
     });
 
     test(
         'renewing the vignette for the following year keeps last year\'s '
         'version in history and replaces the reminder - never stacking two',
         () async {
-      final firstPaid = DateTime(2026, 3, 1);
+      const firstYear = 2026;
       final docId = await documents.createDocument(
         vehicleId: vehicleId,
         type: 'Vignette',
-        issueDate: firstPaid,
-        expiryDate: civilYearDueDate(firstPaid),
+        issueDate: DateTime(firstYear, 1, 1),
+        expiryDate: civilYearDueDate(firstYear),
       );
-      final secondPaid = DateTime(2027, 1, 10);
+      const secondYear = 2027;
       await documents.renewDocument(
         documentId: docId,
-        issueDate: secondPaid,
-        expiryDate: civilYearDueDate(secondPaid),
+        issueDate: DateTime(secondYear, 1, 1),
+        expiryDate: civilYearDueDate(secondYear),
       );
 
       final active = await reminders.watchActiveForVehicle(vehicleId).first;
       expect(active, hasLength(1));
-      expect(active.first.title, 'Vignette 2028 à payer');
+      expect(active.first.title, 'Vignette 2027 à payer');
 
       final all = await reminders.watchAll().first;
       expect(all.where((r) => r.status == ReminderStatus.dismissed),
           hasLength(1));
 
       final doc = await documents.getById(docId);
-      expect(doc!.version!.issueDate, secondPaid);
+      expect(doc!.version!.issueDate, DateTime(secondYear, 1, 1));
     });
   });
 }

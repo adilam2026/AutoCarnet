@@ -137,4 +137,31 @@ void main() {
     final active = await reminders.watchActiveForVehicle(id).first;
     expect(active, isEmpty);
   });
+
+  test('deleting a vehicle removes it from the list without a hard SQL '
+      'delete, and stops its reminders', () async {
+    final id = await repo.createVehicle(
+      brand: 'Renault',
+      model: 'Clio',
+      currentMileage: 50000,
+    );
+    final reminders = ReminderRepository(db);
+    await reminders.upsertForSource(
+      vehicleId: id,
+      sourceType: 'document',
+      sourceId: 'doc-1',
+      title: 'Assurance à renouveler',
+      dueDate: DateTime.now().add(const Duration(days: 10)),
+    );
+
+    await repo.softDelete(id);
+
+    final all = await repo.watchAll().first;
+    expect(all.where((v) => v.id == id), isEmpty);
+    // Still readable directly by id - a soft delete, not a hard one.
+    final stillThere = await repo.getOne(id);
+    expect(stillThere.isDeleted, isTrue);
+    final active = await reminders.watchActiveForVehicle(id).first;
+    expect(active, isEmpty);
+  });
 }

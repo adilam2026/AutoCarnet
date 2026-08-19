@@ -152,11 +152,13 @@ class DocumentRepository {
     return docId;
   }
 
-  /// A civil-year-bound document (vignette) reads better as "Vignette 2027
+  /// A civil-year-bound document (vignette) reads better as "Vignette 2026
   /// à payer" than a generic "à renouveler" - every other type keeps the
-  /// generic wording.
+  /// generic wording. [expiryDate] is the grace-period end (31/01 of the
+  /// year after the vignette's own year - see civilYearDueDate), so the
+  /// vignette's year is always expiryDate.year - 1.
   String _reminderTitle(String type, DateTime expiryDate) {
-    if (isCivilYearBound(type)) return '$type ${expiryDate.year} à payer';
+    if (isCivilYearBound(type)) return '$type ${expiryDate.year - 1} à payer';
     return '$type à renouveler';
   }
 

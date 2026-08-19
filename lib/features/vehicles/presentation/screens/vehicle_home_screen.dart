@@ -20,6 +20,7 @@ import '../../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../../reminders/data/reminder_repository.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
 import '../../data/vehicle_repository.dart';
+import '../../domain/vehicle_compliance_rules.dart';
 import '../../domain/vehicle_health.dart';
 import '../providers/vehicle_form_providers.dart';
 import '../widgets/add_operation_sheet.dart';
@@ -154,6 +155,11 @@ class _VehicleHomeBody extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Supprimer le véhicule',
+            onPressed: () => _confirmDelete(context, ref, vehicle),
+          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -214,6 +220,7 @@ class _VehicleHomeBody extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           _AdministrativeCard(
             vehicleId: vehicle.id,
+            firstRegistrationDate: vehicle.firstRegistrationDate,
             vehicleDocuments: documents,
             driverDocuments: driverDocuments,
           ),
@@ -275,6 +282,36 @@ class _VehicleHomeBody extends ConsumerWidget {
         VehicleStatus.sold => 'Vendu',
         VehicleStatus.destroyed => 'Détruit',
       };
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Vehicle vehicle) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer ce véhicule ?'),
+        content: Text(
+          '${vehicle.brand} ${vehicle.model} et tout son historique '
+          '(entretiens, dépenses, documents...) ne seront plus visibles '
+          'dans AutoCarnet.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(vehicleRepositoryProvider).softDelete(vehicle.id);
+    if (context.mounted) Navigator.of(context).pop();
+  }
 }
 
 class _HeaderCard extends StatelessWidget {
@@ -734,10 +771,12 @@ class _OverviewTile extends StatelessWidget {
 class _AdministrativeCard extends StatelessWidget {
   const _AdministrativeCard({
     required this.vehicleId,
+    required this.firstRegistrationDate,
     required this.vehicleDocuments,
     required this.driverDocuments,
   });
   final String vehicleId;
+  final DateTime? firstRegistrationDate;
   final List<DocumentWithVersion> vehicleDocuments;
   final List<DocumentWithVersion> driverDocuments;
 
@@ -772,6 +811,16 @@ class _AdministrativeCard extends StatelessWidget {
       }
     }
     if (match == null) {
+      if (type == 'Visite technique' && !visiteTechniqueMandatoryYet(firstRegistrationDate)) {
+        return ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          leading: Icon(Icons.info_outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
+          title: const Text('Visite technique'),
+          subtitle: const Text('Pas encore obligatoire (à partir de la 5ᵉ année)'),
+        );
+      }
       return ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),

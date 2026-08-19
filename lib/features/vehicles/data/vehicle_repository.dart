@@ -127,6 +127,20 @@ class VehicleRepository {
     }
   }
 
+  /// Removes a vehicle added by mistake - unlike [setStatus] (archived/
+  /// sold/destroyed), which keeps the vehicle and its full history
+  /// reachable, this hides it everywhere. A soft delete, never a hard SQL
+  /// delete, so nothing referencing it (documents, expenses, timeline...)
+  /// loses its foreign key.
+  Future<void> softDelete(String vehicleId) async {
+    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+        .write(VehiclesCompanion(
+      isDeleted: const Value(true),
+      updatedAt: Value(DateTime.now()),
+    ));
+    await _reminders.disableAllForVehicle(vehicleId);
+  }
+
   String _statusLabel(VehicleStatus s) => switch (s) {
         VehicleStatus.active => 'Actif',
         VehicleStatus.archived => 'Archivé',
@@ -300,7 +314,6 @@ class VehicleRepository {
     final fields = <Object?>[
       v.trim,
       v.year,
-      v.vin,
       v.plate,
       v.motorization,
       v.fuelType,

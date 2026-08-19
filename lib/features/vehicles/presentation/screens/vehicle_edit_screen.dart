@@ -25,7 +25,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   late final TextEditingController _brand;
   late final TextEditingController _model;
   late final TextEditingController _trim;
-  late final TextEditingController _vin;
   late final TextEditingController _plate;
   late final TextEditingController _motorization;
   late final TextEditingController _color;
@@ -46,7 +45,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _brand = TextEditingController(text: v.brand);
     _model = TextEditingController(text: v.model);
     _trim = TextEditingController(text: v.trim ?? '');
-    _vin = TextEditingController(text: v.vin ?? '');
     _plate = TextEditingController(text: v.plate ?? '');
     _motorization = TextEditingController(text: v.motorization ?? '');
     _color = TextEditingController(text: v.color ?? '');
@@ -67,7 +65,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _brand.dispose();
     _model.dispose();
     _trim.dispose();
-    _vin.dispose();
     _plate.dispose();
     _motorization.dispose();
     _color.dispose();
@@ -106,7 +103,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         // Année unique source de vérité : dérivée de la date de première
         // mise en circulation, jamais saisie séparément (bloc 23).
         year: Value(_firstRegistrationDate?.year ?? widget.vehicle.year),
-        vin: Value(_vin.text.trim().isEmpty ? null : _vin.text.trim()),
         plate: Value(_plate.text.trim().isEmpty ? null : _plate.text.trim()),
         motorization: Value(_motorization.text.trim().isEmpty
             ? null
@@ -190,11 +186,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Identification'),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
-              controller: _vin,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'VIN')),
-          const SizedBox(height: AppSpacing.md),
           TextField(
               controller: _plate,
               textCapitalization: TextCapitalization.characters,

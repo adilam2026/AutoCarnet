@@ -61,6 +61,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
   DateTime? _issueDate;
   DateTime? _expiryDate;
   bool _expiryUserEdited = false;
+  late int _vignetteYear;
   ServiceProvider? _selectedProvider;
   String _providerText = '';
   bool _saving = false;
@@ -77,20 +78,30 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
     _numberCtrl.text = widget.renewingVersion?.documentNumber ?? '';
     _costCtrl.text = widget.renewingVersion?.cost?.toString() ?? '';
     _issueDate = DateTime.now();
+    // Renewing a vignette suggests the next civil year after the one just
+    // covered: the stored expiry is the grace-period end (31/01 of
+    // vignetteYear+1), so that same number is the next year to renew for.
+    final priorExpiry = widget.renewingVersion?.expiryDate;
+    _vignetteYear = (isCivilYearBound(_type) && priorExpiry != null)
+        ? priorExpiry.year
+        : DateTime.now().year;
     _applyDefaultExpirySuggestion();
   }
 
-  /// Assurance / visite technique renew on a fixed 12-month AutoCarnet
-  /// default (blocs 3-4) - always just a suggestion, never applied once the
-  /// owner has picked their own expiry date.
+  /// Assurance / visite technique / permis de conduire renew on a fixed
+  /// AutoCarnet default (blocs 3-4) - always just a suggestion, never
+  /// applied once the owner has picked their own expiry date. The vignette
+  /// has no separate date to override - its expiry is always derived from
+  /// the selected civil year.
   void _applyDefaultExpirySuggestion() {
+    if (isCivilYearBound(_type)) {
+      _issueDate = DateTime(_vignetteYear, 1, 1);
+      _expiryDate = civilYearDueDate(_vignetteYear);
+      return;
+    }
     if (_expiryUserEdited) return;
     final issue = _issueDate;
     if (issue == null) return;
-    if (isCivilYearBound(_type)) {
-      _expiryDate = civilYearDueDate(issue);
-      return;
-    }
     final months = defaultRenewalMonths(_type);
     if (months == null) return;
     _expiryDate = DateTime(issue.year, issue.month + months, issue.day);
@@ -209,46 +220,60 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
               decoration: const InputDecoration(labelText: 'Numéro'),
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pickDate(isExpiry: false),
-                    child: Text(_issueDate == null
-                        ? 'Date de délivrance'
-                        : 'Délivré : ${_fmt(_issueDate!)}'),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pickDate(isExpiry: true),
-                    child: Text(_expiryDate == null
-                        ? 'Date d\'expiration'
-                        : 'Expire : ${_fmt(_expiryDate!)}'),
-                  ),
-                ),
-              ],
-            ),
-            if (!_expiryUserEdited && isCivilYearBound(_type) && _issueDate != null)
+            if (isCivilYearBound(_type)) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _vignetteYear,
+                decoration: const InputDecoration(labelText: 'Année de la vignette *'),
+                items: [
+                  for (var y = DateTime.now().year - 1; y <= DateTime.now().year + 1; y++)
+                    DropdownMenuItem(value: y, child: Text('$y')),
+                ],
+                onChanged: (v) => setState(() {
+                  _vignetteYear = v!;
+                  _applyDefaultExpirySuggestion();
+                }),
+              ),
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xs),
                 child: Text(
-                  'Vignette liée à l\'année civile : prochaine échéance '
-                  'suggérée au 1er janvier ${_issueDate!.year + 1} '
-                  '(modifiable).',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              )
-            else if (!_expiryUserEdited && defaultRenewalMonths(_type) != null)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.xs),
-                child: Text(
-                  'Échéance suggérée par AutoCarnet : délivrance + '
-                  '${defaultRenewalMonths(_type)} mois (modifiable).',
+                  'Valable du 1er janvier au 31 décembre $_vignetteYear. '
+                  'Délai de grâce accordé par l\'État jusqu\'au 31 janvier '
+                  '${_vignetteYear + 1}.',
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pickDate(isExpiry: false),
+                      child: Text(_issueDate == null
+                          ? 'Date de délivrance'
+                          : 'Délivré : ${_fmt(_issueDate!)}'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pickDate(isExpiry: true),
+                      child: Text(_expiryDate == null
+                          ? 'Date d\'expiration'
+                          : 'Expire : ${_fmt(_expiryDate!)}'),
+                    ),
+                  ),
+                ],
+              ),
+              if (!_expiryUserEdited && defaultRenewalMonths(_type) != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    'Échéance suggérée par AutoCarnet : délivrance + '
+                    '${defaultRenewalMonths(_type)} mois (modifiable).',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+            ],
             const SizedBox(height: AppSpacing.md),
             ProviderPickerField(
               label: 'Organisme / prestataire',
