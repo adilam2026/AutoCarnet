@@ -73,7 +73,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   TextField(
                     controller: _pinCtrl,
                     obscureText: true,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     maxLength: 6,
                     decoration: const InputDecoration(labelText: 'Code (4 à 6 chiffres)'),
@@ -81,7 +81,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   TextField(
                     controller: _confirmCtrl,
                     obscureText: true,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     maxLength: 6,
                     decoration: const InputDecoration(labelText: 'Confirmer le code'),

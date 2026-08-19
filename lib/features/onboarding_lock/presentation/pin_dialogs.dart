@@ -60,7 +60,7 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           TextField(
             controller: widget.pinCtrl,
             obscureText: true,
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: 6,
             decoration: const InputDecoration(labelText: 'Nouveau code'),
@@ -68,7 +68,7 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           TextField(
             controller: widget.confirmCtrl,
             obscureText: true,
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: 6,
             decoration: const InputDecoration(labelText: 'Confirmer'),
@@ -113,7 +113,7 @@ Future<bool> showConfirmCurrentPinDialog(
           content: TextField(
             controller: ctrl,
             obscureText: true,
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: 6,
             autofocus: true,

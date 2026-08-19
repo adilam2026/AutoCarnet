@@ -139,7 +139,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     controller: _pinCtrl,
                     obscureText: true,
                     enabled: !locked,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     maxLength: 6,
                     decoration: const InputDecoration(labelText: 'Code'),

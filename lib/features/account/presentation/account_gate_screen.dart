@@ -189,7 +189,7 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
         const SizedBox(height: AppSpacing.lg),
         TextField(
           controller: _codeCtrl,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           maxLength: 6,
           textAlign: TextAlign.center,
