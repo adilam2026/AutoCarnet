@@ -97,6 +97,18 @@ Sans cette étape, l'app affiche les écrans de partage mais chaque appel
 échouera (tables/fonctions inexistantes) - échec silencieux, sans jamais
 bloquer l'usage normal (non partagé) du véhicule.
 
+## Correctif obligatoire — migration 0005 (récursion RLS)
+
+0004 telle qu'écrite au départ provoquait une "infinite recursion detected
+in policy" (Postgres 42P17) : la policy de `vehicles` regarde dans
+`vehicle_members`, et celle de `vehicle_members` regardait dans `vehicles`
+en retour - repéré en testant en conditions réelles juste après 0004.
+**Obligatoire si tu as appliqué 0004 avant que ce correctif existe** :
+
+1. SQL Editor → **New query**.
+2. Colle le contenu de `migrations/0005_fix_rls_recursion.sql`.
+3. **Run**.
+
 ## Ce qui n'est PAS encore fait
 
 - **Stockage des pièces jointes** (photos, PDF de documents) : nécessite un

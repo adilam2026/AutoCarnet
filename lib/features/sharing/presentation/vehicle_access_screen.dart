@@ -106,6 +106,25 @@ class _VehicleAccessScreenState extends ConsumerState<VehicleAccessScreen> {
       body: FutureBuilder<List<VehicleMember>>(
         future: _members,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Impossible de charger la liste des accès. Vérifiez votre connexion.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    TextButton(onPressed: _load, child: const Text('Réessayer')),
+                  ],
+                ),
+              ),
+            );
+          }
           if (!snapshot.hasData) return const LoadingView();
           final members = snapshot.data!;
           return ListView(

@@ -128,6 +128,9 @@ class _ShareVehicleScreenState extends ConsumerState<ShareVehicleScreen> {
           FutureBuilder<List<VehicleInvite>>(
             future: _activeInvites,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return _InlineError(onRetry: _refreshList);
+              }
               if (!snapshot.hasData) return const LoadingView();
               final invites = snapshot.data!;
               if (invites.isEmpty) {
@@ -164,6 +167,30 @@ class _ShareVehicleScreenState extends ConsumerState<ShareVehicleScreen> {
   }
 
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year} à ${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
+}
+
+/// Never leaves the user staring at a spinner that will never resolve: a
+/// FutureBuilder only checking `hasData` treats an error the same as
+/// "still loading" forever, since neither ever becomes true. Surfacing
+/// the error - with a retry - is what previously silently spun instead.
+class _InlineError extends StatelessWidget {
+  const _InlineError({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'Impossible de charger les codes. Vérifiez votre connexion.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextButton(onPressed: onRetry, child: const Text('Réessayer')),
+      ],
+    );
+  }
 }
 
 class _RoleOption extends StatelessWidget {
