@@ -75,6 +75,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                     obscureText: true,
                     keyboardType: TextInputType.text,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    // Never let Android's autofill/passcode-suggestion
+                    // overlay hijack this field - on some devices it
+                    // silently replaces whatever the user is mid-typing
+                    // with a cached value on backspace.
+                    autofillHints: const [],
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(labelText: 'Code (4 à 6 chiffres)'),
                   ),
@@ -83,6 +90,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                     obscureText: true,
                     keyboardType: TextInputType.text,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    // Never let Android's autofill/passcode-suggestion
+                    // overlay hijack this field - on some devices it
+                    // silently replaces whatever the user is mid-typing
+                    // with a cached value on backspace.
+                    autofillHints: const [],
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(labelText: 'Confirmer le code'),
                   ),

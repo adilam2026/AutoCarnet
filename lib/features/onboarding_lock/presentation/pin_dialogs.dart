@@ -62,6 +62,13 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             obscureText: true,
             keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            // Never let Android's autofill/passcode-suggestion overlay
+            // hijack this field - on some devices it silently replaces
+            // whatever the user is mid-typing with a cached value on
+            // backspace.
+            autofillHints: const [],
+            enableSuggestions: false,
+            autocorrect: false,
             maxLength: 6,
             decoration: const InputDecoration(labelText: 'Nouveau code'),
           ),
@@ -70,6 +77,13 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             obscureText: true,
             keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            // Never let Android's autofill/passcode-suggestion overlay
+            // hijack this field - on some devices it silently replaces
+            // whatever the user is mid-typing with a cached value on
+            // backspace.
+            autofillHints: const [],
+            enableSuggestions: false,
+            autocorrect: false,
             maxLength: 6,
             decoration: const InputDecoration(labelText: 'Confirmer'),
           ),
@@ -115,6 +129,13 @@ Future<bool> showConfirmCurrentPinDialog(
             obscureText: true,
             keyboardType: TextInputType.text,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            // Never let Android's autofill/passcode-suggestion overlay
+            // hijack this field - on some devices it silently replaces
+            // whatever the user is mid-typing with a cached value on
+            // backspace.
+            autofillHints: const [],
+            enableSuggestions: false,
+            autocorrect: false,
             maxLength: 6,
             autofocus: true,
             decoration: InputDecoration(

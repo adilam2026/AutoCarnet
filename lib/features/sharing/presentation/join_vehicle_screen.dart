@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/sync/vehicle_sync_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../vehicles/data/vehicle_repository.dart';
 import '../data/sharing_models.dart';
 import '../data/sharing_repository.dart';
 
@@ -72,9 +74,23 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
     });
     try {
       final invite = await ref.read(sharingRepositoryProvider).acceptInvite(_codeCtrl.text.trim());
+      // The vehicle only exists on the cloud from this device's point of
+      // view right now - pulling it down before navigating avoids
+      // VehicleHomeScreen's watchOne() finding zero local rows and
+      // crashing. Best-effort: if sync doesn't complete in time (e.g. a
+      // slow connection), land on the vehicles list instead, where it'll
+      // simply appear once the next sync pass picks it up.
+      await ref.read(vehicleSyncServiceProvider).syncNow();
+      if (!mounted) return;
+      final vehicleRepo = ref.read(vehicleRepositoryProvider);
+      final arrived = await vehicleRepo.existsLocally(invite.vehicleId);
       if (!mounted) return;
       showAppSnackBar(context, 'Vous avez rejoint le véhicule.', icon: Icons.check_circle_outline);
-      context.go('/vehicles/${invite.vehicleId}');
+      if (arrived) {
+        context.go('/vehicles/${invite.vehicleId}');
+      } else {
+        context.go('/');
+      }
     } on InviteRedeemException catch (e) {
       if (!mounted) return;
       setState(() {

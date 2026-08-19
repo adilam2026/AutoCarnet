@@ -164,4 +164,14 @@ void main() {
     final active = await reminders.watchActiveForVehicle(id).first;
     expect(active, isEmpty);
   });
+
+  test('existsLocally is true once created, false for an id never pulled/created here', () async {
+    final id = await repo.createVehicle(
+      brand: 'Renault',
+      model: 'Clio',
+      currentMileage: 50000,
+    );
+    expect(await repo.existsLocally(id), isTrue);
+    expect(await repo.existsLocally('never-synced-id'), isFalse);
+  });
 }

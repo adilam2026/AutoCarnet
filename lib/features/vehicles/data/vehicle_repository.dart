@@ -42,6 +42,16 @@ class VehicleRepository {
     return query.getSingle();
   }
 
+  /// Whether this vehicle has ever reached this device's local database -
+  /// false right after joining a shared vehicle on another device, until
+  /// the next sync pull. Callers that just accepted a share invite must
+  /// check this before navigating to the vehicle's own screens, which
+  /// otherwise call [watchOne]/[getOne] and crash on zero local rows.
+  Future<bool> existsLocally(String id) async {
+    final query = _db.select(_db.vehicles)..where((v) => v.id.equals(id));
+    return await query.getSingleOrNull() != null;
+  }
+
   /// Quick creation (Principe 2): only brand, model and current mileage are
   /// required, everything else can be completed later.
   Future<String> createVehicle({
