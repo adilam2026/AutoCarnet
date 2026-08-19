@@ -191,12 +191,17 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
           controller: _codeCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          // The correct, positive hint for a one-time code: lets Android
-          // offer the code from a copied clipboard/notification without
-          // the generic hint-less autofill config TextField would
-          // otherwise default to (autofillHints: const [] - not null -
-          // which still enables autofill, just with no hint to guide it).
-          autofillHints: const [AutofillHints.oneTimeCode],
+          // AutofillHints.oneTimeCode looked correct on paper (see prior
+          // commit), but confirmed live on a real Samsung device: with
+          // that hint set, key presses on the numeric keyboard stopped
+          // reaching the field at all (autofill claimed the input
+          // pipeline and never handed characters to the TextField) -
+          // reproducible every time, and gone the moment the hint is
+          // removed. Matches the local PIN field, which uses `null` here
+          // and is confirmed working: no legitimate autofill hint is
+          // worth breaking manual entry over, so this is fully disabled
+          // too rather than left on a hint proven to interfere.
+          autofillHints: null,
           enableSuggestions: false,
           autocorrect: false,
           maxLength: 6,
