@@ -49,16 +49,47 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     });
   }
 
+  /// Resets the local code only - it protects local access on this device,
+  /// nothing more, so forgetting it doesn't need to touch the cloud account
+  /// at all: clear it and go straight back in.
   Future<void> _onForgotCode() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Code oublié ?'),
         content: const Text(
-          'Votre code d\'accès local sur cet appareil va être réinitialisé '
-          'et vous serez déconnecté(e), pour vous permettre de vous '
-          'reconnecter avec le même compte ou un autre. Vos données restent '
-          'en sécurité.',
+          'Votre code d\'accès local sur cet appareil va être réinitialisé. '
+          'Vous pourrez en définir un nouveau depuis Compte & sécurité.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(pinServiceProvider).clearPin();
+    widget.onUnlocked();
+  }
+
+  /// Signs out of the current cloud account (if any) and resets the local
+  /// code, so whoever logs back in next - same account or a different one -
+  /// starts clean on this device.
+  Future<void> _onSwitchAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Changer de compte'),
+        content: const Text(
+          'Vous allez être déconnecté(e) de ce compte sur cet appareil pour '
+          'vous connecter avec un autre. Votre code d\'accès local sera '
+          'aussi réinitialisé. Vos données restent en sécurité.',
         ),
         actions: [
           TextButton(
@@ -79,12 +110,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     await pinService.clearPin();
     if (account.isSignedIn) {
       await account.signOut();
-      if (mounted) ref.read(accountSignOutRequestProvider.notifier).state++;
-    } else {
-      // No cloud account to sign out of - the PIN itself was the only
-      // barrier, and it's already cleared, so just let the user back in.
-      widget.onUnlocked();
     }
+    if (mounted) ref.read(accountSignOutRequestProvider.notifier).state++;
   }
 
   @override
@@ -127,9 +154,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     child: const Text('Déverrouiller'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  TextButton(
-                    onPressed: _checking ? null : _onForgotCode,
-                    child: const Text('Code oublié ou changer de compte ?'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: _checking ? null : _onForgotCode,
+                        child: const Text('Code oublié ?'),
+                      ),
+                      TextButton(
+                        onPressed: _checking ? null : _onSwitchAccount,
+                        child: const Text('Changer de compte'),
+                      ),
+                    ],
                   ),
                 ],
               ),
