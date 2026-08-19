@@ -52,6 +52,20 @@ class Vehicles extends Table {
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   TextColumn get syncStatus =>
       text().withDefault(const Constant('pendingSync'))();
+  // The cloud account id (Supabase auth.users.id) that owns this vehicle -
+  // mirrors the cloud `vehicles.user_id` column once pulled. Null for a
+  // vehicle that has never been synced (created offline, or the app has
+  // no cloud account at all): the current device's user is its de facto
+  // sole owner either way. Used purely to gate owner-only UI (delete,
+  // "Partage et accès") - the real enforcement is server-side RLS.
+  TextColumn get ownerId => text().nullable()();
+  // This device's own access level on a shared (not owned) vehicle -
+  // 'viewer' or 'editor', mirrored from the cloud `vehicle_members` table
+  // on every pull so it's known offline too (needed to gate edit actions
+  // for a viewer entirely client-side, since a viewer's local edit would
+  // otherwise "succeed" locally and then just fail to ever sync). Null for
+  // an owned vehicle (ownerId null or == the signed-in account).
+  TextColumn get myRole => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

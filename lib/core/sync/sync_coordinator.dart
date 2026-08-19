@@ -40,6 +40,17 @@ class SyncCoordinator {
           table: 'vehicles',
           callback: (_) => _syncService.syncNow(),
         )
+        .onPostgresChanges(
+          // Access being granted, revoked, or its role changed for a
+          // shared vehicle - reacting to this (not just to `vehicles`
+          // itself) is what makes revocation and permission downgrades
+          // take effect within a second or two instead of waiting for the
+          // next periodic pass.
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'vehicle_members',
+          callback: (_) => _syncService.syncNow(),
+        )
         .subscribe();
   }
 

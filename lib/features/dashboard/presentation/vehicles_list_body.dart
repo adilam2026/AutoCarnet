@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/layout.dart';
-import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
@@ -25,14 +24,49 @@ class VehiclesListBody extends ConsumerWidget {
       error: (e, _) => ErrorView(message: e.toString()),
       data: (vehicles) {
         if (vehicles.isEmpty) {
-          return EmptyState(
-            icon: Icons.directions_car_outlined,
-            title: 'Aucun véhicule pour le moment',
-            subtitle:
-                'Ajoutez votre premier véhicule pour commencer à suivre '
-                'son entretien, ses documents et ses dépenses.',
-            actionLabel: 'Ajouter un véhicule',
-            onAction: () => context.push('/vehicles/new'),
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.directions_car_outlined,
+                      size: 56, color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Aucun véhicule pour le moment',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Ajoutez votre véhicule pour commencer à suivre son '
+                    'entretien, ses documents et ses dépenses - ou rejoignez '
+                    'un véhicule déjà suivi par un proche.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => context.push('/vehicles/new'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Ajouter mon véhicule'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push('/vehicles/join'),
+                      icon: const Icon(Icons.qr_code_2_outlined),
+                      label: const Text('Rejoindre un véhicule'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         return ListView(

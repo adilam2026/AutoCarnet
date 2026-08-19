@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../account/data/account_repository.dart';
 import '../../../reminders/data/reminder_repository.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
+import '../../domain/vehicle_ownership.dart';
 
 class VehicleCard extends ConsumerWidget {
   const VehicleCard({super.key, required this.vehicle, required this.onTap});
@@ -17,6 +19,9 @@ class VehicleCard extends ConsumerWidget {
     final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
     final isInactive = vehicle.status != VehicleStatus.active;
     final reminders = remindersAsync.value ?? const <Reminder>[];
+    ref.watch(authStateChangesProvider);
+    final currentUserId = ref.read(accountRepositoryProvider).currentUser?.id;
+    final isShared = !isVehicleOwnedByCurrentUser(vehicle, currentUserId);
 
     final worstUrgency = reminders.isEmpty
         ? null
@@ -59,6 +64,13 @@ class VehicleCard extends ConsumerWidget {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
+                        if (isShared) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Tooltip(
+                            message: 'Partagé avec moi',
+                            child: Icon(Icons.people_alt_outlined, size: 14, color: scheme.onSurfaceVariant),
+                          ),
+                        ],
                         if (isInactive) ...[
                           const SizedBox(width: AppSpacing.xs),
                           Container(

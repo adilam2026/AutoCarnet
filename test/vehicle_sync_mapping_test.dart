@@ -50,6 +50,9 @@ void main() {
       expect(row['is_deleted'], false);
       // photo_path is deliberately never synced (local filesystem path).
       expect(row.containsKey('photo_path'), isFalse);
+      // user_id (ownership) is deliberately never pushed either - see the
+      // mapping's own doc comment.
+      expect(row.containsKey('user_id'), isFalse);
 
       final companion = vehicleFromRemoteRow(row);
       expect(companion.id.value, local.id);
@@ -114,6 +117,22 @@ void main() {
       expect(companion.condition.value, isNull);
       expect(companion.status.value, VehicleStatus.active);
       expect(companion.isDeleted.value, false);
+    });
+
+    test('pulling a shared vehicle records who owns it (user_id -> ownerId), '
+        'so the app can tell an owned vehicle from a shared one entirely '
+        'offline, just by comparing against the signed-in account id', () {
+      final row = {
+        'id': 'veh-4',
+        'brand': 'Dacia',
+        'model': 'Duster',
+        'current_mileage': 5000,
+        'created_at': DateTime.utc(2026, 1, 1).toIso8601String(),
+        'updated_at': DateTime.utc(2026, 1, 1).toIso8601String(),
+        'user_id': 'owner-uuid-123',
+      };
+      final companion = vehicleFromRemoteRow(row);
+      expect(companion.ownerId.value, 'owner-uuid-123');
     });
   });
 }

@@ -27,6 +27,41 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _goToTab(int index) => setState(() => _index = index);
 
+  /// Two clearly distinct actions, never two identical giant buttons
+  /// (bloc 20): creating a vehicle makes you its owner; joining one never
+  /// creates anything, it only ever attaches your account to an existing
+  /// vehicle via a code.
+  Future<void> _showAddOrJoinSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.directions_car_outlined),
+              title: const Text('Ajouter mon véhicule'),
+              subtitle: const Text('Vous en devenez le propriétaire'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                context.push('/vehicles/new');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_2_outlined),
+              title: const Text('Rejoindre un véhicule'),
+              subtitle: const Text('Avec un code reçu d\'un proche'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                context.push('/vehicles/join');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reminderCount = ref.watch(globalReminderCountProvider);
@@ -48,8 +83,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
       floatingActionButton: _index == 0
           ? FloatingActionButton(
-              tooltip: 'Ajouter un véhicule',
-              onPressed: () => context.push('/vehicles/new'),
+              tooltip: 'Ajouter ou rejoindre un véhicule',
+              onPressed: () => _showAddOrJoinSheet(context),
               child: const Icon(Icons.add),
             )
           : null,

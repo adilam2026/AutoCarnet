@@ -8,6 +8,11 @@ import '../database/database.dart';
 /// `photo_path` is deliberately never synced: it's a local filesystem path,
 /// meaningless on another device (real photo sync needs Supabase Storage,
 /// not built yet - see supabase/README.md).
+/// `user_id` (the owner) is deliberately never sent: it defaults to
+/// auth.uid() on a real insert, and on an upsert-as-update PostgREST leaves
+/// omitted columns untouched - so a collaborator's push can never
+/// accidentally reassign ownership, and the owner's own push never needs
+/// to re-assert it either.
 Map<String, dynamic> vehicleToRemoteRow(Vehicle v) {
   return {
     'id': v.id,
@@ -43,6 +48,7 @@ VehiclesCompanion vehicleFromRemoteRow(Map<String, dynamic> row) {
     id: row['id'] as String,
     brand: row['brand'] as String,
     model: row['model'] as String,
+    ownerId: Value(row['user_id'] as String?),
     currentMileage: (row['current_mileage'] as num).toDouble(),
     createdAt: parseDate(row['created_at'])!,
     updatedAt: parseDate(row['updated_at'])!,

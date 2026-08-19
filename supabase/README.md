@@ -74,31 +74,62 @@ démarrage + toutes les 2 minutes), mais les changements d'un autre appareil
 n'apparaissent qu'au prochain passage périodique au lieu d'en quelques
 secondes.
 
+## Partage de véhicule — appliquer la migration 0004
+
+Étape nécessaire pour que "Partager le véhicule" / "Rejoindre un véhicule"
+fonctionnent :
+
+1. SQL Editor → **New query**.
+2. Colle le contenu de `migrations/0004_vehicle_sharing.sql`.
+3. **Run**.
+
+Ça crée `vehicle_members` (qui a accès à quel véhicule, et à quel niveau)
+et `vehicle_invite_codes` (les codes d'invitation à 8 caractères,
+`Q7K9-M2P4` à l'affichage), plus deux fonctions
+`preview_vehicle_invite`/`accept_vehicle_invite` qui sont les seules portes
+d'entrée pour rejoindre un véhicule avec un code. Étend aussi les policies
+RLS de `vehicles` (un "éditeur" peut lire/écrire, un "lecteur" peut
+seulement lire) et ajoute un trigger qui refuse la suppression du véhicule
+à quiconque n'est pas son propriétaire, même si un éditeur essaie de le
+faire directement en base (jamais seulement côté app).
+
+Sans cette étape, l'app affiche les écrans de partage mais chaque appel
+échouera (tables/fonctions inexistantes) - échec silencieux, sans jamais
+bloquer l'usage normal (non partagé) du véhicule.
+
 ## Ce qui n'est PAS encore fait
 
 - **Stockage des pièces jointes** (photos, PDF de documents) : nécessite un
   bucket Supabase Storage + ses propres policies, pas encore créé.
-- **Partage de véhicule entre utilisateurs** (mentionné au point 19 : "les
-  véhicules partagés avec lui selon ses permissions") : le schéma actuel est
-  mono-utilisateur strict (chaque ligne appartient à un seul `user_id`).
-  Le partage nécessiterait une table `vehicle_members` (véhicule ↔
-  utilisateurs ↔ niveau de permission) et des policies RLS plus complexes —
-  **c'est la prochaine étape en cours**, demandée explicitement (connexion
-  visible + partage collaboratif d'un véhicule).
 - **Synchronisation au-delà de la fiche véhicule** : seule la table
   `vehicles` est aujourd'hui synchronisée (push automatique à chaque
   modification locale + pull périodique/temps réel via Supabase Realtime,
   résolution de conflit "dernier écrit gagne" sur `updated_at`). Entretiens,
   documents, dépenses, etc. restent pour l'instant strictement locaux à
-  chaque appareil - à étendre au même moteur une fois le partage construit
-  dessus.
+  chaque appareil, même sur un véhicule partagé - un collaborateur "peut
+  modifier" verra donc bien le kilométrage/la fiche se synchroniser avec le
+  propriétaire, mais pas (encore) les entretiens/documents qu'il ajoute. À
+  étendre au même moteur de synchronisation dans une prochaine étape.
+- **Résolution de conflit avec choix utilisateur** (point 23 du cahier des
+  charges) : le moteur actuel résout un conflit sur `vehicles` par "dernier
+  écrit gagne" (`updated_at` le plus récent l'emporte) - fiable pour une
+  utilisation normale, mais si le propriétaire et un éditeur modifient le
+  même champ (ex. kilométrage) quasi simultanément hors ligne tous les
+  deux, la version la plus ancienne est silencieusement perdue au lieu
+  d'afficher les deux valeurs pour arbitrage. Pas encore construit.
+- **Notifications de collaboration** (invitation acceptée, accès retiré) :
+  pas encore construites - aujourd'hui le propriétaire doit ouvrir "Partage
+  et accès" pour voir qui a rejoint.
 - **Test réel de bout en bout à deux comptes** : je n'ai ni deuxième
   téléphone ni boîte mail réelle pour recevoir un code de vérification
-  depuis ce sandbox - je ne peux donc pas reproduire moi-même le parcours
-  complet "compte A partage → compte B rejoint avec le code → les deux
-  voient les mêmes données se synchroniser". Le code compile, passe
-  l'analyse statique et les tests unitaires, mais **ce parcours à deux
-  comptes doit être validé par toi** avant d'être considéré fiable.
+  depuis ce sandbox - je ne peux donc pas créer moi-même deux sessions
+  authentifiées et reproduire le parcours complet "compte A génère un code
+  → compte B le saisit → les deux voient le même véhicule se
+  synchroniser". Le code compile, passe l'analyse statique et les tests
+  unitaires (mapping, permissions, génération/normalisation de code), mais
+  **ce parcours à deux comptes doit être validé par toi** avant d'être
+  considéré fiable - voir la checklist de test dans le message qui
+  accompagne cette livraison.
 
 ## Notes de conception
 

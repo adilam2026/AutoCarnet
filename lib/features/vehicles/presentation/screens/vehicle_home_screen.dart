@@ -9,6 +9,7 @@ import '../../../../core/utils/feedback.dart';
 import '../../../../core/utils/layout.dart';
 import '../../../../core/widgets/loading_error_views.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../../account/data/account_repository.dart';
 import '../../../documents/data/document_repository.dart';
 import '../../../documents/presentation/document_form_sheet.dart';
 import '../../../documents/presentation/document_status_chip.dart';
@@ -22,6 +23,9 @@ import '../../../reminders/domain/reminder_urgency.dart';
 import '../../data/vehicle_repository.dart';
 import '../../domain/vehicle_compliance_rules.dart';
 import '../../domain/vehicle_health.dart';
+import '../../domain/vehicle_ownership.dart';
+import '../../../sharing/presentation/share_vehicle_screen.dart';
+import '../../../sharing/presentation/vehicle_access_screen.dart';
 import '../providers/vehicle_form_providers.dart';
 import '../widgets/add_operation_sheet.dart';
 import '../widgets/health_factors_sheet.dart';
@@ -57,6 +61,10 @@ class _VehicleHomeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    ref.watch(authStateChangesProvider);
+    final currentUserId = ref.read(accountRepositoryProvider).currentUser?.id;
+    final isOwner = isVehicleOwnedByCurrentUser(vehicle, currentUserId);
+    final canEdit = canEditVehicle(vehicle, currentUserId);
     final completeness = ref.watch(vehicleCompletenessProvider(vehicle));
     final activeReminders =
         ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value ?? const [];
@@ -116,50 +124,68 @@ class _VehicleHomeBody extends ConsumerWidget {
           ],
         ),
         actions: [
-          PopupMenuButton<VehicleStatus>(
-            tooltip: 'Statut du véhicule',
-            icon: _StatusIndicator(status: vehicle.status),
-            onSelected: (status) async {
-              await ref.read(vehicleRepositoryProvider).setStatus(vehicle.id, status);
-              if (context.mounted) {
-                showAppSnackBar(
-                  context,
-                  'Statut mis à jour : ${_statusLabel(status)}',
-                  icon: Icons.check_circle_outline,
-                );
-              }
-            },
-            itemBuilder: (context) => [
-              for (final status in VehicleStatus.values)
-                PopupMenuItem(
-                  value: status,
-                  child: Row(
-                    children: [
-                      if (status == vehicle.status)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.check, size: 18),
-                        )
-                      else
-                        const SizedBox(width: 26),
-                      Text(_statusLabel(status)),
-                    ],
+          if (canEdit)
+            PopupMenuButton<VehicleStatus>(
+              tooltip: 'Statut du véhicule',
+              icon: _StatusIndicator(status: vehicle.status),
+              onSelected: (status) async {
+                await ref.read(vehicleRepositoryProvider).setStatus(vehicle.id, status);
+                if (context.mounted) {
+                  showAppSnackBar(
+                    context,
+                    'Statut mis à jour : ${_statusLabel(status)}',
+                    icon: Icons.check_circle_outline,
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                for (final status in VehicleStatus.values)
+                  PopupMenuItem(
+                    value: status,
+                    child: Row(
+                      children: [
+                        if (status == vehicle.status)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 8),
+                            child: Icon(Icons.check, size: 18),
+                          )
+                        else
+                          const SizedBox(width: 26),
+                        Text(_statusLabel(status)),
+                      ],
+                    ),
+                  ),
+              ],
+            )
+          else
+            _StatusIndicator(status: vehicle.status),
+          if (canEdit)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Modifier la fiche',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
+              ),
+            ),
+          if (isOwner)
+            IconButton(
+              icon: const Icon(Icons.person_add_alt_outlined),
+              tooltip: 'Partager le véhicule',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ShareVehicleScreen(
+                    vehicleId: vehicle.id,
+                    vehicleLabel: '${vehicle.brand} ${vehicle.model}',
                   ),
                 ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Modifier la fiche',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Supprimer le véhicule',
-            onPressed: () => _confirmDelete(context, ref, vehicle),
-          ),
+          if (isOwner)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Supprimer le véhicule',
+              onPressed: () => _confirmDelete(context, ref, vehicle),
+            ),
           const SizedBox(width: 4),
         ],
       ),
@@ -173,10 +199,12 @@ class _VehicleHomeBody extends ConsumerWidget {
             vehicle: vehicle,
             completeness: completeness,
             lastUpdate: lastMileageEntry?.recordedAt,
-            onUpdate: () => showMileageUpdateSheet(context, ref, vehicle),
-            onComplete: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
-            ),
+            onUpdate: canEdit ? () => showMileageUpdateSheet(context, ref, vehicle) : null,
+            onComplete: canEdit
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
+                    )
+                : null,
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('À faire prochainement'),
@@ -249,13 +277,29 @@ class _VehicleHomeBody extends ConsumerWidget {
             label: 'Carburant',
             onTap: () => context.push('/vehicles/${vehicle.id}/fuel'),
           ),
+          if (ref.read(accountRepositoryProvider).isSignedIn)
+            _ModuleTile(
+              icon: Icons.people_alt_outlined,
+              label: 'Partage et accès',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => VehicleAccessScreen(
+                    vehicleId: vehicle.id,
+                    vehicleLabel: '${vehicle.brand} ${vehicle.model}',
+                    isOwner: isOwner,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAddOperationSheet(context, ref, vehicle: vehicle),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter une opération'),
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: () => showAddOperationSheet(context, ref, vehicle: vehicle),
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter une opération'),
+            )
+          : null,
     );
   }
 
@@ -348,8 +392,8 @@ class _MileageCard extends StatelessWidget {
   final Vehicle vehicle;
   final double completeness;
   final DateTime? lastUpdate;
-  final VoidCallback onUpdate;
-  final VoidCallback onComplete;
+  final VoidCallback? onUpdate;
+  final VoidCallback? onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -372,14 +416,16 @@ class _MileageCard extends StatelessWidget {
                   : 'Kilométrage jamais mis à jour',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: onUpdate,
-                child: const Text('Mettre à jour le kilométrage'),
+            if (onUpdate != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onUpdate,
+                  child: const Text('Mettre à jour le kilométrage'),
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
@@ -396,7 +442,7 @@ class _MileageCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelSmall),
               ],
             ),
-            if (completenessPercent < 100) ...[
+            if (completenessPercent < 100 && onComplete != null) ...[
               const SizedBox(height: AppSpacing.xs),
               Align(
                 alignment: Alignment.centerLeft,

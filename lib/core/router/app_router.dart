@@ -10,6 +10,7 @@ import '../../features/fuel/presentation/fuel_tab.dart';
 import '../../features/maintenance/presentation/maintenance_tab.dart';
 import '../../features/providers/presentation/providers_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/sharing/presentation/join_vehicle_screen.dart';
 import '../../features/timeline/presentation/timeline_tab.dart';
 import '../../features/vehicles/presentation/screens/vehicle_create_screen.dart';
 import '../../features/vehicles/presentation/screens/vehicle_home_screen.dart';
@@ -58,6 +59,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => TimelineTab(
           vehicleId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/vehicles/join',
+        builder: (context, state) => const JoinVehicleScreen(),
       ),
       GoRoute(
         path: '/providers',

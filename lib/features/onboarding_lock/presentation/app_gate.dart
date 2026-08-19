@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../../../core/utils/connectivity.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../account/data/account_repository.dart';
 import '../../account/presentation/account_gate_screen.dart';
+import '../../sharing/data/sharing_repository.dart';
 import '../data/local_profile_repository.dart';
 import '../data/pin_service.dart';
 import 'lock_screen.dart';
@@ -80,6 +83,10 @@ class _AppGateState extends ConsumerState<AppGate> {
               'Utilisateur';
       await localRepo.create(displayName: displayName);
     }
+    // Best-effort: lets collaborators see this account's name/email on a
+    // shared vehicle's access screen. Never blocks sign-in if it fails
+    // (e.g. offline) - it's retried on every future sign-in.
+    unawaited(ref.read(sharingRepositoryProvider).ensureOwnEmailSynced());
     await _evaluate('pending');
   }
 
