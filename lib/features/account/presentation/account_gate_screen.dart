@@ -37,6 +37,22 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
   final _emailCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
 
+  // --- TEMPORARY DIAGNOSTIC BUILD - remove once the real cause is found ---
+  final _codeFocus = FocusNode();
+  final _diagCtrl = TextEditingController();
+  int _onChangedCount = 0;
+  int _buildCount = 0;
+  String _lastOnChanged = '(jamais appelé)';
+
+  @override
+  void initState() {
+    super.initState();
+    _codeFocus.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+  // --- END TEMPORARY DIAGNOSTIC BUILD additions in initState ---
+
   AccountRepository get _repo => ref.read(accountRepositoryProvider);
 
   void _goTo(_Step step) => setState(() {
@@ -107,11 +123,14 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _codeCtrl.dispose();
+    _codeFocus.dispose(); // TEMPORARY DIAGNOSTIC BUILD
+    _diagCtrl.dispose(); // TEMPORARY DIAGNOSTIC BUILD
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _buildCount++; // TEMPORARY DIAGNOSTIC BUILD
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -189,18 +208,17 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
         const SizedBox(height: AppSpacing.lg),
         TextField(
           controller: _codeCtrl,
+          focusNode: _codeFocus, // TEMPORARY DIAGNOSTIC BUILD
+          onChanged: (v) {
+            // TEMPORARY DIAGNOSTIC BUILD - purely observational, never
+            // writes back to the controller.
+            setState(() {
+              _onChangedCount++;
+              _lastOnChanged = v;
+            });
+          },
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          // AutofillHints.oneTimeCode looked correct on paper (see prior
-          // commit), but confirmed live on a real Samsung device: with
-          // that hint set, key presses on the numeric keyboard stopped
-          // reaching the field at all (autofill claimed the input
-          // pipeline and never handed characters to the TextField) -
-          // reproducible every time, and gone the moment the hint is
-          // removed. Matches the local PIN field, which uses `null` here
-          // and is confirmed working: no legitimate autofill hint is
-          // worth breaking manual entry over, so this is fully disabled
-          // too rather than left on a hint proven to interfere.
           autofillHints: null,
           enableSuggestions: false,
           autocorrect: false,
@@ -216,6 +234,48 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
         TextButton(
           onPressed: _busy ? null : _resendCode,
           child: const Text('Renvoyer le code'),
+        ),
+        // ============================================================
+        // TEMPORARY DIAGNOSTIC PANEL - remove once the cause is found.
+        // ============================================================
+        const SizedBox(height: AppSpacing.xl),
+        const Divider(),
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.15),
+            border: Border.all(color: Colors.amber),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('DIAGNOSTIC TEMPORAIRE', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('build #$_buildCount'),
+              Text('focus champ OTP: ${_codeFocus.hasFocus} '
+                  '(canRequestFocus: ${_codeFocus.canRequestFocus})'),
+              Text('onChanged appelé: $_onChangedCount fois, dernière valeur reçue: '
+                  '"$_lastOnChanged"'),
+              Text('controller.text ACTUEL: "${_codeCtrl.text}"'),
+              Text('controller.selection: ${_codeCtrl.selection}'),
+              const SizedBox(height: AppSpacing.sm),
+              const Text('Champ de test minimal et indépendant '
+                  '(nouveau controller, aucun lien avec le champ OTP ci-dessus) :'),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _diagCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Champ minimal',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              Text('champ minimal - valeur actuelle: "${_diagCtrl.text}"'),
+            ],
+          ),
         ),
       ];
 
