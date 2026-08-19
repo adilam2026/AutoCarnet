@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../account/data/account_repository.dart';
 import '../data/pin_service.dart';
+import 'app_gate.dart';
 
 /// RG-USER-003/004: local unlock only. After repeated failures the retry
 /// delay grows (bloc 2 §5.6 "temporisation progressive") instead of
-/// permanently locking the user out.
+/// permanently locking the user out. "Code oublié ?" is the escape hatch:
+/// without it, forgetting the local PIN would strand the user in front of
+/// this screen forever, even though the PIN was only ever meant to protect
+/// local access, never to replace account authentication.
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key, required this.onUnlocked});
   final VoidCallback onUnlocked;
@@ -21,20 +26,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   int _failedAttempts = 0;
   DateTime? _lockedUntil;
   bool _checking = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tryBiometricAtStart();
-  }
-
-  Future<void> _tryBiometricAtStart() async {
-    final service = ref.read(pinServiceProvider);
-    if (await service.isBiometricEnabled()) {
-      final ok = await service.authenticateWithBiometrics();
-      if (ok && mounted) widget.onUnlocked();
-    }
-  }
 
   Future<void> _submit() async {
     if (_lockedUntil != null && DateTime.now().isBefore(_lockedUntil!)) return;
@@ -56,6 +47,44 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         _error = 'Code incorrect';
       }
     });
+  }
+
+  Future<void> _onForgotCode() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Code oublié ?'),
+        content: const Text(
+          'Votre code d\'accès local sur cet appareil va être réinitialisé '
+          'et vous serez déconnecté(e), pour vous permettre de vous '
+          'reconnecter avec le même compte ou un autre. Vos données restent '
+          'en sécurité.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final pinService = ref.read(pinServiceProvider);
+    final account = ref.read(accountRepositoryProvider);
+    await pinService.clearPin();
+    if (account.isSignedIn) {
+      await account.signOut();
+      if (mounted) ref.read(accountSignOutRequestProvider.notifier).state++;
+    } else {
+      // No cloud account to sign out of - the PIN itself was the only
+      // barrier, and it's already cleared, so just let the user back in.
+      widget.onUnlocked();
+    }
   }
 
   @override
@@ -98,15 +127,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     child: const Text('Déverrouiller'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  TextButton.icon(
-                    onPressed: () async {
-                      final ok = await ref
-                          .read(pinServiceProvider)
-                          .authenticateWithBiometrics();
-                      if (ok) widget.onUnlocked();
-                    },
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text('Utiliser la biométrie'),
+                  TextButton(
+                    onPressed: _checking ? null : _onForgotCode,
+                    child: const Text('Code oublié ou changer de compte ?'),
                   ),
                 ],
               ),

@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// directly (bloc 7-9, 15): account creation, email verification via a
 /// 6-digit code (never a bare magic link, so nothing depends on deep-link
 /// handling working correctly on every device), sign-in, sign-out and the
-/// forgot-password flow. The PIN/biometric lock (PinService) stays a
+/// forgot-password flow. The local PIN lock (PinService) stays a
 /// separate, purely local concern layered on top of an already-authenticated
 /// account - it never substitutes for it (RG-USER-004).
 class AccountRepository {

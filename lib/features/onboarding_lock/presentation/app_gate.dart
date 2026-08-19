@@ -14,7 +14,7 @@ import 'pin_setup_screen.dart';
 enum _GateStep { loading, accountAuth, onboarding, pinSetup, locked, unlocked }
 
 /// Bumped by "Se déconnecter" (Compte & sécurité) to force the app back to
-/// its lock screen on this device - reverifies the local PIN/biometric only,
+/// its lock screen on this device - reverifies the local PIN only,
 /// the cloud account session (if any) is left untouched. Local data is
 /// never touched either way.
 final sessionLockRequestProvider = StateProvider<int>((ref) => 0);
@@ -26,7 +26,7 @@ final sessionLockRequestProvider = StateProvider<int>((ref) => 0);
 final accountSignOutRequestProvider = StateProvider<int>((ref) => 0);
 
 /// Root gatekeeper: onboarding (first launch) -> optional PIN setup ->
-/// PIN/biometric lock on every subsequent launch -> the actual app. Wraps
+/// PIN lock on every subsequent launch -> the actual app. Wraps
 /// the router as MaterialApp.router's `builder` so navigation state is
 /// untouched by the lock flow.
 class AppGate extends ConsumerStatefulWidget {
@@ -121,7 +121,10 @@ class _AppGateState extends ConsumerState<AppGate> {
           _GateStep.pinSetup => PinSetupScreen(
               onDone: () async {
                 await ref.read(pinServiceProvider).markPinSetupOffered();
-                await _evaluate('pending');
+                // Straight into the app - re-locking immediately after the
+                // user just set (or skipped) the PIN would force them to
+                // re-type the code they only just entered.
+                setState(() => _step = _GateStep.unlocked);
               },
             ),
           _GateStep.locked => LockScreen(

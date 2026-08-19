@@ -32,8 +32,6 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   crypto: ^3.0.6
 
-  # Biometric unlock
-  local_auth: ^2.3.0
   pdf: ^3.13.0
   printing: ^5.15.0
 

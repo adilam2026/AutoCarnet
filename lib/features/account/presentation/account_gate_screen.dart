@@ -80,8 +80,8 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
       setState(() => _error = 'Adresse email invalide');
       return;
     }
-    if (_passwordCtrl.text.length < 8) {
-      setState(() => _error = 'Le mot de passe doit contenir au moins 8 caractères');
+    if (_passwordCtrl.text.length < 6) {
+      setState(() => _error = 'Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
     if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
@@ -186,8 +186,8 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
   }
 
   Future<void> _submitNewPassword() async {
-    if (_newPasswordCtrl.text.length < 8) {
-      setState(() => _error = 'Le mot de passe doit contenir au moins 8 caractères');
+    if (_newPasswordCtrl.text.length < 6) {
+      setState(() => _error = 'Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
     if (_newPasswordCtrl.text != _newPasswordConfirmCtrl.text) {
@@ -306,7 +306,7 @@ class _AccountGateScreenState extends ConsumerState<AccountGateScreen> {
         TextField(
           controller: _passwordCtrl,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Mot de passe (8 caractères min.)'),
+          decoration: const InputDecoration(labelText: 'Mot de passe (6 caractères min.)'),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextField(

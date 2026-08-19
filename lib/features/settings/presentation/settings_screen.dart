@@ -21,8 +21,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
   bool _pinEnabled = false;
-  bool _biometricAvailable = false;
-  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -32,16 +30,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _refreshSecurityState() async {
     final service = ref.read(pinServiceProvider);
-    final results = await Future.wait([
-      service.isPinSet(),
-      service.canUseBiometrics(),
-      service.isBiometricEnabled(),
-    ]);
+    final pinSet = await service.isPinSet();
     if (!mounted) return;
     setState(() {
-      _pinEnabled = results[0];
-      _biometricAvailable = results[1];
-      _biometricEnabled = results[2];
+      _pinEnabled = pinSet;
       _loading = false;
     });
   }
@@ -70,17 +62,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (changed && mounted) {
       showAppSnackBar(context, 'Code PIN mis à jour', icon: Icons.check_circle_outline);
     }
-  }
-
-  Future<void> _onBiometricToggled(bool enable) async {
-    await ref.read(pinServiceProvider).setBiometricEnabled(enable);
-    if (!mounted) return;
-    setState(() => _biometricEnabled = enable);
-    showAppSnackBar(
-      context,
-      enable ? 'Déverrouillage biométrique activé' : 'Déverrouillage biométrique désactivé',
-      icon: Icons.check_circle_outline,
-    );
   }
 
   Future<void> _onEditDisplayName(LocalProfile profile) async {
@@ -303,15 +284,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           title: const Text('Modifier le code'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _onChangePin,
-                        ),
-                      ],
-                      if (_pinEnabled && _biometricAvailable) ...[
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary: const Icon(Icons.fingerprint),
-                          title: const Text('Déverrouillage biométrique'),
-                          value: _biometricEnabled,
-                          onChanged: _onBiometricToggled,
                         ),
                       ],
                       if (_pinEnabled) ...[
