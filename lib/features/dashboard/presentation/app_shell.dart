@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../resale/presentation/resale_body.dart';
 import 'alerts_body.dart';
@@ -33,6 +34,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_index]),
+        actions: const [_AccountAvatarButton()],
       ),
       drawer: _AppDrawer(onSelectTab: _goToTab),
       body: IndexedStack(
@@ -83,6 +85,60 @@ class _AppShellState extends ConsumerState<AppShell> {
         ],
       ),
     );
+  }
+}
+
+/// Direct, always-visible entry point to the account (bloc "connexion
+/// visible") - the hamburger drawer still has "Compte & sécurité" for
+/// general navigation, but the account itself must never be several taps
+/// deep. Shows the user's initials (from the local profile's display name,
+/// falling back to the account email) so the current identity is
+/// recognizable at a glance, not just a generic icon.
+class _AccountAvatarButton extends ConsumerWidget {
+  const _AccountAvatarButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watched purely so this rebuilds when the session changes - the
+    // initials themselves come from a plain read below.
+    ref.watch(authStateChangesProvider);
+    final profileAsync = ref.watch(localProfileProvider);
+    final account = ref.read(accountRepositoryProvider);
+    final displayName = profileAsync.maybeWhen(
+      data: (p) => p?.displayName,
+      orElse: () => null,
+    );
+    final initials = _initialsFrom(displayName ?? account.currentUser?.email);
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.xs),
+      child: IconButton(
+        tooltip: 'Mon compte',
+        onPressed: () => context.push('/settings'),
+        icon: CircleAvatar(
+          radius: 16,
+          backgroundColor: scheme.primaryContainer,
+          child: Text(
+            initials,
+            style: TextStyle(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _initialsFrom(String? source) {
+    final trimmed = source?.trim() ?? '';
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return trimmed[0].toUpperCase();
   }
 }
 
