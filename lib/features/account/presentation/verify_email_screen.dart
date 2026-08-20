@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,7 +32,7 @@ class VerifyEmailScreen extends ConsumerStatefulWidget {
 
   final String email;
   final String displayName;
-  final VoidCallback onAuthenticated;
+  final AsyncCallback onAuthenticated;
   final VoidCallback onBack;
 
   @override
@@ -65,13 +66,26 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     });
     try {
       await ref.read(accountRepositoryProvider).verifyEmailCode(email: widget.email, code: value);
-      if (mounted) widget.onAuthenticated();
+      if (!mounted) return;
+      // `onAuthenticated` finishes the post-auth chain (creating the
+      // local profile, deciding PIN/onboarding, swapping this screen
+      // out) - it must be awaited and the button must stay disabled
+      // throughout. A code is single-use: if this screen were still
+      // showing (even for a moment) with a re-enabled button, a second
+      // tap would resend the *same* already-consumed code and Supabase
+      // would correctly - but confusingly - reject it as expired/
+      // invalid, even though the first attempt had already succeeded.
+      await widget.onAuthenticated();
+      // No `finally` re-enabling _busy here on purpose: this screen is
+      // being replaced right now, and must never flash back to an
+      // interactive state in between.
+      return;
     } on AuthException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() { _error = e.message; _busy = false; });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Une erreur est survenue. Réessayez.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() { _error = 'Une erreur est survenue. Réessayez.'; _busy = false; });
+      }
     }
   }
 

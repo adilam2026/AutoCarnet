@@ -17,7 +17,7 @@ void main() {
             home: VerifyEmailScreen(
               email: 'test@example.com',
               displayName: 'Test',
-              onAuthenticated: () {},
+              onAuthenticated: () async {},
               onBack: () {},
             ),
           ),

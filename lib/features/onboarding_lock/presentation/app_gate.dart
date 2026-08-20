@@ -9,8 +9,11 @@ import '../../../core/widgets/loading_error_views.dart';
 import '../../account/data/account_repository.dart';
 import '../../account/presentation/account_gate_screen.dart';
 import '../../sharing/data/sharing_repository.dart';
+import '../../vehicles/data/vehicle_repository.dart';
+import '../data/biometric_service.dart';
 import '../data/local_profile_repository.dart';
 import '../data/pin_service.dart';
+import '../domain/gate_decision.dart';
 import 'lock_screen.dart';
 import 'onboarding_screen.dart';
 import 'pin_setup_screen.dart';
@@ -45,16 +48,33 @@ class _AppGateState extends ConsumerState<AppGate> {
   _GateStep _step = _GateStep.loading;
 
   Future<void> _evaluate(String? profileId) async {
+    final account = ref.read(accountRepositoryProvider);
     if (profileId == null) {
       // First-time setup on this device (bloc 7-9): a cloud account is the
       // primary path when reachable, but connectivity or the user's own
       // choice can never block using AutoCarnet locally (bloc 20).
-      final alreadySignedIn = ref.read(accountRepositoryProvider).isSignedIn;
-      if (!alreadySignedIn && await hasConnectivity()) {
+      if (!account.isSignedIn && await hasConnectivity()) {
         setState(() => _step = _GateStep.accountAuth);
         return;
       }
       setState(() => _step = _GateStep.onboarding);
+      return;
+    }
+    // The one thing PIN/biometric must never be able to do: silently
+    // re-enter a cloud account whose Supabase session is gone (a real
+    // sign-out, not just a relock). `lastCloudUserId` is non-null once
+    // this device has *ever* completed a real cloud sign-in, and unlike
+    // `isSignedIn` it survives that sign-out - so its mere presence
+    // alongside a *missing* live session is exactly "was authenticated,
+    // isn't anymore" and always routes back through email/OTP. A device
+    // that has never had a cloud account at all (null) is unaffected:
+    // PIN alone stays a legitimate unlock for it, same as before.
+    final everLinked = await account.lastCloudUserId() != null;
+    if (mustReauthenticateViaEmail(
+      hasEverLinkedCloudAccount: everLinked,
+      isSignedIn: account.isSignedIn,
+    )) {
+      setState(() => _step = _GateStep.accountAuth);
       return;
     }
     final pinService = ref.read(pinServiceProvider);
@@ -68,15 +88,27 @@ class _AppGateState extends ConsumerState<AppGate> {
   }
 
   /// A cloud account was just created/confirmed, or the user signed back in
-  /// on a new device - seed a local profile from it if this device doesn't
-  /// have one yet, so the rest of the app (currency, display name...) works
-  /// exactly as it already does for a local-only user. Full data sync is a
-  /// separate step, not part of this gate.
+  /// - possibly on a new device, or possibly a *different* account than
+  /// whichever last used this one. Three things need to happen, in order:
+  /// reattribute any orphaned local data to whoever actually created it,
+  /// remember this account as the current one, then seed/reuse the local
+  /// profile - full data sync itself is a separate step, not part of this
+  /// gate.
   Future<void> _onAccountAuthenticated() async {
+    final account = ref.read(accountRepositoryProvider);
+    final currentUserId = account.currentUser!.id;
+    final previousUserId = await account.lastCloudUserId();
+    if (previousUserId != null && previousUserId != currentUserId) {
+      // A different cloud account just signed in on this same device than
+      // last time - see VehicleRepository.handleAccountSwitch for exactly
+      // what this reattributes/clears. Nothing is ever deleted.
+      await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousUserId);
+    }
+    await account.rememberCloudUserId(currentUserId);
+
     final localRepo = ref.read(localProfileRepositoryProvider);
     final existing = await localRepo.getOrNull();
     if (existing == null) {
-      final account = ref.read(accountRepositoryProvider);
       final displayName =
           account.currentUser?.userMetadata?['display_name'] as String? ??
               account.currentUser?.email?.split('@').first ??
@@ -101,6 +133,15 @@ class _AppGateState extends ConsumerState<AppGate> {
     });
     ref.listen<int>(accountSignOutRequestProvider, (previous, next) {
       if (previous != null && next != previous) {
+        // A real account sign-out (Supabase session already closed by the
+        // caller - see AccountRepository.signOut/signOutEverywhere) - the
+        // local PIN/biometric unlock belonged to *this* account's
+        // session and must never carry over silently to whoever
+        // authenticates next on this device. Centralized here rather
+        // than in each caller (settings screen, "changer de compte" on
+        // the lock screen) so no future sign-out path can forget it.
+        unawaited(ref.read(pinServiceProvider).clearPin());
+        unawaited(ref.read(biometricServiceProvider).setEnabled(false));
         setState(() => _step = _GateStep.accountAuth);
       }
     });

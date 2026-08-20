@@ -137,13 +137,13 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     );
     if (confirmed != true) return;
 
-    final pinService = ref.read(pinServiceProvider);
     final account = ref.read(accountRepositoryProvider);
-    await pinService.clearPin();
-    await ref.read(biometricServiceProvider).setEnabled(false);
     if (account.isSignedIn) {
       await account.signOut();
     }
+    // PIN/biometric are cleared centrally by AppGate's
+    // accountSignOutRequestProvider listener - every real sign-out path
+    // goes through it, so it never needs repeating here.
     if (mounted) ref.read(accountSignOutRequestProvider.notifier).state++;
   }
 

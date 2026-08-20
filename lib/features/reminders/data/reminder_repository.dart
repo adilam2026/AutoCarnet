@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../account/data/account_repository.dart';
 
 /// Central reminder engine (RG-ALR-001): documents, maintenance, etc. never
 /// manage their own notifications, they call [upsertForSource] instead.
@@ -113,20 +114,41 @@ class ReminderRepository {
     return query.watch();
   }
 
-  Stream<List<Reminder>> watchAllActive() {
-    final query = _db.select(_db.reminders)
-      ..where((r) => r.status.equalsValue(ReminderStatus.active))
-      ..orderBy([(r) => OrderingTerm.asc(r.dueDate)]);
-    return query.watch();
+  /// [currentUserId] scopes results to vehicles visible to the signed-in
+  /// account, the same rule as VehicleRepository.watchAll (owned, unowned/
+  /// unsynced, or shared) - every reminder always belongs to exactly one
+  /// vehicle, so a reminder for a vehicle a different account owns must
+  /// never surface here just because it's still sitting in this device's
+  /// local cache.
+  Stream<List<Reminder>> watchAllActive({String? currentUserId}) {
+    final query = _scopedQuery(currentUserId)
+      ..where(_db.reminders.status.equalsValue(ReminderStatus.active));
+    query.orderBy([OrderingTerm.asc(_db.reminders.dueDate)]);
+    return query.watch().map((rows) => rows.map((r) => r.readTable(_db.reminders)).toList());
   }
 
   /// Every reminder regardless of status, so the Alertes screen can also
   /// show what's already been handled ("Traitées" filter) instead of only
-  /// ever showing what's still outstanding.
-  Stream<List<Reminder>> watchAll() {
-    final query = _db.select(_db.reminders)
-      ..orderBy([(r) => OrderingTerm.asc(r.dueDate)]);
-    return query.watch();
+  /// ever showing what's still outstanding. See [watchAllActive] for
+  /// [currentUserId].
+  Stream<List<Reminder>> watchAll({String? currentUserId}) {
+    final query = _scopedQuery(currentUserId)
+      ..orderBy([OrderingTerm.asc(_db.reminders.dueDate)]);
+    return query.watch().map((rows) => rows.map((r) => r.readTable(_db.reminders)).toList());
+  }
+
+  JoinedSelectStatement _scopedQuery(String? currentUserId) {
+    final query = _db.select(_db.reminders).join([
+      innerJoin(_db.vehicles, _db.vehicles.id.equalsExp(_db.reminders.vehicleId)),
+    ]);
+    if (currentUserId != null) {
+      query.where(
+        _db.vehicles.ownerId.isNull() |
+            _db.vehicles.ownerId.equals(currentUserId) |
+            _db.vehicles.myRole.isNotNull(),
+      );
+    }
+    return query;
   }
 }
 
@@ -140,9 +162,13 @@ final vehicleActiveRemindersProvider =
 });
 
 final allActiveRemindersProvider = StreamProvider<List<Reminder>>((ref) {
-  return ref.watch(reminderRepositoryProvider).watchAllActive();
+  ref.watch(authStateChangesProvider);
+  final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+  return ref.watch(reminderRepositoryProvider).watchAllActive(currentUserId: currentUserId);
 });
 
 final allRemindersProvider = StreamProvider<List<Reminder>>((ref) {
-  return ref.watch(reminderRepositoryProvider).watchAll();
+  ref.watch(authStateChangesProvider);
+  final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+  return ref.watch(reminderRepositoryProvider).watchAll(currentUserId: currentUserId);
 });

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Wraps Supabase Auth so the rest of the app never talks to the SDK
@@ -11,14 +12,37 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// already-authenticated account - it never substitutes for it
 /// (RG-USER-004).
 class AccountRepository {
-  AccountRepository(this._client);
+  AccountRepository(this._client, this._storage);
   final SupabaseClient _client;
+  final FlutterSecureStorage _storage;
 
   User? get currentUser => _client.auth.currentUser;
   Session? get currentSession => _client.auth.currentSession;
   bool get isSignedIn => currentSession != null;
 
   Stream<AuthState> get onAuthStateChange => _client.auth.onAuthStateChange;
+
+  static const _lastCloudUserIdKey = 'account_last_cloud_user_id';
+
+  /// The account id (`auth.users.id`) that last completed a real sign-in
+  /// on this device - persisted independently of the live Supabase
+  /// session, and never cleared by a sign-out. This is what tells
+  /// AppGate apart:
+  /// - a device that has never had a cloud account at all (null - PIN
+  ///   alone is a legitimate unlock, there's no account to protect), from
+  /// - a device that had one and is currently signed out (non-null, but
+  ///   `isSignedIn` is false - PIN/biometric must never be able to skip
+  ///   straight back into that account; email/OTP is required again).
+  ///
+  /// Also doubles as the account-switch signal: when a *different* id
+  /// than this one just authenticated, AppGate knows any locally-cached,
+  /// not-yet-synced vehicle (still `ownerId == null`) can only belong to
+  /// this previous account, not the new one (see
+  /// VehicleRepository.reattributeUnsyncedVehicles).
+  Future<String?> lastCloudUserId() => _storage.read(key: _lastCloudUserIdKey);
+
+  Future<void> rememberCloudUserId(String userId) =>
+      _storage.write(key: _lastCloudUserIdKey, value: userId);
 
   /// Sends a 6-digit code to [email]. This single call covers both signup
   /// and sign-in - Supabase's email OTP endpoint auto-creates the account on
@@ -106,7 +130,7 @@ class AccountRepository {
 }
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
-  return AccountRepository(Supabase.instance.client);
+  return AccountRepository(Supabase.instance.client, const FlutterSecureStorage());
 });
 
 final authStateChangesProvider = StreamProvider<AuthState>((ref) {

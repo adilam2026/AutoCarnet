@@ -136,18 +136,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// Reverrouille l'application sur cet appareil (bloc 6) - la donnée
-  /// locale n'est jamais touchée, seul l'état de déverrouillage l'est.
-  /// "Se déconnecter de tous les appareils" nécessite le compte cloud à
-  /// venir et n'est donc pas proposé tant qu'il n'existe pas.
-  Future<void> _onLogout() async {
+  /// Reverrouille l'application sur cet appareil - the local PIN check
+  /// only, nothing else. Deliberately never called "se déconnecter"
+  /// anywhere in the UI: that verb is reserved for
+  /// [_onAccountSignOut], which actually ends the cloud account session.
+  /// Using the same word for both was real user-facing confusion - this
+  /// one only ever re-locks; the account (if any) stays fully signed in
+  /// and is instantly usable again with just the PIN/biometric.
+  Future<void> _onLockNow() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Se déconnecter ?'),
+        title: const Text('Verrouiller l\'application ?'),
         content: const Text(
-          'L\'application se reverrouille sur cet appareil. Vos données '
-          'restent enregistrées et ne sont pas supprimées.',
+          'AutoCarnet se reverrouille sur cet appareil - le code PIN (ou la '
+          'biométrie) sera nécessaire pour rouvrir. Le compte reste '
+          'connecté ; vos données restent enregistrées.',
         ),
         actions: [
           TextButton(
@@ -156,7 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Se déconnecter'),
+            child: const Text('Verrouiller'),
           ),
         ],
       ),
@@ -165,10 +169,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(sessionLockRequestProvider.notifier).state++;
   }
 
-  /// Closes the Supabase account session (bloc 6/9) - unlike [_onLogout],
+  /// Closes the Supabase account session (bloc 6/9) - unlike [_onLockNow],
   /// this actually invalidates the cloud session's tokens, not just the
   /// local PIN unlock state, and sends the gate back to account
-  /// authentication rather than the PIN screen.
+  /// authentication rather than the PIN screen. The local PIN and
+  /// biometric flag are also cleared (see AppGate's
+  /// accountSignOutRequestProvider listener) so neither can silently
+  /// re-open this account once its session is gone.
   Future<void> _onAccountSignOut({required bool everywhere}) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -338,11 +345,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       if (_pinEnabled) ...[
                         const Divider(height: 1),
                         ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text('Se déconnecter'),
+                          leading: const Icon(Icons.lock_clock_outlined),
+                          title: const Text('Verrouiller maintenant'),
                           subtitle: const Text(
-                              'Reverrouille l\'application sur cet appareil'),
-                          onTap: _onLogout,
+                              'Reverrouille l\'application sur cet appareil - le compte reste connecté'),
+                          onTap: _onLockNow,
                         ),
                       ],
                     ],

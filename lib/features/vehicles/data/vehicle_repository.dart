@@ -8,6 +8,7 @@ import '../../../core/database/providers.dart';
 import '../../../core/sync/vehicle_sync_service.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/mileage_result.dart';
+import '../../account/data/account_repository.dart';
 import '../../audit/data/audit_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
 
@@ -25,11 +26,50 @@ class VehicleRepository {
     unawaited(_sync?.syncNow());
   }
 
-  Stream<List<Vehicle>> watchAll() {
-    final query = _db.select(_db.vehicles)
-      ..where((v) => v.isDeleted.equals(false))
-      ..orderBy([(v) => OrderingTerm.desc(v.updatedAt)]);
+  /// [currentUserId] scopes the list to the signed-in account: a vehicle is
+  /// visible if it's unowned locally (never synced - offline-created, or no
+  /// cloud account at all), owned by this account, or shared with it
+  /// (cached [Vehicle.myRole] set - only ever trustworthy because
+  /// [handleAccountSwitch] clears it on every account change, see there).
+  /// This is what keeps two different accounts that have used the same
+  /// physical device from ever seeing each other's vehicles mixed
+  /// together - without deleting anything: a previous account's vehicles
+  /// simply stay invisible (never re-appearing for a different account)
+  /// until that same account signs back in. Pass null only when there is
+  /// no signed-in account at all (offline-only device), where every
+  /// locally-created vehicle is visible by definition.
+  Stream<List<Vehicle>> watchAll({String? currentUserId}) {
+    final query = _db.select(_db.vehicles)..where((v) => v.isDeleted.equals(false));
+    if (currentUserId != null) {
+      query.where(
+        (v) => v.ownerId.isNull() | v.ownerId.equals(currentUserId) | v.myRole.isNotNull(),
+      );
+    }
+    query.orderBy([(v) => OrderingTerm.desc(v.updatedAt)]);
     return query.watch();
+  }
+
+  /// Account-switch safety net, called once from
+  /// AppGate._onAccountAuthenticated when a *different* account than last
+  /// time just signed in on this device. Two things can be stale from the
+  /// previous account's perspective, and neither is ever deleted:
+  /// - a vehicle still missing an owner locally (created offline, never
+  ///   synced before the switch) can only belong to [previousOwnerId] -
+  ///   tagged explicitly so [watchAll] correctly excludes it from the new
+  ///   account's view, and the previous account sees it again if it signs
+  ///   back in here;
+  /// - [Vehicle.myRole] ("shared with me, and at what level") was cached
+  ///   for the *previous* account's memberships specifically - it carries
+  ///   no account id of its own, so it can never be trusted for a
+  ///   different account without first being cleared. The very next sync
+  ///   pass repopulates it correctly for whoever is signed in now (or
+  ///   drops the row entirely if the new account has no access at all -
+  ///   see VehicleSyncService's revocation pass).
+  Future<void> handleAccountSwitch(String previousOwnerId) async {
+    await (_db.update(_db.vehicles)..where((v) => v.ownerId.isNull()))
+        .write(VehiclesCompanion(ownerId: Value(previousOwnerId)));
+    await (_db.update(_db.vehicles)..where((v) => v.myRole.isNotNull()))
+        .write(const VehiclesCompanion(myRole: Value(null)));
   }
 
   Stream<Vehicle> watchOne(String id) {
@@ -375,7 +415,13 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
 });
 
 final vehiclesListProvider = StreamProvider<List<Vehicle>>((ref) {
-  return ref.watch(vehicleRepositoryProvider).watchAll();
+  // Rebuilds this stream whenever the signed-in account changes (sign in,
+  // sign out, account switch) - see VehicleRepository.watchAll's doc:
+  // without re-scoping on every auth change, a vehicle list built for one
+  // account could keep showing after a different one signs in.
+  ref.watch(authStateChangesProvider);
+  final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+  return ref.watch(vehicleRepositoryProvider).watchAll(currentUserId: currentUserId);
 });
 
 final vehicleByIdProvider = StreamProvider.family<Vehicle, String>((ref, id) {

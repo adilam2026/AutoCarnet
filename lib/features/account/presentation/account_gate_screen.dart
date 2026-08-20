@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'email_entry_screen.dart';
@@ -25,7 +26,7 @@ class AccountGateScreen extends StatefulWidget {
     required this.onContinueOffline,
   });
 
-  final VoidCallback onAuthenticated;
+  final AsyncCallback onAuthenticated;
   final VoidCallback onContinueOffline;
 
   @override
