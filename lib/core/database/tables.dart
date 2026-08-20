@@ -9,6 +9,13 @@ class LocalProfiles extends Table {
   TextColumn get currency => text().withDefault(const Constant('MAD'))();
   TextColumn get distanceUnit => text().withDefault(const Constant('km'))();
   DateTimeColumn get createdAt => dateTime()();
+  // Which cloud account this profile's preferences belong to - null for a
+  // profile created before any account ever signed in on this device (pure
+  // offline use, or the brief window before AppGate reattributes/claims it).
+  // Without this, displayName/currency/distanceUnit were device-wide: a
+  // second account signing in on the same phone would silently inherit the
+  // first account's name and currency instead of getting its own.
+  TextColumn get ownerId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

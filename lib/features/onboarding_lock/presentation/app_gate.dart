@@ -111,17 +111,26 @@ class _AppGateState extends ConsumerState<AppGate> {
       await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousUserId);
       await ref.read(providerRepositoryProvider).handleAccountSwitch(previousUserId);
       await ref.read(documentRepositoryProvider).handleAccountSwitch(previousUserId);
+      await ref.read(localProfileRepositoryProvider).handleAccountSwitch(previousUserId);
     }
     await account.rememberCloudUserId(currentUserId);
 
+    // Preferences (displayName/currency/distanceUnit) follow the account,
+    // not the device: a genuinely new account here (existing == null,
+    // guaranteed after the handleAccountSwitch reattribution above) gets
+    // its own fresh defaults rather than inheriting whoever used this
+    // phone before - while a first-ever sign-in claims the pre-existing
+    // offline profile instead of discarding what was already there.
     final localRepo = ref.read(localProfileRepositoryProvider);
-    final existing = await localRepo.getOrNull();
+    final existing = await localRepo.getOrNull(currentUserId: currentUserId);
     if (existing == null) {
       final displayName =
           account.currentUser?.userMetadata?['display_name'] as String? ??
               account.currentUser?.email?.split('@').first ??
               'Utilisateur';
-      await localRepo.create(displayName: displayName);
+      await localRepo.create(displayName: displayName, ownerId: currentUserId);
+    } else if (existing.ownerId == null) {
+      await localRepo.claimOwnership(existing.id, currentUserId);
     }
     // Best-effort: lets collaborators see this account's name/email on a
     // shared vehicle's access screen. Never blocks sign-in if it fails

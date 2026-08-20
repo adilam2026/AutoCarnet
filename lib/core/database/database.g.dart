@@ -75,6 +75,17 @@ class $LocalProfilesTable extends LocalProfiles
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -83,6 +94,7 @@ class $LocalProfilesTable extends LocalProfiles
     currency,
     distanceUnit,
     createdAt,
+    ownerId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -141,6 +153,12 @@ class $LocalProfilesTable extends LocalProfiles
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    }
     return context;
   }
 
@@ -174,6 +192,10 @@ class $LocalProfilesTable extends LocalProfiles
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      ),
     );
   }
 
@@ -190,6 +212,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
   final String currency;
   final String distanceUnit;
   final DateTime createdAt;
+  final String? ownerId;
   const LocalProfile({
     required this.id,
     required this.displayName,
@@ -197,6 +220,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     required this.currency,
     required this.distanceUnit,
     required this.createdAt,
+    this.ownerId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -209,6 +233,9 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     map['currency'] = Variable<String>(currency);
     map['distance_unit'] = Variable<String>(distanceUnit);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || ownerId != null) {
+      map['owner_id'] = Variable<String>(ownerId);
+    }
     return map;
   }
 
@@ -222,6 +249,9 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       currency: Value(currency),
       distanceUnit: Value(distanceUnit),
       createdAt: Value(createdAt),
+      ownerId: ownerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerId),
     );
   }
 
@@ -237,6 +267,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       currency: serializer.fromJson<String>(json['currency']),
       distanceUnit: serializer.fromJson<String>(json['distanceUnit']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      ownerId: serializer.fromJson<String?>(json['ownerId']),
     );
   }
   @override
@@ -249,6 +280,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       'currency': serializer.toJson<String>(currency),
       'distanceUnit': serializer.toJson<String>(distanceUnit),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'ownerId': serializer.toJson<String?>(ownerId),
     };
   }
 
@@ -259,6 +291,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     String? currency,
     String? distanceUnit,
     DateTime? createdAt,
+    Value<String?> ownerId = const Value.absent(),
   }) => LocalProfile(
     id: id ?? this.id,
     displayName: displayName ?? this.displayName,
@@ -266,6 +299,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     currency: currency ?? this.currency,
     distanceUnit: distanceUnit ?? this.distanceUnit,
     createdAt: createdAt ?? this.createdAt,
+    ownerId: ownerId.present ? ownerId.value : this.ownerId,
   );
   LocalProfile copyWithCompanion(LocalProfilesCompanion data) {
     return LocalProfile(
@@ -281,6 +315,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
           ? data.distanceUnit.value
           : this.distanceUnit,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
     );
   }
 
@@ -292,7 +327,8 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
           ..write('avatarPath: $avatarPath, ')
           ..write('currency: $currency, ')
           ..write('distanceUnit: $distanceUnit, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('ownerId: $ownerId')
           ..write(')'))
         .toString();
   }
@@ -305,6 +341,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     currency,
     distanceUnit,
     createdAt,
+    ownerId,
   );
   @override
   bool operator ==(Object other) =>
@@ -315,7 +352,8 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
           other.avatarPath == this.avatarPath &&
           other.currency == this.currency &&
           other.distanceUnit == this.distanceUnit &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.ownerId == this.ownerId);
 }
 
 class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
@@ -325,6 +363,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
   final Value<String> currency;
   final Value<String> distanceUnit;
   final Value<DateTime> createdAt;
+  final Value<String?> ownerId;
   final Value<int> rowid;
   const LocalProfilesCompanion({
     this.id = const Value.absent(),
@@ -333,6 +372,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     this.currency = const Value.absent(),
     this.distanceUnit = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalProfilesCompanion.insert({
@@ -342,6 +382,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     this.currency = const Value.absent(),
     this.distanceUnit = const Value.absent(),
     required DateTime createdAt,
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        displayName = Value(displayName),
@@ -353,6 +394,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     Expression<String>? currency,
     Expression<String>? distanceUnit,
     Expression<DateTime>? createdAt,
+    Expression<String>? ownerId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -362,6 +404,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
       if (currency != null) 'currency': currency,
       if (distanceUnit != null) 'distance_unit': distanceUnit,
       if (createdAt != null) 'created_at': createdAt,
+      if (ownerId != null) 'owner_id': ownerId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -373,6 +416,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     Value<String>? currency,
     Value<String>? distanceUnit,
     Value<DateTime>? createdAt,
+    Value<String?>? ownerId,
     Value<int>? rowid,
   }) {
     return LocalProfilesCompanion(
@@ -382,6 +426,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
       currency: currency ?? this.currency,
       distanceUnit: distanceUnit ?? this.distanceUnit,
       createdAt: createdAt ?? this.createdAt,
+      ownerId: ownerId ?? this.ownerId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -407,6 +452,9 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -422,6 +470,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
           ..write('currency: $currency, ')
           ..write('distanceUnit: $distanceUnit, ')
           ..write('createdAt: $createdAt, ')
+          ..write('ownerId: $ownerId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10712,6 +10761,7 @@ typedef $$LocalProfilesTableCreateCompanionBuilder =
       Value<String> currency,
       Value<String> distanceUnit,
       required DateTime createdAt,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 typedef $$LocalProfilesTableUpdateCompanionBuilder =
@@ -10722,6 +10772,7 @@ typedef $$LocalProfilesTableUpdateCompanionBuilder =
       Value<String> currency,
       Value<String> distanceUnit,
       Value<DateTime> createdAt,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 
@@ -10761,6 +10812,11 @@ class $$LocalProfilesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10803,6 +10859,11 @@ class $$LocalProfilesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalProfilesTableAnnotationComposer
@@ -10837,6 +10898,9 @@ class $$LocalProfilesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
 }
 
 class $$LocalProfilesTableTableManager
@@ -10876,6 +10940,7 @@ class $$LocalProfilesTableTableManager
                 Value<String> currency = const Value.absent(),
                 Value<String> distanceUnit = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion(
                 id: id,
@@ -10884,6 +10949,7 @@ class $$LocalProfilesTableTableManager
                 currency: currency,
                 distanceUnit: distanceUnit,
                 createdAt: createdAt,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10894,6 +10960,7 @@ class $$LocalProfilesTableTableManager
                 Value<String> currency = const Value.absent(),
                 Value<String> distanceUnit = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion.insert(
                 id: id,
@@ -10902,6 +10969,7 @@ class $$LocalProfilesTableTableManager
                 currency: currency,
                 distanceUnit: distanceUnit,
                 createdAt: createdAt,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
