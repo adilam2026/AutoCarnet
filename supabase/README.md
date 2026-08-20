@@ -40,24 +40,49 @@ quotidien" sur chaque appareil vient du code d'accès local (PIN), pas d'un
 mot de passe de compte.
 
 Ça utilise l'endpoint OTP passwordless de Supabase (`signInWithOtp` +
-`verifyOtp(type: 'email')`), dont le template d'email est **"Magic Link"**
-(pas "Confirm signup", qui n'est plus utilisé du tout maintenant qu'il n'y a
-plus de `signUp()` avec mot de passe). Par défaut ce template envoie un lien
-cliquable et n'affiche pas le code — il faut l'éditer :
+`verifyOtp(type: 'email')`), dont l'email part sous le template **"Magic
+Link"** pour un compte déjà existant, et **"Confirm signup"** pour une
+toute première adresse. Par défaut, ces deux templates envoient un lien
+cliquable (`{{ .ConfirmationURL }}`) et n'affichent aucun code — il faut
+les éditer, et c'est plus qu'une question d'affichage :
+
+**Important - retirer complètement le lien, pas seulement le montrer en
+moins gros.** Si le template garde `{{ .ConfirmationURL }}` n'importe où
+(même dans un texte de secours du genre "si le bouton ne marche pas,
+clique sur ce lien"), les scanners de sécurité de la messagerie (Gmail
+notamment) peuvent "cliquer" ce lien automatiquement dès l'arrivée du
+mail, pour vérifier qu'il n'est pas malveillant - avant même que
+l'utilisateur ouvre l'email. Or le lien et le code à 6 chiffres
+consomment le **même** jeton à usage unique côté Supabase : si le
+scanner l'utilise en premier, le code affiché à l'utilisateur est déjà
+invalidé, et `verifyOtp` répond "Token has expired or is invalid" même
+quelques secondes après l'envoi - Supabase documente ce comportement
+explicitement dans son guide de dépannage. La seule protection fiable
+est de ne jamais inclure `{{ .ConfirmationURL }}` dans le template.
 
 1. Dashboard → **Authentication** → **Email Templates**.
 2. Ouvre **"Magic Link"** (dans la liste : "Send a one-time sign-in link or
-   one-time password").
-3. Remplace le bouton/lien par un texte qui affiche `{{ .Token }}` (le code
-   à 6 chiffres). Exemple minimal :
+   one-time password"). Remplace tout le corps du template - pas juste le
+   bouton - par quelque chose comme :
+   ```html
+   <h2>Code de vérification AutoCarnet</h2>
+   <p>Votre code de vérification est :</p>
+   <h1>{{ .Token }}</h1>
+   <p>Ce code expire dans 1 heure. Si vous n'êtes pas à l'origine de cette
+   demande, ignorez cet email.</p>
    ```
-   Votre code de vérification AutoCarnet : {{ .Token }}
-   ```
-4. Sauvegarde.
+   Aucun bouton, aucun `<a href="...">`, aucune mention de
+   `{{ .ConfirmationURL }}` nulle part dans le HTML.
+3. Change aussi le **Subject** (actuellement "Your sign-in link", trompeur
+   pour un flux à code) : `Votre code de vérification AutoCarnet`.
+4. Répète exactement la même chose sur **"Confirm signup"** (utilisé pour
+   la toute première adresse email d'un nouveau compte) : même corps, même
+   consigne "aucun lien", même changement de Subject.
+5. Sauvegarde les deux templates.
 
-Sans cette étape, les emails partiront quand même mais l'utilisateur ne
-verra aucun code à saisir dans l'app - juste un lien cassé (l'app n'utilise
-jamais ce lien, elle attend uniquement le code).
+Sans cette étape, les emails partiront quand même mais soit l'utilisateur
+ne verra aucun code (juste un lien), soit - le cas ici - il verra un code
+déjà invalidé par un scanner automatique avant même de le lire.
 
 ## Synchronisation cloud (véhicules) — appliquer la migration 0003
 
