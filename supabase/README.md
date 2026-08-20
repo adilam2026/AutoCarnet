@@ -31,6 +31,36 @@ select tablename, policyname from pg_policies where schemaname = 'public' order 
 Chaque table doit apparaître avec `rowsecurity = true` et 4 policies
 (select/insert/update/delete).
 
+## Audit RLS (chantier session/multi-compte) — règle à respecter pour toute évolution future
+
+Vérifié lors de l'audit multi-compte (voir aussi l'isolation côté app dans
+`VehicleRepository`/`ProviderRepository`/`DocumentRepository`, méthode
+`handleAccountSwitch`) : **le filtrage côté app (Drift/Flutter) n'est
+jamais la seule barrière.** Chaque table de ce fichier a sa propre policy
+RLS `auth.uid() = user_id`, appliquée par Postgres lui-même - un appel API
+direct (en contournant complètement l'app mobile) avec le token d'un
+compte B ne peut structurellement jamais lire une ligne appartenant au
+compte A. Vérifié en direct (`curl` avec seulement la clé anonyme, sans
+session) : les 15 tables renvoient `200 []`, jamais les données d'un
+autre utilisateur.
+
+Point d'attention pour la suite : seules `vehicles` (+ `vehicle_members`,
+`vehicle_invite_codes` depuis 0004/0005) ont une policy étendue au
+partage (`vehicle_members`). Toutes les autres tables listées ci-dessus
+(`service_providers`, `documents`, `maintenance_entries`, `expenses`,
+`fuel_entries`, `timeline_events`, `audit_events`, `reminders`,
+`operation_frequency_preferences`, `mileage_entries`,
+`document_versions`, `document_attachments`) restent strictement
+`auth.uid() = user_id`, sans exception pour un collaborateur - ce qui est
+sans risque aujourd'hui (aucune de ces tables n'est encore synchronisée,
+seul `VehicleSyncService` existe), mais **le jour où l'une d'elles sera
+synchronisée pour un véhicule partagé, sa policy select devra être
+étendue avec la même jointure `vehicle_members` que `vehicles`** -
+sinon un collaborateur autorisé sur le véhicule ne verra simplement rien
+(échec silencieux, pas une fuite, mais à corriger). Ne jamais l'étendre
+à l'aveugle sans revérifier l'absence de récursion (voir
+`0005_fix_rls_recursion.sql`).
+
 ## Authentification : email + code à 6 chiffres, sans mot de passe
 
 L'app n'a **aucun mot de passe** — création de compte et connexion sont la
