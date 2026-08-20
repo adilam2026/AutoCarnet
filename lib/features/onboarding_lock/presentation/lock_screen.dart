@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../account/data/account_repository.dart';
+import '../data/biometric_service.dart';
 import '../data/pin_service.dart';
 import 'app_gate.dart';
 
@@ -27,6 +28,35 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   int _failedAttempts = 0;
   DateTime? _lockedUntil;
   bool _checking = false;
+  bool _biometricAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeOfferBiometric();
+  }
+
+  /// Auto-prompts biometrics once, right when the lock screen appears, if
+  /// the user has previously turned it on and the device still supports
+  /// it - the PIN field underneath is always there and always usable
+  /// regardless of what happens here, so a cancelled/failed prompt never
+  /// strands anyone.
+  Future<void> _maybeOfferBiometric() async {
+    final biometrics = ref.read(biometricServiceProvider);
+    final enabled = await biometrics.isEnabled();
+    if (!enabled) return;
+    final supported = await biometrics.isDeviceSupported();
+    if (!mounted) return;
+    setState(() => _biometricAvailable = supported);
+    if (!supported) return;
+    final ok = await biometrics.authenticate();
+    if (ok && mounted) widget.onUnlocked();
+  }
+
+  Future<void> _retryBiometric() async {
+    final ok = await ref.read(biometricServiceProvider).authenticate();
+    if (ok && mounted) widget.onUnlocked();
+  }
 
   Future<void> _submit() async {
     if (_lockedUntil != null && DateTime.now().isBefore(_lockedUntil!)) return;
@@ -76,6 +106,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     );
     if (confirmed != true) return;
     await ref.read(pinServiceProvider).clearPin();
+    await ref.read(biometricServiceProvider).setEnabled(false);
     widget.onUnlocked();
   }
 
@@ -109,6 +140,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final pinService = ref.read(pinServiceProvider);
     final account = ref.read(accountRepositoryProvider);
     await pinService.clearPin();
+    await ref.read(biometricServiceProvider).setEnabled(false);
     if (account.isSignedIn) {
       await account.signOut();
     }
@@ -166,6 +198,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     onPressed: (_checking || locked) ? null : _submit,
                     child: const Text('Déverrouiller'),
                   ),
+                  if (_biometricAvailable) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: _checking ? null : _retryBiometric,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const Text('Utiliser la biométrie'),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,

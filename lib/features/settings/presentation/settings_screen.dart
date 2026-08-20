@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../account/data/account_repository.dart';
+import '../../onboarding_lock/data/biometric_service.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/data/pin_service.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
@@ -21,6 +22,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
   bool _pinEnabled = false;
+  bool _biometricSupported = false;
+  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -29,13 +32,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _refreshSecurityState() async {
-    final service = ref.read(pinServiceProvider);
-    final pinSet = await service.isPinSet();
+    final pinService = ref.read(pinServiceProvider);
+    final biometrics = ref.read(biometricServiceProvider);
+    final pinSet = await pinService.isPinSet();
+    final biometricSupported = await biometrics.isDeviceSupported();
+    final biometricEnabled = await biometrics.isEnabled();
     if (!mounted) return;
     setState(() {
       _pinEnabled = pinSet;
+      _biometricSupported = biometricSupported;
+      _biometricEnabled = biometricEnabled;
       _loading = false;
     });
+  }
+
+  /// Biometrics are always a shortcut layered on an existing PIN, never a
+  /// standalone credential - enabling it authenticates once immediately
+  /// (so a broken sensor or a cancelled prompt is caught right away,
+  /// instead of only at the next lock screen), and disabling never
+  /// touches the PIN itself.
+  Future<void> _onBiometricToggled(bool enable) async {
+    final biometrics = ref.read(biometricServiceProvider);
+    if (enable) {
+      final ok = await biometrics.authenticate();
+      if (!ok) {
+        if (mounted) {
+          showAppSnackBar(context, 'Authentification biométrique impossible',
+              icon: Icons.error_outline);
+        }
+        return;
+      }
+    }
+    await biometrics.setEnabled(enable);
+    if (mounted) {
+      showAppSnackBar(
+        context,
+        enable ? 'Déverrouillage biométrique activé' : 'Déverrouillage biométrique désactivé',
+        icon: enable ? Icons.fingerprint : Icons.lock_open_outlined,
+      );
+    }
+    await _refreshSecurityState();
   }
 
   Future<void> _onPinToggled(bool enable) async {
@@ -49,6 +85,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final confirmed = await showConfirmCurrentPinDialog(context, ref);
       if (confirmed) {
         await service.clearPin();
+        // Biometric unlock is only ever a shortcut on top of the PIN -
+        // never leave it enabled with no PIN underneath it.
+        await ref.read(biometricServiceProvider).setEnabled(false);
         if (mounted) {
           showAppSnackBar(context, 'Code PIN désactivé', icon: Icons.lock_open_outlined);
         }
@@ -286,6 +325,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onTap: _onChangePin,
                         ),
                       ],
+                      if (_pinEnabled && _biometricSupported) ...[
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          secondary: const Icon(Icons.fingerprint),
+                          title: const Text('Déverrouillage biométrique'),
+                          subtitle: const Text('Empreinte ou reconnaissance faciale, en plus du PIN'),
+                          value: _biometricEnabled,
+                          onChanged: _onBiometricToggled,
+                        ),
+                      ],
                       if (_pinEnabled) ...[
                         const Divider(height: 1),
                         ListTile(
@@ -304,9 +353,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Text(
               account.isSignedIn
                   ? 'AutoCarnet fonctionne entièrement hors connexion.\n'
-                      'La synchronisation entre appareils n\'est pas encore '
-                      'active - vos données restent sur cet appareil pour '
-                      'le moment.'
+                      'Vos véhicules se synchronisent automatiquement avec '
+                      'votre compte dès qu\'une connexion est disponible.'
                   : 'AutoCarnet fonctionne entièrement hors connexion.\n'
                       'Vos données restent stockées sur cet appareil.',
               textAlign: TextAlign.center,
