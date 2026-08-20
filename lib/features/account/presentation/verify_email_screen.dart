@@ -1,22 +1,25 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pinput/pinput.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/account_repository.dart';
 
 /// Second step of the account-first flow: enter the 6-digit code that was
-/// just emailed. The digit boxes themselves are [Pinput] - a real,
-/// battle-tested TextField under the hood, driven entirely by the device's
-/// own native keyboard - rather than a hand-rolled TextField with its own
-/// bespoke autofill/formatter configuration. `autofillHints` is explicitly
-/// disabled (pinput otherwise defaults to `[AutofillHints.oneTimeCode]`,
-/// which real-device testing showed can silently block manual typing on
-/// some keyboards) and no [Pinput.smsRetriever] is wired in, so nothing
-/// ever writes into this field except the user's own keystrokes.
+/// just emailed. Deliberately the plainest possible Flutter text field -
+/// the same technical philosophy as the mileage field elsewhere in the app
+/// (see MileageUpdateSheet): one [TextEditingController] owned by this
+/// screen, a native numeric keyboard, no OTP library, no autofill hint, no
+/// SMS auto-retriever, no secondary state mirroring the typed value. Prior
+/// attempts here used a hand-rolled multi-step widget and later the Pinput
+/// package - both showed the same real-device symptom (deleted characters
+/// reappearing while retyping), so this deliberately drops every layer
+/// that isn't the bare minimum: "Vérifier" reads `_codeCtrl.text` exactly
+/// once, at the moment it's pressed, and nothing else ever writes into
+/// this controller.
 class VerifyEmailScreen extends ConsumerStatefulWidget {
   const VerifyEmailScreen({
     super.key,
@@ -37,7 +40,6 @@ class VerifyEmailScreen extends ConsumerStatefulWidget {
 
 class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   final _codeCtrl = TextEditingController();
-  final _focusNode = FocusNode();
   String? _error;
   bool _busy = false;
   bool _resending = false;
@@ -47,13 +49,12 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   void dispose() {
     _codeCtrl.dispose();
-    _focusNode.dispose();
     _cooldownTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _submit([String? code]) async {
-    final value = (code ?? _codeCtrl.text).trim();
+  Future<void> _submit() async {
+    final value = _codeCtrl.text.trim();
     if (value.length < 6) {
       setState(() => _error = 'Le code contient 6 chiffres');
       return;
@@ -66,15 +67,9 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       await ref.read(accountRepositoryProvider).verifyEmailCode(email: widget.email, code: value);
       if (mounted) widget.onAuthenticated();
     } on AuthException catch (e) {
-      if (mounted) {
-        setState(() => _error = e.message);
-        _codeCtrl.clear();
-      }
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Une erreur est survenue. Réessayez.');
-        _codeCtrl.clear();
-      }
+      if (mounted) setState(() => _error = 'Une erreur est survenue. Réessayez.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -119,26 +114,6 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final defaultPinTheme = PinTheme(
-      width: 48,
-      height: 56,
-      textStyle: Theme.of(context).textTheme.headlineSmall,
-      decoration: BoxDecoration(
-        border: Border.all(color: scheme.outline),
-        borderRadius: BorderRadius.circular(8),
-      ),
-    );
-    final focusedPinTheme = defaultPinTheme.copyWith(
-      decoration: defaultPinTheme.decoration!.copyWith(
-        border: Border.all(color: scheme.primary, width: 2),
-      ),
-    );
-    final errorPinTheme = defaultPinTheme.copyWith(
-      decoration: defaultPinTheme.decoration!.copyWith(
-        border: Border.all(color: scheme.error, width: 2),
-      ),
-    );
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -167,27 +142,30 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Center(
-                    child: Pinput(
-                      length: 6,
-                      controller: _codeCtrl,
-                      focusNode: _focusNode,
-                      autofocus: true,
-                      enabled: !_busy,
-                      defaultPinTheme: defaultPinTheme,
-                      focusedPinTheme: focusedPinTheme,
-                      errorPinTheme: errorPinTheme,
-                      forceErrorState: _error != null,
-                      keyboardType: TextInputType.number,
-                      // Pinput defaults to [AutofillHints.oneTimeCode] -
-                      // explicitly off here, see class doc.
-                      autofillHints: null,
-                      showCursor: true,
-                      onCompleted: _submit,
-                      onChanged: (_) {
-                        if (_error != null) setState(() => _error = null);
-                      },
+                  TextField(
+                    controller: _codeCtrl,
+                    autofocus: true,
+                    enabled: !_busy,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    // Deliberately off - see class doc. Flutter's own
+                    // default for this parameter is `const []`, which
+                    // still builds a real (generic, hint-less)
+                    // AutofillConfiguration; only an explicit `null`
+                    // fully disables it.
+                    autofillHints: null,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 28, letterSpacing: 8, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(
+                      labelText: 'Code de vérification',
+                      counterText: '',
                     ),
+                    onChanged: (_) {
+                      if (_error != null) setState(() => _error = null);
+                    },
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.sm),
@@ -195,7 +173,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   ],
                   const SizedBox(height: AppSpacing.lg),
                   FilledButton(
-                    onPressed: _busy ? null : () => _submit(),
+                    onPressed: _busy ? null : _submit,
                     child: _busy
                         ? const SizedBox(
                             height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
