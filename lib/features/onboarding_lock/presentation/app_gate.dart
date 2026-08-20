@@ -117,26 +117,34 @@ class _AppGateState extends ConsumerState<AppGate> {
         }
         return switch (_step) {
           _GateStep.loading => const _Splash(),
-          _GateStep.accountAuth => AccountGateScreen(
-              onAuthenticated: _onAccountAuthenticated,
-              onContinueOffline: () => setState(() => _step = _GateStep.onboarding),
+          _GateStep.accountAuth => _GateNavigator(
+              child: AccountGateScreen(
+                onAuthenticated: _onAccountAuthenticated,
+                onContinueOffline: () => setState(() => _step = _GateStep.onboarding),
+              ),
             ),
-          _GateStep.onboarding => OnboardingScreen(
-              // The profile was just created; no need to wait for the
-              // stream to catch up before moving to the next step.
-              onDone: () => _evaluate('pending'),
+          _GateStep.onboarding => _GateNavigator(
+              child: OnboardingScreen(
+                // The profile was just created; no need to wait for the
+                // stream to catch up before moving to the next step.
+                onDone: () => _evaluate('pending'),
+              ),
             ),
-          _GateStep.pinSetup => PinSetupScreen(
-              onDone: () async {
-                await ref.read(pinServiceProvider).markPinSetupOffered();
-                // Straight into the app - re-locking immediately after the
-                // user just set (or skipped) the PIN would force them to
-                // re-type the code they only just entered.
-                setState(() => _step = _GateStep.unlocked);
-              },
+          _GateStep.pinSetup => _GateNavigator(
+              child: PinSetupScreen(
+                onDone: () async {
+                  await ref.read(pinServiceProvider).markPinSetupOffered();
+                  // Straight into the app - re-locking immediately after the
+                  // user just set (or skipped) the PIN would force them to
+                  // re-type the code they only just entered.
+                  setState(() => _step = _GateStep.unlocked);
+                },
+              ),
             ),
-          _GateStep.locked => LockScreen(
-              onUnlocked: () => setState(() => _step = _GateStep.unlocked),
+          _GateStep.locked => _GateNavigator(
+              child: LockScreen(
+                onUnlocked: () => setState(() => _step = _GateStep.unlocked),
+              ),
             ),
           _GateStep.unlocked => _UnlockedApp(child: widget.child),
         };
@@ -166,6 +174,36 @@ class _UnlockedAppState extends ConsumerState<_UnlockedApp> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Gives every pre-unlock screen (account auth, onboarding, PIN setup,
+/// lock screen) its own real [Navigator] - and therefore its own
+/// [Overlay].
+///
+/// [AppGate] sits in `MaterialApp.router`'s `builder`, one level *above*
+/// the app's actual router: `widget.child` passed into [AppGate] already
+/// *is* that router (with its own Navigator/Overlay inside), but every
+/// branch here other than `unlocked` returns a screen built directly,
+/// without `widget.child` anywhere in the tree - so until now, every
+/// field on every pre-unlock screen rendered with zero Navigator/Overlay
+/// ancestor anywhere above it, unlike literally every other screen in the
+/// app (all reached through the router, which always provides one).
+/// Missing Overlay ancestry is a known source of unreliable text-field/IME
+/// behaviour in Flutter (selection handles, the composing-range UI, and
+/// related low-level text-input plumbing all expect one) - and it lines
+/// up exactly with what real-device testing showed: every field on these
+/// screens misbehaved, while every field on every router-hosted business
+/// screen (kilométrage included) never did.
+class _GateNavigator extends StatelessWidget {
+  const _GateNavigator({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      onGenerateRoute: (settings) => MaterialPageRoute(builder: (_) => child),
+    );
+  }
 }
 
 class _Splash extends StatelessWidget {

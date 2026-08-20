@@ -102,7 +102,10 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                   TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
+                    // Deliberately off, same reasoning as every other field
+                    // on this screen and the OTP field - see
+                    // verify_email_screen.dart's class doc.
+                    autofillHints: null,
                     decoration: const InputDecoration(labelText: 'Adresse email'),
                     onSubmitted: (_) {
                       if (!_busy) _submit();
