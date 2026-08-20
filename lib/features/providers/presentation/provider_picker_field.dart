@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../account/data/account_repository.dart';
 import '../data/provider_repository.dart';
 
 /// Reusable autocomplete used by documents, maintenance, expenses and fuel
@@ -40,7 +41,10 @@ class _ProviderPickerFieldState extends ConsumerState<ProviderPickerField> {
       displayStringForOption: (p) => p.name,
       optionsBuilder: (value) async {
         if (value.text.trim().isEmpty) return const [];
-        return ref.read(providerRepositoryProvider).search(value.text.trim());
+        final currentUserId = ref.read(accountRepositoryProvider).currentUser?.id;
+        return ref
+            .read(providerRepositoryProvider)
+            .search(value.text.trim(), currentUserId: currentUserId);
       },
       onSelected: (p) {
         _selected = p;
@@ -102,9 +106,10 @@ Future<String?> resolveOrCreateProvider(
   final text = typedText.trim();
   if (text.isEmpty) return null;
   final repo = ref.read(providerRepositoryProvider);
+  final currentUserId = ref.read(accountRepositoryProvider).currentUser?.id;
   // A strong match ("Audi Casa" vs "Garage Audi Casablanca") reuses the
   // existing référentiel entry instead of spawning a near-duplicate one.
-  final duplicate = await repo.findLikelyDuplicate(text);
+  final duplicate = await repo.findLikelyDuplicate(text, currentUserId: currentUserId);
   if (duplicate != null) return duplicate.id;
-  return repo.createProvider(name: text);
+  return repo.createProvider(name: text, currentUserId: currentUserId);
 }

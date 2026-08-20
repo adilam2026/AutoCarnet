@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
+import '../../account/data/account_repository.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/document_repository.dart';
 import '../domain/document_renewal_rules.dart';
@@ -165,6 +166,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
           comments: _commentsCtrl.text.trim().isEmpty
               ? null
               : _commentsCtrl.text.trim(),
+          currentUserId: ref.read(accountRepositoryProvider).currentUser?.id,
         );
       }
       if (mounted) {

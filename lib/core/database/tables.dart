@@ -101,6 +101,14 @@ class ServiceProviders extends Table {
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  // The cloud account id signed in when this provider was created - this
+  // référentiel has no cloud sync of its own (purely local), so unlike
+  // Vehicles.ownerId this is set directly at creation time, never by a
+  // pull. Null for a provider created with no cloud account at all. Used
+  // to keep two different accounts that have used the same physical
+  // device from seeing each other's private contacts (RG audit - see
+  // ProviderRepository.watchAll).
+  TextColumn get ownerId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -119,6 +127,12 @@ class Documents extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  // Only meaningful (and only ever checked) for a driver document
+  // (vehicleId null): a vehicle-scoped document's visibility already
+  // follows the vehicle it belongs to. Set directly at creation time from
+  // whichever account is signed in then - documents have no cloud sync of
+  // their own yet. See DocumentRepository.watchDriverDocuments.
+  TextColumn get ownerId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

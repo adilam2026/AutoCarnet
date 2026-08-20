@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../account/data/account_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../timeline/data/timeline_repository.dart';
 import '../domain/document_renewal_rules.dart';
@@ -62,12 +63,28 @@ class DocumentRepository {
 
   /// Driver documents (permis de conduire, pièce d'identité...) are not
   /// tied to a single vehicle - they belong to the profile and are shared
-  /// across the whole garage.
-  Stream<List<DocumentWithVersion>> watchDriverDocuments() {
+  /// across the whole garage. [currentUserId] keeps two different accounts
+  /// that have used the same physical device from seeing each other's
+  /// identity documents - these carry no vehicle to scope by, so they're
+  /// tagged with their creator's account id directly (see
+  /// [createDocument]/[handleAccountSwitch]).
+  Stream<List<DocumentWithVersion>> watchDriverDocuments({String? currentUserId}) {
     final query = _db.select(_db.documents)
-      ..where((d) => d.vehicleId.isNull() & d.isDeleted.equals(false))
-      ..orderBy([(d) => OrderingTerm.desc(d.updatedAt)]);
+      ..where((d) => d.vehicleId.isNull() & d.isDeleted.equals(false));
+    if (currentUserId != null) {
+      query.where((d) => d.ownerId.isNull() | d.ownerId.equals(currentUserId));
+    }
+    query.orderBy([(d) => OrderingTerm.desc(d.updatedAt)]);
     return query.watch().asyncMap(_withVersions);
+  }
+
+  /// Account-switch safety net for driver documents only - a
+  /// vehicle-scoped document's visibility already follows its vehicle
+  /// (see VehicleRepository.handleAccountSwitch). Nothing is ever
+  /// deleted.
+  Future<void> handleAccountSwitch(String previousOwnerId) async {
+    await (_db.update(_db.documents)..where((d) => d.vehicleId.isNull() & d.ownerId.isNull()))
+        .write(DocumentsCompanion(ownerId: Value(previousOwnerId)));
   }
 
   Future<List<DocumentWithVersion>> _withVersions(List<Document> docs) async {
@@ -101,6 +118,7 @@ class DocumentRepository {
     double? cost,
     String? providerId,
     String? comments,
+    String? currentUserId,
   }) async {
     final docId = newId();
     final versionId = newId();
@@ -112,6 +130,7 @@ class DocumentRepository {
             type: type,
             holder: Value(holder),
             currentVersionId: Value(versionId),
+            ownerId: Value(currentUserId),
             createdAt: now,
             updatedAt: now,
           ),
@@ -256,5 +275,7 @@ final vehicleDocumentsProvider =
 });
 
 final driverDocumentsProvider = StreamProvider<List<DocumentWithVersion>>((ref) {
-  return ref.watch(documentRepositoryProvider).watchDriverDocuments();
+  ref.watch(authStateChangesProvider);
+  final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+  return ref.watch(documentRepositoryProvider).watchDriverDocuments(currentUserId: currentUserId);
 });

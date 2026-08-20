@@ -8,6 +8,8 @@ import '../../../core/utils/connectivity.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../account/data/account_repository.dart';
 import '../../account/presentation/account_gate_screen.dart';
+import '../../documents/data/document_repository.dart';
+import '../../providers/data/provider_repository.dart';
 import '../../sharing/data/sharing_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../data/biometric_service.dart';
@@ -78,7 +80,11 @@ class _AppGateState extends ConsumerState<AppGate> {
       return;
     }
     final pinService = ref.read(pinServiceProvider);
-    final offered = await pinService.hasPinSetupBeenOffered();
+    // Scoped to the signed-in account (null for a device with no cloud
+    // account at all) - see PinService.hasPinSetupBeenOffered: a
+    // different account signing in later must still get its own offer.
+    final accountId = account.isSignedIn ? account.currentUser!.id : null;
+    final offered = await pinService.hasPinSetupBeenOffered(accountId: accountId);
     if (!offered) {
       setState(() => _step = _GateStep.pinSetup);
       return;
@@ -100,9 +106,11 @@ class _AppGateState extends ConsumerState<AppGate> {
     final previousUserId = await account.lastCloudUserId();
     if (previousUserId != null && previousUserId != currentUserId) {
       // A different cloud account just signed in on this same device than
-      // last time - see VehicleRepository.handleAccountSwitch for exactly
-      // what this reattributes/clears. Nothing is ever deleted.
+      // last time - see each repository's handleAccountSwitch for exactly
+      // what gets reattributed/cleared. Nothing is ever deleted.
       await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousUserId);
+      await ref.read(providerRepositoryProvider).handleAccountSwitch(previousUserId);
+      await ref.read(documentRepositoryProvider).handleAccountSwitch(previousUserId);
     }
     await account.rememberCloudUserId(currentUserId);
 
@@ -174,7 +182,9 @@ class _AppGateState extends ConsumerState<AppGate> {
           _GateStep.pinSetup => _GateNavigator(
               child: PinSetupScreen(
                 onDone: () async {
-                  await ref.read(pinServiceProvider).markPinSetupOffered();
+                  final account = ref.read(accountRepositoryProvider);
+                  final accountId = account.isSignedIn ? account.currentUser!.id : null;
+                  await ref.read(pinServiceProvider).markPinSetupOffered(accountId: accountId);
                   // Straight into the app - re-locking immediately after the
                   // user just set (or skipped) the PIN would force them to
                   // re-type the code they only just entered.

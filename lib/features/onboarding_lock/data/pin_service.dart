@@ -38,14 +38,23 @@ class PinService {
 
   static const _pinSetupOfferedKey = 'pin_setup_offered';
 
-  /// The PIN prompt is only ever shown once after the first profile
-  /// creation (bloc 2 §5.6) - skipping it should not nag the user again.
-  Future<bool> hasPinSetupBeenOffered() async =>
-      (await _storage.read(key: _pinSetupOfferedKey)) == 'true';
+  /// The PIN prompt is only ever shown once per account on this device
+  /// (bloc 2 §5.6) - skipping it should not nag that account again, but a
+  /// *different* account signing in later (see AppGate's account-switch
+  /// handling) must still be offered its own PIN, since the previous
+  /// account's answer says nothing about what this new one wants.
+  /// [accountId] is the signed-in account's id, or null for a device with
+  /// no cloud account at all (a single, device-wide offer in that case -
+  /// there's no other account to distinguish it from).
+  Future<bool> hasPinSetupBeenOffered({String? accountId}) async =>
+      (await _storage.read(key: _offeredKey(accountId))) == 'true';
 
-  Future<void> markPinSetupOffered() async {
-    await _storage.write(key: _pinSetupOfferedKey, value: 'true');
+  Future<void> markPinSetupOffered({String? accountId}) async {
+    await _storage.write(key: _offeredKey(accountId), value: 'true');
   }
+
+  String _offeredKey(String? accountId) =>
+      accountId == null ? _pinSetupOfferedKey : '${_pinSetupOfferedKey}_$accountId';
 
   String _generateSalt() {
     final random = Random.secure();

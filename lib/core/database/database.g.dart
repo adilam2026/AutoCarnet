@@ -2602,6 +2602,17 @@ class $ServiceProvidersTable extends ServiceProviders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2617,6 +2628,7 @@ class $ServiceProvidersTable extends ServiceProviders
     isArchived,
     createdAt,
     updatedAt,
+    ownerId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2713,6 +2725,12 @@ class $ServiceProvidersTable extends ServiceProviders
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    }
     return context;
   }
 
@@ -2774,6 +2792,10 @@ class $ServiceProvidersTable extends ServiceProviders
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      ),
     );
   }
 
@@ -2797,6 +2819,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
   final bool isArchived;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? ownerId;
   const ServiceProvider({
     required this.id,
     required this.name,
@@ -2811,6 +2834,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
+    this.ownerId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2844,6 +2868,9 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     map['is_archived'] = Variable<bool>(isArchived);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || ownerId != null) {
+      map['owner_id'] = Variable<String>(ownerId);
+    }
     return map;
   }
 
@@ -2874,6 +2901,9 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       isArchived: Value(isArchived),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      ownerId: ownerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerId),
     );
   }
 
@@ -2896,6 +2926,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       isArchived: serializer.fromJson<bool>(json['isArchived']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      ownerId: serializer.fromJson<String?>(json['ownerId']),
     );
   }
   @override
@@ -2915,6 +2946,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       'isArchived': serializer.toJson<bool>(isArchived),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'ownerId': serializer.toJson<String?>(ownerId),
     };
   }
 
@@ -2932,6 +2964,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     bool? isArchived,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Value<String?> ownerId = const Value.absent(),
   }) => ServiceProvider(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2946,6 +2979,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     isArchived: isArchived ?? this.isArchived,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    ownerId: ownerId.present ? ownerId.value : this.ownerId,
   );
   ServiceProvider copyWithCompanion(ServiceProvidersCompanion data) {
     return ServiceProvider(
@@ -2964,6 +2998,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
           : this.isArchived,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
     );
   }
 
@@ -2982,7 +3017,8 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
           ..write('comments: $comments, ')
           ..write('isArchived: $isArchived, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('ownerId: $ownerId')
           ..write(')'))
         .toString();
   }
@@ -3002,6 +3038,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     isArchived,
     createdAt,
     updatedAt,
+    ownerId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3019,7 +3056,8 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
           other.comments == this.comments &&
           other.isArchived == this.isArchived &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.ownerId == this.ownerId);
 }
 
 class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
@@ -3036,6 +3074,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
   final Value<bool> isArchived;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<String?> ownerId;
   final Value<int> rowid;
   const ServiceProvidersCompanion({
     this.id = const Value.absent(),
@@ -3051,6 +3090,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     this.isArchived = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ServiceProvidersCompanion.insert({
@@ -3067,6 +3107,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     this.isArchived = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -3086,6 +3127,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     Expression<bool>? isArchived,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? ownerId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3102,6 +3144,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
       if (isArchived != null) 'is_archived': isArchived,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (ownerId != null) 'owner_id': ownerId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3120,6 +3163,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     Value<bool>? isArchived,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<String?>? ownerId,
     Value<int>? rowid,
   }) {
     return ServiceProvidersCompanion(
@@ -3136,6 +3180,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      ownerId: ownerId ?? this.ownerId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3182,6 +3227,9 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3204,6 +3252,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
           ..write('isArchived: $isArchived, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('ownerId: $ownerId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3305,6 +3354,17 @@ class $DocumentsTable extends Documents
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3315,6 +3375,7 @@ class $DocumentsTable extends Documents
     createdAt,
     updatedAt,
     isDeleted,
+    ownerId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3384,6 +3445,12 @@ class $DocumentsTable extends Documents
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3425,6 +3492,10 @@ class $DocumentsTable extends Documents
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      ),
     );
   }
 
@@ -3443,6 +3514,7 @@ class Document extends DataClass implements Insertable<Document> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+  final String? ownerId;
   const Document({
     required this.id,
     this.vehicleId,
@@ -3452,6 +3524,7 @@ class Document extends DataClass implements Insertable<Document> {
     required this.createdAt,
     required this.updatedAt,
     required this.isDeleted,
+    this.ownerId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3470,6 +3543,9 @@ class Document extends DataClass implements Insertable<Document> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || ownerId != null) {
+      map['owner_id'] = Variable<String>(ownerId);
+    }
     return map;
   }
 
@@ -3489,6 +3565,9 @@ class Document extends DataClass implements Insertable<Document> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      ownerId: ownerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerId),
     );
   }
 
@@ -3506,6 +3585,7 @@ class Document extends DataClass implements Insertable<Document> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      ownerId: serializer.fromJson<String?>(json['ownerId']),
     );
   }
   @override
@@ -3520,6 +3600,7 @@ class Document extends DataClass implements Insertable<Document> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'ownerId': serializer.toJson<String?>(ownerId),
     };
   }
 
@@ -3532,6 +3613,7 @@ class Document extends DataClass implements Insertable<Document> {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    Value<String?> ownerId = const Value.absent(),
   }) => Document(
     id: id ?? this.id,
     vehicleId: vehicleId.present ? vehicleId.value : this.vehicleId,
@@ -3543,6 +3625,7 @@ class Document extends DataClass implements Insertable<Document> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    ownerId: ownerId.present ? ownerId.value : this.ownerId,
   );
   Document copyWithCompanion(DocumentsCompanion data) {
     return Document(
@@ -3556,6 +3639,7 @@ class Document extends DataClass implements Insertable<Document> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
     );
   }
 
@@ -3569,7 +3653,8 @@ class Document extends DataClass implements Insertable<Document> {
           ..write('currentVersionId: $currentVersionId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('ownerId: $ownerId')
           ..write(')'))
         .toString();
   }
@@ -3584,6 +3669,7 @@ class Document extends DataClass implements Insertable<Document> {
     createdAt,
     updatedAt,
     isDeleted,
+    ownerId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3596,7 +3682,8 @@ class Document extends DataClass implements Insertable<Document> {
           other.currentVersionId == this.currentVersionId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.ownerId == this.ownerId);
 }
 
 class DocumentsCompanion extends UpdateCompanion<Document> {
@@ -3608,6 +3695,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> ownerId;
   final Value<int> rowid;
   const DocumentsCompanion({
     this.id = const Value.absent(),
@@ -3618,6 +3706,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DocumentsCompanion.insert({
@@ -3629,6 +3718,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.isDeleted = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -3643,6 +3733,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? ownerId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3654,6 +3745,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (ownerId != null) 'owner_id': ownerId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3667,6 +3759,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<bool>? isDeleted,
+    Value<String?>? ownerId,
     Value<int>? rowid,
   }) {
     return DocumentsCompanion(
@@ -3678,6 +3771,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      ownerId: ownerId ?? this.ownerId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3709,6 +3803,9 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3726,6 +3823,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('ownerId: $ownerId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12749,6 +12847,7 @@ typedef $$ServiceProvidersTableCreateCompanionBuilder =
       Value<bool> isArchived,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 typedef $$ServiceProvidersTableUpdateCompanionBuilder =
@@ -12766,6 +12865,7 @@ typedef $$ServiceProvidersTableUpdateCompanionBuilder =
       Value<bool> isArchived,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 
@@ -12928,6 +13028,11 @@ class $$ServiceProvidersTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13105,6 +13210,11 @@ class $$ServiceProvidersTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ServiceProvidersTableAnnotationComposer
@@ -13156,6 +13266,9 @@ class $$ServiceProvidersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
 
   Expression<T> documentVersionsRefs<T extends Object>(
     Expression<T> Function($$DocumentVersionsTableAnnotationComposer a) f,
@@ -13307,6 +13420,7 @@ class $$ServiceProvidersTableTableManager
                 Value<bool> isArchived = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ServiceProvidersCompanion(
                 id: id,
@@ -13322,6 +13436,7 @@ class $$ServiceProvidersTableTableManager
                 isArchived: isArchived,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13339,6 +13454,7 @@ class $$ServiceProvidersTableTableManager
                 Value<bool> isArchived = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ServiceProvidersCompanion.insert(
                 id: id,
@@ -13354,6 +13470,7 @@ class $$ServiceProvidersTableTableManager
                 isArchived: isArchived,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -13503,6 +13620,7 @@ typedef $$DocumentsTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<bool> isDeleted,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 typedef $$DocumentsTableUpdateCompanionBuilder =
@@ -13515,6 +13633,7 @@ typedef $$DocumentsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> isDeleted,
+      Value<String?> ownerId,
       Value<int> rowid,
     });
 
@@ -13601,6 +13720,11 @@ class $$DocumentsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13697,6 +13821,11 @@ class $$DocumentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$VehiclesTableOrderingComposer get vehicleId {
     final $$VehiclesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13752,6 +13881,9 @@ class $$DocumentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
 
   $$VehiclesTableAnnotationComposer get vehicleId {
     final $$VehiclesTableAnnotationComposer composer = $composerBuilder(
@@ -13838,6 +13970,7 @@ class $$DocumentsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DocumentsCompanion(
                 id: id,
@@ -13848,6 +13981,7 @@ class $$DocumentsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isDeleted: isDeleted,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13860,6 +13994,7 @@ class $$DocumentsTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DocumentsCompanion.insert(
                 id: id,
@@ -13870,6 +14005,7 @@ class $$DocumentsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isDeleted: isDeleted,
+                ownerId: ownerId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

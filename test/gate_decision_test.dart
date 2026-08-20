@@ -37,4 +37,19 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+      'an authenticated session used entirely offline is NOT a logout - Supabase keeps '
+      '`currentSession` (and therefore isSignedIn) non-null without connectivity; only an '
+      'explicit signOut() call clears it, so PIN/biometric stay a legitimate unlock offline',
+      () {
+    // isSignedIn: true here represents a live, cached session being used
+    // with no network reachable - distinct from a real sign-out, which
+    // is the only thing that ever makes isSignedIn false.
+    expect(
+      mustReauthenticateViaEmail(hasEverLinkedCloudAccount: true, isSignedIn: true),
+      isFalse,
+      reason: 'an offline-but-authenticated session must never be treated as a logout',
+    );
+  });
 }
