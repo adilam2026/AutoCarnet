@@ -13,7 +13,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: EmailEntryScreen(onCodeSent: (_) => codeSentCalled = true),
+          home: EmailEntryScreen(
+            onCodeSent: (_) => codeSentCalled = true,
+            onAuthenticated: () async {},
+          ),
         ),
       ),
     );
@@ -30,7 +33,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: EmailEntryScreen(onCodeSent: (_) {}),
+          home: EmailEntryScreen(onCodeSent: (_) {}, onAuthenticated: () async {}),
         ),
       ),
     );

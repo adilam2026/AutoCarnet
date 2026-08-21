@@ -30,10 +30,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _refreshSecurityState();
   }
 
+  /// The account whose PIN/biometric this screen manages - always
+  /// non-null here, since Settings is only ever reachable from within the
+  /// unlocked app (i.e. after an account is already active).
+  String get _accountId => ref.read(accountRepositoryProvider).currentUser!.id;
+
   Future<void> _refreshSecurityState() async {
     final biometrics = ref.read(biometricServiceProvider);
     final biometricSupported = await biometrics.isDeviceSupported();
-    final biometricEnabled = await biometrics.isEnabled();
+    final biometricEnabled = await biometrics.isEnabled(_accountId);
     if (!mounted) return;
     setState(() {
       _biometricSupported = biometricSupported;
@@ -59,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
     }
-    await biometrics.setEnabled(enable);
+    await biometrics.setEnabled(_accountId, enable);
     if (mounted) {
       showAppSnackBar(
         context,
@@ -71,7 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _onChangePin() async {
-    final changed = await showSetPinDialog(context, ref);
+    final changed = await showSetPinDialog(context, ref, _accountId);
     if (changed && mounted) {
       showAppSnackBar(context, 'Code PIN mis à jour', icon: Icons.check_circle_outline);
     }
@@ -143,20 +148,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(sessionLockRequestProvider.notifier).state++;
   }
 
-  /// "Changer de compte" (spec bloc 11/15): dissociates this device from
-  /// the current account and sends the gate back to the email screen - the
-  /// next sign-in, even with this same address, always requires a fresh
-  /// OTP. Unlike [_onLockNow], this really does end the account's
-  /// authorization on this device, not just the local PIN unlock state.
+  /// "Changer de compte" (spec bloc 11/CAS 1/2/3): pure navigation to the
+  /// email screen - nothing about this account is forgotten. Whichever
+  /// email is entered next resolves on its own: already known on this
+  /// device -> straight to its own PIN, no OTP; genuinely new -> a real
+  /// OTP as usual.
   Future<void> _onSwitchAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Changer de compte sur cet appareil ?'),
         content: const Text(
-          'Ce compte sera dissocié de cet appareil. Vous devrez saisir une '
-          'adresse email et un code de vérification pour vous reconnecter, '
-          'même avec ce même compte. Vos données restent en sécurité.',
+          'Saisissez l\'adresse email de l\'autre compte. S\'il est déjà '
+          'connu sur cet appareil, vous accéderez directement à son code '
+          'd\'accès - sinon un code de vérification vous sera envoyé.',
         ),
         actions: [
           TextButton(
@@ -172,6 +177,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (confirmed != true) return;
     ref.read(accountSwitchRequestProvider.notifier).state++;
+  }
+
+  /// "Dissocier ce compte de cet appareil" (spec bloc 15's "RÉVOQUER/
+  /// DISSOCIER"/"VRAIE DÉCONNEXION") - the only action that really does
+  /// end this account's authorization on this device: a fresh OTP will be
+  /// required next time, even for this exact email. Any *other* account
+  /// this device also knows is left completely untouched.
+  Future<void> _onDissociateThisDevice() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dissocier ce compte de cet appareil ?'),
+        content: const Text(
+          'Ce compte ne sera plus reconnu sur cet appareil : un email et un '
+          'code de vérification seront à nouveau nécessaires pour vous '
+          'reconnecter, même avec cette même adresse. Vos données restent '
+          'sur le cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Dissocier'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    ref.read(accountDissociateRequestProvider.notifier).state++;
   }
 
   /// Revokes every device's session for this account at once (spec bloc
@@ -251,6 +288,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     leading: const Icon(Icons.swap_horiz),
                     title: const Text('Changer de compte'),
                     onTap: _onSwitchAccount,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.link_off),
+                    title: const Text('Dissocier ce compte de cet appareil'),
+                    onTap: _onDissociateThisDevice,
                   ),
                   const Divider(height: 1),
                   ListTile(

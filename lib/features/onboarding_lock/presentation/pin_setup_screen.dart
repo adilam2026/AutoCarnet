@@ -11,7 +11,12 @@ import '../data/pin_service.dart';
 /// straight to HOME) - there is no "skip" here on purpose, an authorized
 /// device without a PIN isn't a state this app's flow allows.
 class PinSetupScreen extends ConsumerStatefulWidget {
-  const PinSetupScreen({super.key, required this.onDone});
+  const PinSetupScreen({super.key, required this.accountId, required this.onDone});
+
+  /// Which account this new PIN protects - PinService stores it under this
+  /// id so it never collides with any other account already known on this
+  /// device (spec TEST F).
+  final String accountId;
   final VoidCallback onDone;
 
   @override
@@ -38,7 +43,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
       _error = null;
       _saving = true;
     });
-    await ref.read(pinServiceProvider).setPin(pin);
+    await ref.read(pinServiceProvider).setPin(widget.accountId, pin);
     if (mounted) widget.onDone();
   }
 

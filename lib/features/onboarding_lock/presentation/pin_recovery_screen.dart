@@ -19,11 +19,16 @@ import 'pin_setup_screen.dart';
 class PinRecoveryScreen extends ConsumerStatefulWidget {
   const PinRecoveryScreen({
     super.key,
+    required this.accountId,
     required this.email,
     required this.onDone,
     required this.onCancel,
   });
 
+  /// Whose PIN gets replaced - passed straight through to the nested
+  /// [PinSetupScreen] so the new code is stored under the right account
+  /// (spec TEST F).
+  final String accountId;
   final String email;
   final VoidCallback onDone;
   final VoidCallback onCancel;
@@ -116,7 +121,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
       // A fresh PIN is mandatory here too (PinSetupScreen has no skip
       // option) - "code oublié" must always end with a real new code, never
       // silently leave the device unprotected.
-      return PinSetupScreen(onDone: widget.onDone);
+      return PinSetupScreen(accountId: widget.accountId, onDone: widget.onDone);
     }
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(

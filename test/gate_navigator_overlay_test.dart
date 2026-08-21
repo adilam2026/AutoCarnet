@@ -40,7 +40,7 @@ void main() {
           builder: (context, child) => Builder(
             builder: (context) {
               capturedContext = context;
-              return EmailEntryScreen(onCodeSent: (_) {});
+              return EmailEntryScreen(onCodeSent: (_) {}, onAuthenticated: () async {});
             },
           ),
         ),
@@ -62,7 +62,7 @@ void main() {
             onGenerateRoute: (settings) => MaterialPageRoute(
               builder: (context) {
                 capturedContext = context;
-                return EmailEntryScreen(onCodeSent: (_) {});
+                return EmailEntryScreen(onCodeSent: (_) {}, onAuthenticated: () async {});
               },
             ),
           ),

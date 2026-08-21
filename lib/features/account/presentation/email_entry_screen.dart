@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,11 +11,22 @@ import '../data/account_repository.dart';
 /// (spec bloc 2 - "Ne pas demander le nom. Le nom pourra être demandé plus
 /// tard dans le profil si nécessaire."). AutoCarnet has no guest/offline
 /// mode (spec bloc 12): there is no escape hatch here on purpose.
+///
+/// Also the single place that implements spec bloc 19's CAS 1/2/3 decision:
+/// submitting first tries a silent, OTP-free restore for this exact email
+/// on this exact device (spec CAS 3 - an already-known account, even one
+/// reached via "Changer de compte" rather than a brand new install) before
+/// ever sending a code (spec CAS 1/2).
 class EmailEntryScreen extends ConsumerStatefulWidget {
-  const EmailEntryScreen({super.key, required this.onCodeSent});
+  const EmailEntryScreen({super.key, required this.onCodeSent, required this.onAuthenticated});
 
-  /// Called once the code has actually been sent - never before.
+  /// Called once a code has actually been sent - never before.
   final ValueChanged<String> onCodeSent;
+
+  /// Called directly, skipping the OTP screen entirely, when this device
+  /// already has a valid, known association for the typed email (spec CAS
+  /// 3 - "NE PAS envoyer d'OTP").
+  final AsyncCallback onAuthenticated;
 
   @override
   ConsumerState<EmailEntryScreen> createState() => _EmailEntryScreenState();
@@ -42,14 +54,27 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
       _error = null;
     });
     try {
-      await ref.read(accountRepositoryProvider).sendEmailCode(email);
+      final account = ref.read(accountRepositoryProvider);
+      // Spec CAS 3: an email this exact device already knows (whether
+      // that's a fresh install's first account, or an account reached
+      // through "Changer de compte") never sends an OTP - it goes
+      // straight through, skipping the OTP screen entirely.
+      final restoredUserId = await account.tryRestoreDeviceSession(email);
+      if (restoredUserId != null) {
+        if (!mounted) return;
+        await widget.onAuthenticated();
+        // No re-enabling _busy on purpose, same reasoning as
+        // VerifyEmailScreen - this screen is about to be replaced.
+        return;
+      }
+      await account.sendEmailCode(email);
       if (mounted) widget.onCodeSent(email);
     } on AuthException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() { _error = e.message; _busy = false; });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Une erreur est survenue. Réessayez.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() { _error = 'Une erreur est survenue. Réessayez.'; _busy = false; });
+      }
     }
   }
 

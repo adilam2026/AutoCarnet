@@ -58,6 +58,8 @@ class _FakeAccountRepository implements AccountRepository {
   @override
   Stream<AuthState> get onAuthStateChange => const Stream.empty();
   @override
+  Future<String?> tryRestoreDeviceSession(String email) async => null;
+  @override
   Future<void> sendEmailCode(String email) async => sentEmails.add(email);
   @override
   Future<void> verifyEmailCode({required String email, required String code}) async {
@@ -87,24 +89,24 @@ class _FakeAccountRepository implements AccountRepository {
 }
 
 class _FakePinService implements PinService {
-  String? _pin = '9999';
+  final Map<String, String> _pins = {'user-1': '9999'};
   @override
-  Future<bool> isPinSet() async => _pin != null;
+  Future<bool> isPinSet(String accountId) async => _pins.containsKey(accountId);
   @override
-  Future<void> setPin(String pin) async => _pin = pin;
+  Future<void> setPin(String accountId, String pin) async => _pins[accountId] = pin;
   @override
-  Future<bool> verifyPin(String pin) async => _pin != null && _pin == pin;
+  Future<bool> verifyPin(String accountId, String pin) async => _pins[accountId] == pin;
   @override
-  Future<void> clearPin() async => _pin = null;
+  Future<void> clearPin(String accountId) async => _pins.remove(accountId);
 }
 
 class _FakeBiometricService implements BiometricService {
   @override
   Future<bool> isDeviceSupported() async => false;
   @override
-  Future<bool> isEnabled() async => false;
+  Future<bool> isEnabled(String accountId) async => false;
   @override
-  Future<void> setEnabled(bool enabled) async {}
+  Future<void> setEnabled(String accountId, bool enabled) async {}
   @override
   Future<bool> authenticate() async => false;
 }
@@ -158,6 +160,7 @@ class _HarnessState extends State<_Harness> {
           _Step.locked => _GateLikeWrapper(
               key: const ValueKey(_Step.locked),
               child: LockScreen(
+                accountId: 'user-1',
                 email: 'a@example.com',
                 onUnlocked: () => setState(() => _step = _Step.home),
                 onForgotCode: () => setState(() => _step = _Step.pinRecovery),
@@ -167,6 +170,7 @@ class _HarnessState extends State<_Harness> {
           _Step.pinRecovery => _GateLikeWrapper(
               key: const ValueKey(_Step.pinRecovery),
               child: PinRecoveryScreen(
+                accountId: 'user-1',
                 email: 'a@example.com',
                 onDone: () => setState(() => _step = _Step.home),
                 onCancel: () => setState(() => _step = _Step.locked),
@@ -230,7 +234,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('ACCUEIL'), findsOneWidget);
-    expect(await pinService.verifyPin('1234'), isTrue);
+    expect(await pinService.verifyPin('user-1', '1234'), isTrue);
   });
 
   testWidgets(

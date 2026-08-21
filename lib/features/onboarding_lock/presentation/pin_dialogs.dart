@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/pin_service.dart';
 
-/// Reusable "set a new PIN" dialog used both by first-launch onboarding
-/// (as a full screen) and from Settings (as a dialog) to keep the same
-/// validation rules in one place.
-Future<bool> showSetPinDialog(BuildContext context, WidgetRef ref) async {
+/// Reusable "set a new PIN" dialog, used from Settings ("Modifier le code
+/// d'accès") to keep the validation rules in one place. [accountId] scopes
+/// the new PIN to whichever account is currently active (spec TEST F).
+Future<bool> showSetPinDialog(BuildContext context, WidgetRef ref, String accountId) async {
   final pinCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
   final result = await showDialog<bool>(
@@ -19,7 +19,7 @@ Future<bool> showSetPinDialog(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (result == true) {
-    await ref.read(pinServiceProvider).setPin(pinCtrl.text.trim());
+    await ref.read(pinServiceProvider).setPin(accountId, pinCtrl.text.trim());
     return true;
   }
   return false;

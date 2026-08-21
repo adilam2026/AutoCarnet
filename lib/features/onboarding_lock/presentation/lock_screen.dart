@@ -14,11 +14,18 @@ import '../data/pin_service.dart';
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({
     super.key,
+    required this.accountId,
     required this.email,
     required this.onUnlocked,
     required this.onForgotCode,
     required this.onSwitchAccount,
   });
+
+  /// Whose PIN/biometric this screen checks - the account currently active
+  /// on this device. Every PinService/BiometricService call below is
+  /// scoped to this id so account A's PIN can never open account B's data
+  /// (spec TEST F).
+  final String accountId;
 
   /// The account this device is currently authorized for (spec bloc 5 -
   /// "Bienvenue {email}") - purely cosmetic, never used for any decision.
@@ -52,7 +59,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   /// strands anyone.
   Future<void> _maybeOfferBiometric() async {
     final biometrics = ref.read(biometricServiceProvider);
-    final enabled = await biometrics.isEnabled();
+    final enabled = await biometrics.isEnabled(widget.accountId);
     if (!enabled) return;
     final supported = await biometrics.isDeviceSupported();
     if (!mounted) return;
@@ -70,7 +77,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _submit() async {
     if (_lockedUntil != null && DateTime.now().isBefore(_lockedUntil!)) return;
     setState(() => _checking = true);
-    final ok = await ref.read(pinServiceProvider).verifyPin(_pinCtrl.text.trim());
+    final ok = await ref.read(pinServiceProvider).verifyPin(widget.accountId, _pinCtrl.text.trim());
     if (ok) {
       widget.onUnlocked();
       return;
@@ -120,9 +127,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Changer de compte sur cet appareil ?'),
         content: const Text(
-          'Ce compte sera dissocié de cet appareil. Vous devrez saisir une '
-          'adresse email et un code de vérification pour vous reconnecter, '
-          'même avec ce même compte. Vos données restent en sécurité.',
+          'Saisissez l\'adresse email de l\'autre compte. S\'il est déjà '
+          'connu sur cet appareil, vous accéderez directement à son code '
+          'd\'accès - sinon un code de vérification vous sera envoyé.',
         ),
         actions: [
           TextButton(

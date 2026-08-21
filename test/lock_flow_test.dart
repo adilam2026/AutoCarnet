@@ -9,26 +9,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Per-account, in-memory - mirrors the real PinService's contract (spec
+/// TEST F: account A's PIN must never open account B's data).
 class FakePinService implements PinService {
-  String? _pin;
+  final Map<String, String> _pins = {};
 
   @override
-  Future<bool> isPinSet() async => _pin != null;
+  Future<bool> isPinSet(String accountId) async => _pins.containsKey(accountId);
   @override
-  Future<void> setPin(String pin) async => _pin = pin;
+  Future<void> setPin(String accountId, String pin) async => _pins[accountId] = pin;
   @override
-  Future<bool> verifyPin(String pin) async => _pin != null && _pin == pin;
+  Future<bool> verifyPin(String accountId, String pin) async => _pins[accountId] == pin;
   @override
-  Future<void> clearPin() async => _pin = null;
+  Future<void> clearPin(String accountId) async => _pins.remove(accountId);
 }
 
 class FakeBiometricService implements BiometricService {
+  final Set<String> _enabled = {};
+
   @override
   Future<bool> isDeviceSupported() async => false;
   @override
-  Future<bool> isEnabled() async => false;
+  Future<bool> isEnabled(String accountId) async => _enabled.contains(accountId);
   @override
-  Future<void> setEnabled(bool enabled) async {}
+  Future<void> setEnabled(String accountId, bool enabled) async {
+    enabled ? _enabled.add(accountId) : _enabled.remove(accountId);
+  }
+
   @override
   Future<bool> authenticate() async => false;
 }
@@ -45,6 +52,8 @@ class FakeAccountRepositoryForRecovery implements AccountRepository {
   bool get isSignedIn => true;
   @override
   Stream<AuthState> get onAuthStateChange => const Stream.empty();
+  @override
+  Future<String?> tryRestoreDeviceSession(String email) async => null;
   @override
   Future<void> sendEmailCode(String email) async => sentEmails.add(email);
   @override
@@ -83,7 +92,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [pinServiceProvider.overrideWithValue(pinService)],
-          child: MaterialApp(home: PinSetupScreen(onDone: () => done = true)),
+          child: MaterialApp(home: PinSetupScreen(accountId: 'user-1', onDone: () => done = true)),
         ),
       );
 
@@ -99,8 +108,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(await pinService.isPinSet(), isTrue);
-      expect(await pinService.verifyPin('4321'), isTrue);
+      expect(await pinService.isPinSet('user-1'), isTrue);
+      expect(await pinService.verifyPin('user-1', '4321'), isTrue);
       expect(done, isTrue);
     });
 
@@ -110,7 +119,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [pinServiceProvider.overrideWithValue(pinService)],
-          child: MaterialApp(home: PinSetupScreen(onDone: () => done = true)),
+          child: MaterialApp(home: PinSetupScreen(accountId: 'user-1', onDone: () => done = true)),
         ),
       );
 
@@ -121,20 +130,21 @@ void main() {
 
       expect(find.text('Les deux codes ne correspondent pas'), findsOneWidget);
       expect(done, isFalse);
-      expect(await pinService.isPinSet(), isFalse);
+      expect(await pinService.isPinSet('user-1'), isFalse);
     });
   });
 
   group('LockScreen', () {
     Future<FakePinService> pumpLocked(
       WidgetTester tester, {
+      String accountId = 'user-1',
       String? email,
       VoidCallback? onUnlocked,
       VoidCallback? onForgotCode,
       VoidCallback? onSwitchAccount,
     }) async {
       final pinService = FakePinService();
-      await pinService.setPin('9999');
+      await pinService.setPin(accountId, '9999');
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -143,6 +153,7 @@ void main() {
           ],
           child: MaterialApp(
             home: LockScreen(
+              accountId: accountId,
               email: email,
               onUnlocked: onUnlocked ?? () {},
               onForgotCode: onForgotCode ?? () {},
@@ -177,6 +188,45 @@ void main() {
 
       expect(find.text('Code incorrect'), findsOneWidget);
       expect(unlocked, isFalse);
+    });
+
+    testWidgets('spec TEST F: account A\'s PIN never unlocks account B\'s lock screen',
+        (tester) async {
+      // Both A and B have PINs set on this device (pumpLocked sets '9999'
+      // for whichever accountId it's given) but B's screen is showing.
+      final pinService = FakePinService();
+      await pinService.setPin('user-A', '1111');
+      await pinService.setPin('user-B', '2222');
+      var unlocked = false;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pinServiceProvider.overrideWithValue(pinService),
+            biometricServiceProvider.overrideWithValue(FakeBiometricService()),
+          ],
+          child: MaterialApp(
+            home: LockScreen(
+              accountId: 'user-B',
+              email: 'b@example.com',
+              onUnlocked: () => unlocked = true,
+              onForgotCode: () {},
+              onSwitchAccount: () {},
+            ),
+          ),
+        ),
+      );
+
+      // A's PIN must not open B's screen.
+      await tester.enterText(find.widgetWithText(TextField, 'Code d\'accès'), '1111');
+      await tester.tap(find.text('Déverrouiller'));
+      await tester.pumpAndSettle();
+      expect(unlocked, isFalse);
+
+      // B's own PIN does.
+      await tester.enterText(find.widgetWithText(TextField, 'Code d\'accès'), '2222');
+      await tester.tap(find.text('Déverrouiller'));
+      await tester.pumpAndSettle();
+      expect(unlocked, isTrue);
     });
 
     testWidgets('"Code oublié ?" asks for confirmation, then calls onForgotCode', (tester) async {
@@ -222,6 +272,7 @@ void main() {
           ],
           child: MaterialApp(
             home: PinRecoveryScreen(
+              accountId: 'user-1',
               email: 'a@example.com',
               onDone: () => done = true,
               onCancel: () {},
@@ -257,7 +308,7 @@ void main() {
       await tester.pump();
 
       expect(done, isTrue);
-      expect(await pinService.verifyPin('5555'), isTrue);
+      expect(await pinService.verifyPin('user-1', '5555'), isTrue);
     });
   });
 }

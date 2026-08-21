@@ -33,6 +33,7 @@ class _AccountGateScreenState extends State<AccountGateScreen> {
     if (email == null) {
       return EmailEntryScreen(
         onCodeSent: (sentTo) => setState(() => _pendingEmail = sentTo),
+        onAuthenticated: widget.onAuthenticated,
       );
     }
     return VerifyEmailScreen(

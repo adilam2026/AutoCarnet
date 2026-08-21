@@ -23,16 +23,24 @@ class AuthorizedDevice {
 }
 
 /// Wraps Supabase Auth plus this app's own notion of "device authorization"
-/// (spec bloc 13): a device only ever needs email/OTP once per account: from
-/// then on it's recognized locally (no server round trip required to use
-/// the app) and just needs the local PIN. The one exception, checked
-/// best-effort whenever online, is a device the account owner has since
-/// revoked from "Appareils connectés" - that always forces a fresh OTP.
+/// (spec bloc 13): a device only ever needs email/OTP once *per account* -
+/// from then on that account is recognized locally on this exact
+/// installation and just needs its own local PIN. A single device can know
+/// *several* accounts this way (spec: "Un même téléphone doit pouvoir
+/// mémoriser plusieurs comptes déjà autorisés, chacun avec son contexte
+/// local approprié") - switching between two already-known accounts never
+/// needs a fresh OTP, only switching to a genuinely new account/device
+/// pairing does. The one exception, checked best-effort whenever online, is
+/// a device the account owner has since revoked from "Appareils connectés"
+/// - that always forces a fresh OTP for that specific account again.
 ///
-/// Never conflate three separate ideas (spec bloc 1): CONNEXION AU COMPTE
-/// (email/OTP - this class), VERROUILLAGE LOCAL (purely a PIN-screen UI
-/// state in AppGate, this class is never involved), and CHANGER DE COMPTE /
-/// DISSOCIER (clears the local device authorization below and signs out).
+/// Never conflate three separate ideas (spec bloc 1/15): VERROUILLER
+/// (purely a PIN-screen UI state in AppGate, this class is never involved),
+/// CHANGER DE COMPTE (switches which known account is active - see
+/// [tryRestoreDeviceSession] - never forgets anything), and RÉVOQUER/
+/// DISSOCIER (forgets one specific account's local association - see
+/// [disconnectFromThisDevice]/[disconnectFromAllDevices] - the *only* two
+/// operations that make a fresh OTP mandatory again).
 class AccountRepository {
   AccountRepository(this._client, this._storage);
   final SupabaseClient _client;
@@ -63,20 +71,23 @@ class AccountRepository {
     return fresh;
   }
 
-  /// The account id this device is currently authorized for, or null if
-  /// none (spec state NO_ACCOUNT_ON_DEVICE). Survives app restarts but is
-  /// cleared by [disconnectFromThisDevice]/[disconnectFromAllDevices] -
-  /// after that, even re-entering the *same* email always requires a fresh
-  /// OTP (spec bloc 11).
+  /// The account id that is currently *active* on this device (whichever
+  /// account's PIN screen should show), or null if none (spec state
+  /// NO_ACCOUNT_ON_DEVICE - a brand new device, or every known account has
+  /// been explicitly dissociated). Switching to a different already-known
+  /// account (spec CAS 3) updates this to the new one without clearing
+  /// anything else - only [disconnectFromThisDevice]/
+  /// [disconnectFromAllDevices] (a real dissociation) can send this back to
+  /// null, and only for the account being dissociated.
   Future<String?> deviceAuthorizedUserId() => _storage.read(key: _deviceAuthUserIdKey);
 
-  /// The last account id this device was ever authorized for, even across
-  /// a "Changer de compte" that has since cleared [deviceAuthorizedUserId].
-  /// Used exactly once, right after a fresh OTP success (see AppGate.
-  /// _onAccountAuthenticated), to decide whether any locally-orphaned row
-  /// (created while account-less, e.g. a pre-rebuild install, or a rare
-  /// session-expiry edge case) belongs to whoever actually used this
-  /// device before, not to the account that just signed in.
+  /// The last account id this device was ever authorized for. Used exactly
+  /// once, right after any account becomes active (fresh OTP *or* a silent
+  /// restore - see AppGate._onAccountAuthenticated), to decide whether any
+  /// locally-orphaned row (created while account-less, e.g. a pre-rebuild
+  /// install, or a rare session-expiry edge case) belongs to whoever
+  /// actually used this device most recently, not to the account that just
+  /// became active.
   Future<String?> lastDeviceUserId() => _storage.read(key: _lastDeviceUserIdKey);
 
   /// Cosmetic only (shown as "Bienvenue {email}" on the PIN screen, spec
@@ -93,11 +104,20 @@ class AccountRepository {
     await _storage.delete(key: _deviceAuthEmailKey);
   }
 
+  String _refreshTokenKey(String email) => 'account_refresh_token_${_normalizeEmail(email)}';
+  String _normalizeEmail(String email) => email.trim().toLowerCase();
+
+  Future<void> _forgetKnownAccount(String email) async {
+    await _storage.delete(key: _refreshTokenKey(email));
+  }
+
   /// Sends a 6-digit code to [email]. Covers both signup and sign-in -
   /// Supabase's email OTP endpoint auto-creates the account on a new
   /// address and just re-sends the code on an existing one, so the app
-  /// never has to know in advance which case it's in (spec bloc 3, CAS A/B
-  /// share the exact same app-visible flow).
+  /// never has to know in advance which case it's in (spec bloc 3, CAS 1/2
+  /// share the exact same app-visible flow). Only ever called after
+  /// [tryRestoreDeviceSession] has already failed for that email - never
+  /// for an account this exact device already knows (spec CAS 3).
   Future<void> sendEmailCode(String email) async {
     final trimmedEmail = email.trim();
     try {
@@ -146,15 +166,66 @@ class AccountRepository {
     if (kDebugMode) debugPrint('[AutoCarnet][otp] $message');
   }
 
+  /// The heart of spec CAS 3 ("email enrôlé ET déjà associé à cet
+  /// appareil -> pas d'OTP, PIN directement"): attempts to silently
+  /// restore this *exact installation's* own previously-established
+  /// session for [email], using a refresh token saved locally the last
+  /// time that account completed a real OTP on this device (see
+  /// [registerThisDevice]). No network round trip to any OTP endpoint at
+  /// all - `setSession` just exchanges the stored refresh token for a
+  /// fresh access token.
+  ///
+  /// On success, [email]'s account becomes this device's *active* account
+  /// (whichever one the PIN screen now protects) - its own local PIN
+  /// (never a different known account's) is what's asked for next. Returns
+  /// the restored account's id, or null if this device has never stored a
+  /// token for [email], or the stored token no longer works (expired, or
+  /// the account owner revoked this exact device from "Appareils
+  /// connectés" - spec bloc 14/TEST E) - in which case the caller must
+  /// fall back to a real OTP (spec CAS 1/2).
+  Future<String?> tryRestoreDeviceSession(String email) async {
+    final normalized = _normalizeEmail(email);
+    final refreshToken = await _storage.read(key: _refreshTokenKey(normalized));
+    if (refreshToken == null) return null;
+    try {
+      final response = await _client.auth.setSession(refreshToken);
+      final user = response.user;
+      if (user == null) return null;
+      final stillAuthorized = await isDeviceStillAuthorized(userId: user.id);
+      if (!stillAuthorized) {
+        // Revoked from "Appareils connectés" since this device last
+        // checked in - the stored token must never be tried again; the
+        // caller falls through to a real OTP, exactly as if this were a
+        // brand new association (spec TEST E).
+        await _client.auth.signOut();
+        await _forgetKnownAccount(normalized);
+        return null;
+      }
+      await _rememberDeviceAuthorization(userId: user.id, email: user.email ?? normalized);
+      await _storage.write(key: _lastDeviceUserIdKey, value: user.id);
+      // Supabase rotates the refresh token on every use - the one just
+      // consumed is now dead, so the *new* one is what must be kept for
+      // the next silent restore attempt.
+      final rotatedToken = response.session?.refreshToken;
+      if (rotatedToken != null) {
+        await _storage.write(key: _refreshTokenKey(normalized), value: rotatedToken);
+      }
+      return user.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Call once, immediately after a successful [verifyEmailCode]: records
   /// this physical installation as an authorized device for the
-  /// now-signed-in account, both locally (so the next launch recognizes it
-  /// without OTP - spec CAS C) and server-side in `devices` (so it shows up
-  /// under "Appareils connectés" and can be revoked - spec bloc 13/14).
-  /// The row id combines the installation id with the account id so the
-  /// same physical device can hold one independent row per account it has
-  /// ever been used with (RLS would otherwise reject one account's device
-  /// row being silently repointed to another account via upsert).
+  /// now-signed-in account, both locally (so a future [tryRestoreDeviceSession]
+  /// for this exact email can skip OTP - spec CAS C) and server-side in
+  /// `devices` (so it shows up under "Appareils connectés" and can be
+  /// revoked - spec bloc 13/14). The row id combines the installation id
+  /// with the account id so the same physical device can hold one
+  /// independent row per account it has ever been used with (RLS would
+  /// otherwise reject one account's device row being silently repointed to
+  /// another account via upsert).
   Future<void> registerThisDevice() async {
     final user = currentUser;
     if (user == null) return;
@@ -174,6 +245,10 @@ class AccountRepository {
     }
     await _rememberDeviceAuthorization(userId: user.id, email: user.email ?? '');
     await _storage.write(key: _lastDeviceUserIdKey, value: user.id);
+    final refreshToken = currentSession?.refreshToken;
+    if (refreshToken != null && user.email != null) {
+      await _storage.write(key: _refreshTokenKey(user.email!), value: refreshToken);
+    }
   }
 
   /// Best-effort, online-only check that this device hasn't been revoked
@@ -234,14 +309,37 @@ class AccountRepository {
     }
   }
 
-  /// "Changer de compte" / dissociation (spec bloc 11/15): clears this
-  /// device's authorization and signs out of Supabase, so the very next
-  /// email typed - even this exact same address - always goes through a
-  /// fresh OTP (spec bloc 11: "un OTP est obligatoire lors de
-  /// l'association à ce nouvel appareil/contexte", even a returning one).
-  Future<void> disconnectFromThisDevice() async {
-    await _client.auth.signOut();
+  /// Forgets the *currently active* account's local association with this
+  /// device: its stored refresh token (so a future email entry can never
+  /// silently restore it again without a fresh OTP) and its own `devices`
+  /// row (self-revoke). Never touches any *other* account this device also
+  /// knows about (spec: switching accounts must never mix up their local
+  /// contexts). Must run before signing out, since it needs [currentUser]
+  /// to know which account's association to forget.
+  Future<void> _forgetCurrentAccountAssociation() async {
+    final user = currentUser;
+    if (user != null) {
+      if (user.email != null) await _forgetKnownAccount(user.email!);
+      final instId = await installationId();
+      try {
+        await _client.from('devices').delete().eq('id', '${instId}_${user.id}');
+      } catch (_) {
+        // Best-effort - if offline, the row is simply cleaned up the next
+        // time this device (or the account owner from elsewhere) revokes it.
+      }
+    }
     await _forgetDeviceAuthorization();
+  }
+
+  /// "Dissocier ce compte de cet appareil" / vraie déconnexion (spec bloc
+  /// 15): the *only* action that makes the currently active account
+  /// require a fresh OTP again on this device - even re-entering this
+  /// exact same email next time. Deliberately distinct from "Changer de
+  /// compte" (spec bloc 11), which never forgets anything and only
+  /// switches which already-known account is active.
+  Future<void> disconnectFromThisDevice() async {
+    await _forgetCurrentAccountAssociation();
+    await _client.auth.signOut();
   }
 
   /// Same as [disconnectFromThisDevice], but also revokes every other
@@ -251,8 +349,8 @@ class AccountRepository {
   /// see/revoke individually) but their cached session can no longer be
   /// refreshed, so their own next launch naturally falls back to email/OTP.
   Future<void> disconnectFromAllDevices() async {
+    await _forgetCurrentAccountAssociation();
     await _client.auth.signOut(scope: SignOutScope.global);
-    await _forgetDeviceAuthorization();
   }
 }
 
