@@ -3,20 +3,29 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../account/data/account_repository.dart';
 import '../data/biometric_service.dart';
 import '../data/pin_service.dart';
-import 'app_gate.dart';
 
-/// RG-USER-003/004: local unlock only. After repeated failures the retry
-/// delay grows (bloc 2 §5.6 "temporisation progressive") instead of
-/// permanently locking the user out. "Code oublié ?" is the escape hatch:
-/// without it, forgetting the local PIN would strand the user in front of
-/// this screen forever, even though the PIN was only ever meant to protect
-/// local access, never to replace account authentication.
+/// The local access-code screen (spec bloc 5/19 - DEVICE_AUTHORIZED_LOCKED):
+/// shown on every normal app launch once a device is authorized, and again
+/// after "Verrouiller". Never touches the cloud account itself - it only
+/// ever protects local access on this device (spec bloc 1's VERROUILLAGE
+/// LOCAL, distinct from CONNEXION and CHANGER DE COMPTE).
 class LockScreen extends ConsumerStatefulWidget {
-  const LockScreen({super.key, required this.onUnlocked});
+  const LockScreen({
+    super.key,
+    required this.email,
+    required this.onUnlocked,
+    required this.onForgotCode,
+    required this.onSwitchAccount,
+  });
+
+  /// The account this device is currently authorized for (spec bloc 5 -
+  /// "Bienvenue {email}") - purely cosmetic, never used for any decision.
+  final String? email;
   final VoidCallback onUnlocked;
+  final VoidCallback onForgotCode;
+  final VoidCallback onSwitchAccount;
 
   @override
   ConsumerState<LockScreen> createState() => _LockScreenState();
@@ -80,17 +89,15 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     });
   }
 
-  /// Resets the local code only - it protects local access on this device,
-  /// nothing more, so forgetting it doesn't need to touch the cloud account
-  /// at all: clear it and go straight back in.
   Future<void> _onForgotCode() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Code oublié ?'),
+        title: const Text('Code d\'accès oublié ?'),
         content: const Text(
-          'Votre code d\'accès local sur cet appareil va être réinitialisé. '
-          'Vous pourrez en définir un nouveau depuis Compte & sécurité.',
+          'Un code de vérification va être envoyé à l\'adresse email de ce '
+          'compte pour confirmer votre identité, puis vous pourrez définir '
+          'un nouveau code d\'accès.',
         ),
         actions: [
           TextButton(
@@ -104,24 +111,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
-    await ref.read(pinServiceProvider).clearPin();
-    await ref.read(biometricServiceProvider).setEnabled(false);
-    widget.onUnlocked();
+    if (confirmed == true) widget.onForgotCode();
   }
 
-  /// Signs out of the current cloud account (if any) and resets the local
-  /// code, so whoever logs back in next - same account or a different one -
-  /// starts clean on this device.
   Future<void> _onSwitchAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Changer de compte'),
+        title: const Text('Changer de compte sur cet appareil ?'),
         content: const Text(
-          'Vous allez être déconnecté(e) de ce compte sur cet appareil pour '
-          'vous connecter avec un autre. Votre code d\'accès local sera '
-          'aussi réinitialisé. Vos données restent en sécurité.',
+          'Ce compte sera dissocié de cet appareil. Vous devrez saisir une '
+          'adresse email et un code de vérification pour vous reconnecter, '
+          'même avec ce même compte. Vos données restent en sécurité.',
         ),
         actions: [
           TextButton(
@@ -130,21 +131,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Continuer'),
+            child: const Text('Changer de compte'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-
-    final account = ref.read(accountRepositoryProvider);
-    if (account.isSignedIn) {
-      await account.signOut();
-    }
-    // PIN/biometric are cleared centrally by AppGate's
-    // accountSignOutRequestProvider listener - every real sign-out path
-    // goes through it, so it never needs repeating here.
-    if (mounted) ref.read(accountSignOutRequestProvider.notifier).state++;
+    if (confirmed == true) widget.onSwitchAccount();
   }
 
   @override
@@ -166,9 +158,22 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     size: 56,
                     color: Theme.of(context).colorScheme.primary,
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Bienvenue',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (widget.email != null && widget.email!.isNotEmpty)
+                    Text(
+                      widget.email!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   const SizedBox(height: AppSpacing.lg),
                   TextField(
                     controller: _pinCtrl,
+                    autofocus: true,
                     obscureText: true,
                     enabled: !locked,
                     keyboardType: TextInputType.number,
@@ -185,7 +190,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     enableSuggestions: false,
                     autocorrect: false,
                     maxLength: 6,
-                    decoration: const InputDecoration(labelText: 'Code'),
+                    decoration: const InputDecoration(labelText: 'Code d\'accès'),
                     onSubmitted: (_) => _submit(),
                   ),
                   if (_error != null)

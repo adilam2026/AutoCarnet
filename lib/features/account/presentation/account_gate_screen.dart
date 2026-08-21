@@ -4,64 +4,45 @@ import 'package:flutter/material.dart';
 import 'email_entry_screen.dart';
 import 'verify_email_screen.dart';
 
-/// Entry point for the account-first flow (bloc 7-9): create/sign back
-/// into a cloud account with just an email address and a 6-digit code -
-/// no password anywhere. [onContinueOffline] is the escape hatch that
-/// keeps AutoCarnet usable with no account and no connectivity (bloc 20 -
-/// "attention à l'offline first", Principe 9) - it's always reachable, it's
-/// never something the user has to fight the UI to find.
+/// Entry point for the account-first flow (spec bloc 2-4): create/sign back
+/// into a cloud account with just an email address and a 6-digit code - no
+/// password anywhere, and no way to bypass it (spec bloc 12 - AutoCarnet
+/// requires an account, full stop).
 ///
-/// This is a thin coordinator only: each step ([EmailEntryScreen],
-/// [VerifyEmailScreen]) is its own independent widget with its own
-/// State and controllers. Switching between them means Flutter mounts a
-/// genuinely new subtree instead of one widget reconciling a different
-/// body against the last one on every rebuild - the previous
-/// implementation kept both steps' logic in a single State with an
-/// internal enum switch, which turned out to be a real source of
-/// instability for the code-entry field.
+/// Thin coordinator only: each step ([EmailEntryScreen], [VerifyEmailScreen])
+/// is its own independent widget with its own State and controllers -
+/// switching between them mounts a genuinely new subtree instead of one
+/// widget reconciling a different body against the last one, which was a
+/// real source of instability for the code-entry field in an earlier
+/// version of this screen.
 class AccountGateScreen extends StatefulWidget {
-  const AccountGateScreen({
-    super.key,
-    required this.onAuthenticated,
-    required this.onContinueOffline,
-  });
+  const AccountGateScreen({super.key, required this.onAuthenticated});
 
   final AsyncCallback onAuthenticated;
-  final VoidCallback onContinueOffline;
 
   @override
   State<AccountGateScreen> createState() => _AccountGateScreenState();
 }
 
 class _AccountGateScreenState extends State<AccountGateScreen> {
-  _PendingVerification? _pending;
+  String? _pendingEmail;
 
   @override
   Widget build(BuildContext context) {
-    final pending = _pending;
-    if (pending == null) {
+    final email = _pendingEmail;
+    if (email == null) {
       return EmailEntryScreen(
-        onCodeSent: (email, displayName) => setState(() {
-          _pending = _PendingVerification(email: email, displayName: displayName);
-        }),
-        onContinueOffline: widget.onContinueOffline,
+        onCodeSent: (sentTo) => setState(() => _pendingEmail = sentTo),
       );
     }
     return VerifyEmailScreen(
       // A fresh key per email means retrying with a different address (via
       // "Retour") always gets a fully fresh controller/focus/error state,
       // never one left over from a previous attempt.
-      key: ValueKey(pending.email),
-      email: pending.email,
-      displayName: pending.displayName,
+      key: ValueKey(email),
+      email: email,
       onAuthenticated: widget.onAuthenticated,
-      onBack: () => setState(() => _pending = null),
+      onBack: () => setState(() => _pendingEmail = null),
     );
   }
-}
-
-class _PendingVerification {
-  const _PendingVerification({required this.email, required this.displayName});
-  final String email;
-  final String displayName;
 }

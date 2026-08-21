@@ -5,40 +5,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/account_repository.dart';
 
-/// First step of the account-first flow (bloc 7-9): collect an email (and,
-/// for a brand new account, a display name) and request a 6-digit code.
-/// Supabase's OTP endpoint itself decides signup vs sign-in - this screen
-/// never needs to know in advance which case it's in.
-///
-/// Deliberately its own top-level widget with its own State, never a
-/// branch inside a bigger widget's build() method: when the code is sent,
-/// the caller swaps this widget out for [VerifyEmailScreen] entirely, so
-/// Flutter mounts/unmounts a clean subtree instead of reconciling one
-/// step's fields against another's.
+/// First (and, per spec bloc 6, normally the *only*) screen a device with
+/// no account association ever shows: a single email field, nothing else
+/// (spec bloc 2 - "Ne pas demander le nom. Le nom pourra être demandé plus
+/// tard dans le profil si nécessaire."). AutoCarnet has no guest/offline
+/// mode (spec bloc 12): there is no escape hatch here on purpose.
 class EmailEntryScreen extends ConsumerStatefulWidget {
-  const EmailEntryScreen({
-    super.key,
-    required this.onCodeSent,
-    required this.onContinueOffline,
-  });
+  const EmailEntryScreen({super.key, required this.onCodeSent});
 
   /// Called once the code has actually been sent - never before.
-  final void Function(String email, String displayName) onCodeSent;
-  final VoidCallback onContinueOffline;
+  final ValueChanged<String> onCodeSent;
 
   @override
   ConsumerState<EmailEntryScreen> createState() => _EmailEntryScreenState();
 }
 
 class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   String? _error;
   bool _busy = false;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
   }
@@ -54,8 +42,8 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
       _error = null;
     });
     try {
-      await ref.read(accountRepositoryProvider).sendEmailCode(email, displayName: _nameCtrl.text);
-      if (mounted) widget.onCodeSent(email, _nameCtrl.text.trim());
+      await ref.read(accountRepositoryProvider).sendEmailCode(email);
+      if (mounted) widget.onCodeSent(email);
     } on AuthException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -86,25 +74,15 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'Connectez-vous avec votre email pour retrouver vos véhicules sur '
-                    'tous vos appareils, ou continuez sans connexion. Aucun mot de '
-                    'passe : un code vous sera envoyé par email.',
+                    'tous vos appareils. Aucun mot de passe : un code vous sera envoyé '
+                    'par email.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   TextField(
-                    controller: _nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    autofillHints: null,
-                    decoration: const InputDecoration(labelText: 'Nom et prénom (si nouveau compte)'),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    // Deliberately off, same reasoning as every other field
-                    // on this screen and the OTP field - see
-                    // verify_email_screen.dart's class doc.
                     autofillHints: null,
                     decoration: const InputDecoration(labelText: 'Adresse email'),
                     onSubmitted: (_) {
@@ -121,12 +99,7 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                     child: _busy
                         ? const SizedBox(
                             height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Recevoir le code'),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextButton(
-                    onPressed: widget.onContinueOffline,
-                    child: const Text('Continuer hors connexion'),
+                        : const Text('Continuer'),
                   ),
                 ],
               ),

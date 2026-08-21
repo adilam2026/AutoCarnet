@@ -1,6 +1,7 @@
 import 'package:autocarnet/core/database/database.dart';
 import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/documents/data/document_repository.dart';
+import 'package:autocarnet/features/onboarding_lock/data/local_profile_repository.dart';
 import 'package:autocarnet/features/onboarding_lock/domain/gate_decision.dart';
 import 'package:autocarnet/features/providers/data/provider_repository.dart';
 import 'package:autocarnet/features/reminders/data/reminder_repository.dart';
@@ -21,12 +22,14 @@ void main() {
   late VehicleRepository vehicles;
   late ProviderRepository providers;
   late DocumentRepository documents;
+  late LocalProfileRepository localProfile;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     vehicles = VehicleRepository(db, AuditRepository(db), ReminderRepository(db));
     providers = ProviderRepository(db);
     documents = DocumentRepository(db, TimelineRepository(db), ReminderRepository(db));
+    localProfile = LocalProfileRepository(db);
   });
 
   tearDown(() => db.close());
@@ -46,6 +49,7 @@ void main() {
       type: 'permis de conduire',
       currentUserId: 'user-A',
     );
+    await localProfile.create(displayName: 'Adil', currency: 'MAD', ownerId: 'user-A');
     // A vehicle A owns and has explicitly shared with B (myRole cached
     // locally for B's device, exactly as VehicleSyncService._pull sets it
     // once B has accepted a real invite).
@@ -73,9 +77,12 @@ void main() {
     await vehicles.handleAccountSwitch('user-A');
     await providers.handleAccountSwitch('user-A');
     await documents.handleAccountSwitch('user-A');
+    await localProfile.handleAccountSwitch('user-A');
     // B's own sync pulling the real share for sharedVehicleId.
     await (db.update(db.vehicles)..where((v) => v.id.equals(sharedVehicleId)))
         .write(const VehiclesCompanion(myRole: Value('viewer')));
+    // B signs in fresh on this device - a brand new local profile, never A's.
+    await localProfile.create(displayName: 'Sara', currency: 'EUR', ownerId: 'user-B');
 
     // --- 4. Aucune donnée privée de A visible pour B. ---
     final forB = await vehicles.watchAll(currentUserId: 'user-B').first;
@@ -86,6 +93,10 @@ void main() {
         (await documents.watchDriverDocuments(currentUserId: 'user-B').first)
             .map((d) => d.document.id),
         isNot(contains(aDriverDocId)));
+    final bProfile = await localProfile.getOrNull(currentUserId: 'user-B');
+    expect(bProfile?.displayName, 'Sara');
+    expect(bProfile?.currency, 'EUR',
+        reason: 'B must get their own fresh preferences, never inherit A\'s name/currency');
 
     // --- 5. Le véhicule explicitement partagé avec B reste visible. ---
     expect(forB.map((v) => v.id), contains(sharedVehicleId));
@@ -106,35 +117,35 @@ void main() {
     final forAAgain = await vehicles.watchAll(currentUserId: 'user-A').first;
     final providersForAAgain = await providers.watchAll(currentUserId: 'user-A').first;
     final docsForAAgain = await documents.watchDriverDocuments(currentUserId: 'user-A').first;
+    final aProfileAgain = await localProfile.getOrNull(currentUserId: 'user-A');
     expect(forAAgain.map((v) => v.id), containsAll([aVehicleId, sharedVehicleId]));
     expect(providersForAAgain.map((p) => p.id), contains(aProviderId));
     expect(docsForAAgain.map((d) => d.document.id), contains(aDriverDocId));
+    expect(aProfileAgain?.displayName, 'Adil');
+    expect(aProfileAgain?.currency, 'MAD',
+        reason: 'A must recover exactly their own preferences, uncontaminated by B\'s edits');
   });
 
   test(
-      '7/8: an offline-but-authenticated session keeps reading the current account\'s local '
-      'data, while a real sign-out (mustReauthenticateViaEmail) blocks it regardless of PIN/cache',
-      () {
-    // 7. Session authentifiée hors connexion -> données locales
-    // accessibles: isSignedIn stays true purely from the cached Supabase
-    // session, with no network involved at all - see AccountRepository
-    // .isSignedIn (currentSession != null) and gate_decision_test.dart's
-    // dedicated "offline is not a logout" case.
+      '7/8: a device that was never authorized always lands on email regardless of any leftover '
+      'PIN, and an authorized device with a PIN never skips straight past the lock screen '
+      '(resolveGateState - see gate_decision_test.dart for the exhaustive pure coverage)', () {
+    // 7. A device this exact scenario never associated with any account
+    // (deviceAuthorized: false) must never be let in by a stray PIN alone.
     expect(
-      mustReauthenticateViaEmail(hasEverLinkedCloudAccount: true, isSignedIn: true),
-      isFalse,
-      reason: 'an authenticated-but-offline session must keep local data reachable',
+      resolveGateState(deviceAuthorized: false, pinSet: true),
+      GateState.email,
+      reason: 'PIN/biometric alone must never substitute for account authorization',
     );
 
-    // 8. Vraie déconnexion -> PIN/biométrie ne peuvent plus rouvrir
-    // l'ancien compte, quelles que soient les données encore en cache
-    // localement (see AppGate._evaluate + the whole point of
-    // handleAccountSwitch above: the *data* can stay cached, but the
-    // *gate* refuses to reach it without a fresh sign-in).
+    // 8. Once authorized and a PIN exists, the device always re-locks -
+    // resolveGateState never itself produces an "unlocked" shortcut (see
+    // AppGate._goUnlocked: HOME is only ever reached through an explicit
+    // unlock action, never recomputed from these two facts alone).
     expect(
-      mustReauthenticateViaEmail(hasEverLinkedCloudAccount: true, isSignedIn: false),
-      isTrue,
-      reason: 'a real sign-out must never be bypassable by PIN/biometric/local cache',
+      resolveGateState(deviceAuthorized: true, pinSet: true),
+      GateState.locked,
+      reason: 'an authorized device always re-locks on cold start / after "Verrouiller"',
     );
   });
 }

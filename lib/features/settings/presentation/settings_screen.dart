@@ -8,9 +8,9 @@ import '../../../core/widgets/section_header.dart';
 import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/biometric_service.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
-import '../../onboarding_lock/data/pin_service.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../onboarding_lock/presentation/pin_dialogs.dart';
+import 'devices_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -21,7 +21,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
-  bool _pinEnabled = false;
   bool _biometricSupported = false;
   bool _biometricEnabled = false;
 
@@ -32,14 +31,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _refreshSecurityState() async {
-    final pinService = ref.read(pinServiceProvider);
     final biometrics = ref.read(biometricServiceProvider);
-    final pinSet = await pinService.isPinSet();
     final biometricSupported = await biometrics.isDeviceSupported();
     final biometricEnabled = await biometrics.isEnabled();
     if (!mounted) return;
     setState(() {
-      _pinEnabled = pinSet;
       _biometricSupported = biometricSupported;
       _biometricEnabled = biometricEnabled;
       _loading = false;
@@ -70,28 +66,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         enable ? 'Déverrouillage biométrique activé' : 'Déverrouillage biométrique désactivé',
         icon: enable ? Icons.fingerprint : Icons.lock_open_outlined,
       );
-    }
-    await _refreshSecurityState();
-  }
-
-  Future<void> _onPinToggled(bool enable) async {
-    final service = ref.read(pinServiceProvider);
-    if (enable) {
-      final created = await showSetPinDialog(context, ref);
-      if (created && mounted) {
-        showAppSnackBar(context, 'Code PIN activé', icon: Icons.lock_outline);
-      }
-    } else {
-      final confirmed = await showConfirmCurrentPinDialog(context, ref);
-      if (confirmed) {
-        await service.clearPin();
-        // Biometric unlock is only ever a shortcut on top of the PIN -
-        // never leave it enabled with no PIN underneath it.
-        await ref.read(biometricServiceProvider).setEnabled(false);
-        if (mounted) {
-          showAppSnackBar(context, 'Code PIN désactivé', icon: Icons.lock_open_outlined);
-        }
-      }
     }
     await _refreshSecurityState();
   }
@@ -137,12 +111,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   /// Reverrouille l'application sur cet appareil - the local PIN check
-  /// only, nothing else. Deliberately never called "se déconnecter"
-  /// anywhere in the UI: that verb is reserved for
-  /// [_onAccountSignOut], which actually ends the cloud account session.
-  /// Using the same word for both was real user-facing confusion - this
-  /// one only ever re-locks; the account (if any) stays fully signed in
-  /// and is instantly usable again with just the PIN/biometric.
+  /// only, nothing else (spec bloc 1/7's VERROUILLAGE LOCAL). Deliberately
+  /// never called "se déconnecter" anywhere in the UI: that verb is
+  /// reserved for [_onSwitchAccount]/[_onDisconnectEverywhere], which
+  /// really do end the account's authorization. This one only ever
+  /// re-locks; the account stays fully signed in and is instantly usable
+  /// again with just the PIN/biometric.
   Future<void> _onLockNow() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -169,25 +143,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(sessionLockRequestProvider.notifier).state++;
   }
 
-  /// Closes the Supabase account session (bloc 6/9) - unlike [_onLockNow],
-  /// this actually invalidates the cloud session's tokens, not just the
-  /// local PIN unlock state, and sends the gate back to account
-  /// authentication rather than the PIN screen. The local PIN and
-  /// biometric flag are also cleared (see AppGate's
-  /// accountSignOutRequestProvider listener) so neither can silently
-  /// re-open this account once its session is gone.
-  Future<void> _onAccountSignOut({required bool everywhere}) async {
+  /// "Changer de compte" (spec bloc 11/15): dissociates this device from
+  /// the current account and sends the gate back to the email screen - the
+  /// next sign-in, even with this same address, always requires a fresh
+  /// OTP. Unlike [_onLockNow], this really does end the account's
+  /// authorization on this device, not just the local PIN unlock state.
+  Future<void> _onSwitchAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(everywhere
-            ? 'Se déconnecter de tous les appareils ?'
-            : 'Se déconnecter du compte ?'),
-        content: Text(everywhere
-            ? 'Toutes les sessions de ce compte, sur tous les appareils, '
-                'seront fermées. Vos données restent sur le cloud.'
-            : 'La session de ce compte sera fermée sur cet appareil. Vos '
-                'données restent sur le cloud.'),
+        title: const Text('Changer de compte sur cet appareil ?'),
+        content: const Text(
+          'Ce compte sera dissocié de cet appareil. Vous devrez saisir une '
+          'adresse email et un code de vérification pour vous reconnecter, '
+          'même avec ce même compte. Vos données restent en sécurité.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -195,19 +165,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Se déconnecter'),
+            child: const Text('Changer de compte'),
           ),
         ],
       ),
     );
     if (confirmed != true) return;
-    final account = ref.read(accountRepositoryProvider);
-    if (everywhere) {
-      await account.signOutEverywhere();
-    } else {
-      await account.signOut();
-    }
-    ref.read(accountSignOutRequestProvider.notifier).state++;
+    ref.read(accountSwitchRequestProvider.notifier).state++;
+  }
+
+  /// Revokes every device's session for this account at once (spec bloc
+  /// 6) - a distinct, clearly-named security action, not another word for
+  /// "déconnexion"/"verrouiller". Other devices keep their `devices` row
+  /// (still listed under "Appareils connectés") but their cached session
+  /// can no longer be refreshed.
+  Future<void> _onDisconnectEverywhere() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Déconnecter tous les appareils ?'),
+        content: const Text(
+          'Toutes les sessions de ce compte, sur tous les appareils, seront '
+          'fermées. Vos données restent sur le cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Déconnecter tout'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    ref.read(accountDisconnectEverywhereRequestProvider.notifier).state++;
   }
 
   Future<void> _onChangeCurrency(LocalProfile profile, String currency) async {
@@ -246,15 +240,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Se déconnecter du compte'),
-                    onTap: () => _onAccountSignOut(everywhere: false),
+                    leading: const Icon(Icons.devices_other_outlined),
+                    title: const Text('Appareils connectés'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => const DevicesScreen())),
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.devices_other_outlined),
-                    title: const Text('Se déconnecter de tous les appareils'),
-                    onTap: () => _onAccountSignOut(everywhere: true),
+                    leading: const Icon(Icons.swap_horiz),
+                    title: const Text('Changer de compte'),
+                    onTap: _onSwitchAccount,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('Déconnecter tous les appareils'),
+                    onTap: _onDisconnectEverywhere,
                   ),
                 ],
               ),
@@ -316,23 +318,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   )
                 : Column(
                     children: [
-                      SwitchListTile(
-                        secondary: const Icon(Icons.lock_outline),
-                        title: const Text('Verrouillage par code PIN'),
-                        subtitle: const Text('Protège uniquement l\'accès local'),
-                        value: _pinEnabled,
-                        onChanged: _onPinToggled,
+                      ListTile(
+                        leading: const Icon(Icons.password_outlined),
+                        title: const Text('Modifier le code d\'accès'),
+                        subtitle: const Text('Protège uniquement l\'accès local sur cet appareil'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _onChangePin,
                       ),
-                      if (_pinEnabled) ...[
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.password_outlined),
-                          title: const Text('Modifier le code'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: _onChangePin,
-                        ),
-                      ],
-                      if (_pinEnabled && _biometricSupported) ...[
+                      if (_biometricSupported) ...[
                         const Divider(height: 1),
                         SwitchListTile(
                           secondary: const Icon(Icons.fingerprint),
@@ -342,16 +335,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onChanged: _onBiometricToggled,
                         ),
                       ],
-                      if (_pinEnabled) ...[
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.lock_clock_outlined),
-                          title: const Text('Verrouiller maintenant'),
-                          subtitle: const Text(
-                              'Reverrouille l\'application sur cet appareil - le compte reste connecté'),
-                          onTap: _onLockNow,
-                        ),
-                      ],
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.lock_clock_outlined),
+                        title: const Text('Verrouiller maintenant'),
+                        subtitle: const Text(
+                            'Reverrouille l\'application sur cet appareil - le compte reste connecté'),
+                        onTap: _onLockNow,
+                      ),
                     ],
                   ),
           ),

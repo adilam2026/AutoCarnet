@@ -5,7 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/pin_service.dart';
 
-/// RG-USER-003: the PIN is optional and protects local access only.
+/// The local access code that protects this device, required once per
+/// account+device pairing right after email/OTP succeeds (spec bloc 5/19 -
+/// DEVICE_AUTHORIZED_NEEDS_PIN_SETUP always leads to CREATE_PIN, never
+/// straight to HOME) - there is no "skip" here on purpose, an authorized
+/// device without a PIN isn't a state this app's flow allows.
 class PinSetupScreen extends ConsumerStatefulWidget {
   const PinSetupScreen({super.key, required this.onDone});
   final VoidCallback onDone;
@@ -123,11 +127,6 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('Activer le code'),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextButton(
-                    onPressed: widget.onDone,
-                    child: const Text('Passer cette étape'),
                   ),
                 ],
               ),

@@ -16,7 +16,6 @@ void main() {
           child: MaterialApp(
             home: VerifyEmailScreen(
               email: 'test@example.com',
-              displayName: 'Test',
               onAuthenticated: () async {},
               onBack: () {},
             ),

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// Spec bloc 2: a device with no account association shows *only* an email
+/// field - no name field, no "continue without an account" escape hatch
+/// (spec bloc 12 - AutoCarnet requires an account, full stop).
 void main() {
   testWidgets('an email without @ is rejected before any network call is attempted',
       (tester) async {
@@ -10,38 +13,31 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: EmailEntryScreen(
-            onCodeSent: (_, _) => codeSentCalled = true,
-            onContinueOffline: () {},
-          ),
+          home: EmailEntryScreen(onCodeSent: (_) => codeSentCalled = true),
         ),
       ),
     );
 
     await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'not-an-email');
-    await tester.tap(find.text('Recevoir le code'));
+    await tester.tap(find.text('Continuer'));
     await tester.pump();
 
     expect(find.text('Adresse email invalide'), findsOneWidget);
     expect(codeSentCalled, isFalse);
   });
 
-  testWidgets('"Continuer hors connexion" is always reachable', (tester) async {
-    var offlineCalled = false;
+  testWidgets('there is no name field and no way to continue without an account', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: EmailEntryScreen(
-            onCodeSent: (_, _) {},
-            onContinueOffline: () => offlineCalled = true,
-          ),
+          home: EmailEntryScreen(onCodeSent: (_) {}),
         ),
       ),
     );
 
-    await tester.tap(find.text('Continuer hors connexion'));
-    await tester.pump();
-
-    expect(offlineCalled, isTrue);
+    expect(find.widgetWithText(TextField, 'Adresse email'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.textContaining('hors connexion'), findsNothing);
+    expect(find.textContaining('Nom'), findsNothing);
   });
 }

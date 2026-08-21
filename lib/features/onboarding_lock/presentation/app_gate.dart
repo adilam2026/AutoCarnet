@@ -3,9 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/sync/sync_coordinator.dart';
-import '../../../core/utils/connectivity.dart';
-import '../../../core/widgets/loading_error_views.dart';
 import '../../account/data/account_repository.dart';
 import '../../account/presentation/account_gate_screen.dart';
 import '../../documents/data/document_repository.dart';
@@ -17,27 +16,33 @@ import '../data/local_profile_repository.dart';
 import '../data/pin_service.dart';
 import '../domain/gate_decision.dart';
 import 'lock_screen.dart';
-import 'onboarding_screen.dart';
+import 'pin_recovery_screen.dart';
 import 'pin_setup_screen.dart';
 
-enum _GateStep { loading, accountAuth, onboarding, pinSetup, locked, unlocked }
+enum _GateStep { loading, email, pinSetup, locked, pinRecovery, unlocked }
 
-/// Bumped by "Se déconnecter" (Compte & sécurité) to force the app back to
-/// its lock screen on this device - reverifies the local PIN only,
-/// the cloud account session (if any) is left untouched. Local data is
-/// never touched either way.
+/// Bumped by "Verrouiller" (Compte & sécurité): purely local, reverifies
+/// the PIN only - the cloud account session is left completely untouched
+/// and local data is never touched either (spec bloc 1's VERROUILLAGE
+/// LOCAL, spec bloc 7).
 final sessionLockRequestProvider = StateProvider<int>((ref) => 0);
 
-/// Bumped by "Se déconnecter du compte" (bloc 6/9): the Supabase session
-/// itself is closed first (see AccountRepository.signOut/signOutEverywhere),
-/// then this sends the gate back to account authentication rather than just
-/// the local PIN screen. Local data is never touched.
-final accountSignOutRequestProvider = StateProvider<int>((ref) => 0);
+/// Bumped by "Changer de compte" (LockScreen or Compte & sécurité): closes
+/// the Supabase session on this device and clears this device's
+/// authorization, so the very next email typed always requires a fresh OTP
+/// - even the same address (spec bloc 11/15).
+final accountSwitchRequestProvider = StateProvider<int>((ref) => 0);
 
-/// Root gatekeeper: onboarding (first launch) -> optional PIN setup ->
-/// PIN lock on every subsequent launch -> the actual app. Wraps
-/// the router as MaterialApp.router's `builder` so navigation state is
-/// untouched by the lock flow.
+/// Bumped by "Déconnecter tous les appareils" (Compte & sécurité): the same
+/// as [accountSwitchRequestProvider], but also revokes every other device's
+/// session for this account (spec bloc 6).
+final accountDisconnectEverywhereRequestProvider = StateProvider<int>((ref) => 0);
+
+/// Root gatekeeper and the *only* place in the app that decides which of
+/// email / PIN-setup / locked / PIN-recovery / the real app is shown (spec
+/// bloc 19: one central state machine, no concurrent decision-makers).
+/// Wraps the router as MaterialApp.router's `builder` so navigation state
+/// is untouched by the lock flow.
 class AppGate extends ConsumerStatefulWidget {
   const AppGate({super.key, required this.child});
   final Widget child;
@@ -48,86 +53,78 @@ class AppGate extends ConsumerStatefulWidget {
 
 class _AppGateState extends ConsumerState<AppGate> {
   _GateStep _step = _GateStep.loading;
+  String? _lockedEmail;
 
-  Future<void> _evaluate(String? profileId) async {
-    final account = ref.read(accountRepositoryProvider);
-    if (profileId == null) {
-      // First-time setup on this device (bloc 7-9): a cloud account is the
-      // primary path when reachable, but connectivity or the user's own
-      // choice can never block using AutoCarnet locally (bloc 20).
-      if (!account.isSignedIn && await hasConnectivity()) {
-        setState(() => _step = _GateStep.accountAuth);
-        return;
-      }
-      setState(() => _step = _GateStep.onboarding);
-      return;
-    }
-    // The one thing PIN/biometric must never be able to do: silently
-    // re-enter a cloud account whose Supabase session is gone (a real
-    // sign-out, not just a relock). `lastCloudUserId` is non-null once
-    // this device has *ever* completed a real cloud sign-in, and unlike
-    // `isSignedIn` it survives that sign-out - so its mere presence
-    // alongside a *missing* live session is exactly "was authenticated,
-    // isn't anymore" and always routes back through email/OTP. A device
-    // that has never had a cloud account at all (null) is unaffected:
-    // PIN alone stays a legitimate unlock for it, same as before.
-    final everLinked = await account.lastCloudUserId() != null;
-    if (mustReauthenticateViaEmail(
-      hasEverLinkedCloudAccount: everLinked,
-      isSignedIn: account.isSignedIn,
-    )) {
-      setState(() => _step = _GateStep.accountAuth);
-      return;
-    }
-    final pinService = ref.read(pinServiceProvider);
-    // Scoped to the signed-in account (null for a device with no cloud
-    // account at all) - see PinService.hasPinSetupBeenOffered: a
-    // different account signing in later must still get its own offer.
-    final accountId = account.isSignedIn ? account.currentUser!.id : null;
-    final offered = await pinService.hasPinSetupBeenOffered(accountId: accountId);
-    if (!offered) {
-      setState(() => _step = _GateStep.pinSetup);
-      return;
-    }
-    final pinSet = await pinService.isPinSet();
-    setState(() => _step = pinSet ? _GateStep.locked : _GateStep.unlocked);
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _evaluate());
   }
 
-  /// A cloud account was just created/confirmed, or the user signed back in
-  /// - possibly on a new device, or possibly a *different* account than
-  /// whichever last used this one. Three things need to happen, in order:
-  /// reattribute any orphaned local data to whoever actually created it,
-  /// remember this account as the current one, then seed/reuse the local
-  /// profile - full data sync itself is a separate step, not part of this
-  /// gate.
+  /// The single function that decides which screen this device shows right
+  /// now (spec bloc 19). Called exactly at three kinds of moment: app
+  /// start, right after a fresh OTP success, and right after a revocation
+  /// is discovered - never on every rebuild, and never raced against
+  /// another listener deciding something else.
+  Future<void> _evaluate() async {
+    final account = ref.read(accountRepositoryProvider);
+    final deviceUserId = await account.deviceAuthorizedUserId();
+    var authorized = deviceUserId != null &&
+        account.isSignedIn &&
+        account.currentUser?.id == deviceUserId;
+    if (authorized) {
+      // Best-effort, online-only: has the account owner revoked this exact
+      // device from "Appareils connectés" since it last checked in? Never
+      // blocks offline use - see AccountRepository.isDeviceStillAuthorized.
+      final stillAuthorized = await account.isDeviceStillAuthorized(userId: deviceUserId);
+      if (!stillAuthorized) {
+        await account.disconnectFromThisDevice();
+        authorized = false;
+      }
+    }
+    final pinSet = authorized ? await ref.read(pinServiceProvider).isPinSet() : false;
+    final email = authorized ? await account.deviceAuthorizedEmail() : null;
+    final state = resolveGateState(deviceAuthorized: authorized, pinSet: pinSet);
+    if (!mounted) return;
+    setState(() {
+      _lockedEmail = email;
+      _step = switch (state) {
+        GateState.email => _GateStep.email,
+        GateState.pinSetup => _GateStep.pinSetup,
+        GateState.locked => _GateStep.locked,
+      };
+    });
+  }
+
+  /// A cloud account was just created/confirmed via email/OTP - possibly a
+  /// brand new device for an existing account, possibly a *different*
+  /// account than whichever last used this one. Reattributes any orphaned
+  /// local data to whoever actually created it, registers this device as
+  /// authorized, then seeds/reuses the local profile - nothing is ever
+  /// deleted. Always leads to PIN setup next (spec bloc 3/19: OTP success
+  /// never skips straight to HOME).
   Future<void> _onAccountAuthenticated() async {
     final account = ref.read(accountRepositoryProvider);
     final currentUserId = account.currentUser!.id;
-    final previousUserId = await account.lastCloudUserId();
-    if (previousUserId != null && previousUserId != currentUserId) {
-      // A different cloud account just signed in on this same device than
-      // last time - see each repository's handleAccountSwitch for exactly
-      // what gets reattributed/cleared. Nothing is ever deleted.
-      await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousUserId);
-      await ref.read(providerRepositoryProvider).handleAccountSwitch(previousUserId);
-      await ref.read(documentRepositoryProvider).handleAccountSwitch(previousUserId);
-      await ref.read(localProfileRepositoryProvider).handleAccountSwitch(previousUserId);
+    // Deliberately `lastDeviceUserId`, not `deviceAuthorizedUserId`: a
+    // "Changer de compte" already cleared the latter (see _disconnect)
+    // before this device ever reaches the email screen again, so it would
+    // always read null here and this reattribution would never fire for
+    // the exact case it exists for. `lastDeviceUserId` survives that
+    // clear - see AccountRepository's doc for why.
+    final previousDeviceUserId = await account.lastDeviceUserId();
+    if (previousDeviceUserId != null && previousDeviceUserId != currentUserId) {
+      await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousDeviceUserId);
+      await ref.read(providerRepositoryProvider).handleAccountSwitch(previousDeviceUserId);
+      await ref.read(documentRepositoryProvider).handleAccountSwitch(previousDeviceUserId);
+      await ref.read(localProfileRepositoryProvider).handleAccountSwitch(previousDeviceUserId);
     }
-    await account.rememberCloudUserId(currentUserId);
+    await account.registerThisDevice();
 
-    // Preferences (displayName/currency/distanceUnit) follow the account,
-    // not the device: a genuinely new account here (existing == null,
-    // guaranteed after the handleAccountSwitch reattribution above) gets
-    // its own fresh defaults rather than inheriting whoever used this
-    // phone before - while a first-ever sign-in claims the pre-existing
-    // offline profile instead of discarding what was already there.
     final localRepo = ref.read(localProfileRepositoryProvider);
     final existing = await localRepo.getOrNull(currentUserId: currentUserId);
     if (existing == null) {
-      final displayName =
-          account.currentUser?.userMetadata?['display_name'] as String? ??
-              account.currentUser?.email?.split('@').first ??
-              'Utilisateur';
+      final displayName = account.currentUser?.email?.split('@').first ?? 'Utilisateur';
       await localRepo.create(displayName: displayName, ownerId: currentUserId);
     } else if (existing.ownerId == null) {
       await localRepo.claimOwnership(existing.id, currentUserId);
@@ -136,87 +133,107 @@ class _AppGateState extends ConsumerState<AppGate> {
     // shared vehicle's access screen. Never blocks sign-in if it fails
     // (e.g. offline) - it's retried on every future sign-in.
     unawaited(ref.read(sharingRepositoryProvider).ensureOwnEmailSynced());
-    await _evaluate('pending');
+    await _evaluate();
+  }
+
+  /// Signs out of Supabase and clears this device's authorization (spec
+  /// bloc 11/15), then lands back on the email screen. The state flip
+  /// happens *first*, synchronously - before any async Supabase/storage
+  /// call - so there is never a frame where business screens are still
+  /// mounted next to a session/profile that's already gone (the exact bug
+  /// this replaces: the old flow signed out *then* changed screens,
+  /// leaving a window where the avatar could show "?" while vehicles were
+  /// still on screen).
+  Future<void> _disconnect({required bool everywhere}) async {
+    setState(() => _step = _GateStep.email);
+    final account = ref.read(accountRepositoryProvider);
+    if (everywhere) {
+      await account.disconnectFromAllDevices();
+    } else {
+      await account.disconnectFromThisDevice();
+    }
+    await ref.read(pinServiceProvider).clearPin();
+    await ref.read(biometricServiceProvider).setEnabled(false);
+  }
+
+  /// The only way `_step` ever becomes [_GateStep.unlocked] - always forces
+  /// the router back to the home route first (spec bloc 9: never restore an
+  /// old vehicle/profile/form screen after PIN setup, unlock, or PIN
+  /// recovery - every arrival into the app starts at ACCUEIL).
+  void _goUnlocked() {
+    ref.read(appRouterProvider).go('/');
+    setState(() => _step = _GateStep.unlocked);
+  }
+
+  /// What a correct PIN (or successful biometric) actually triggers - not
+  /// [_goUnlocked] directly, so a revocation from another device is caught
+  /// the moment someone next tries to get back in, not only on the next
+  /// cold start (spec bloc 14/20 scenario I). Still best-effort/fail-open
+  /// (see AccountRepository.isDeviceStillAuthorized): offline, this always
+  /// unlocks exactly as before.
+  Future<void> _onPinAccepted() async {
+    final account = ref.read(accountRepositoryProvider);
+    final userId = await account.deviceAuthorizedUserId();
+    if (userId != null && !await account.isDeviceStillAuthorized(userId: userId)) {
+      await account.disconnectFromThisDevice();
+      await ref.read(pinServiceProvider).clearPin();
+      await ref.read(biometricServiceProvider).setEnabled(false);
+      if (mounted) setState(() => _step = _GateStep.email);
+      return;
+    }
+    _goUnlocked();
   }
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(localProfileProvider);
-
     ref.listen<int>(sessionLockRequestProvider, (previous, next) {
       if (previous != null && next != previous) {
-        _evaluate(profileAsync.valueOrNull?.id);
+        // Safe to flip synchronously and unconditionally: `unlocked` can
+        // only ever be reached with a PIN already set (see _goUnlocked),
+        // so a locked screen is always valid to fall back to here.
+        setState(() => _step = _GateStep.locked);
       }
     });
-    ref.listen<int>(accountSignOutRequestProvider, (previous, next) {
-      if (previous != null && next != previous) {
-        // A real account sign-out (Supabase session already closed by the
-        // caller - see AccountRepository.signOut/signOutEverywhere) - the
-        // local PIN/biometric unlock belonged to *this* account's
-        // session and must never carry over silently to whoever
-        // authenticates next on this device. Centralized here rather
-        // than in each caller (settings screen, "changer de compte" on
-        // the lock screen) so no future sign-out path can forget it.
-        unawaited(ref.read(pinServiceProvider).clearPin());
-        unawaited(ref.read(biometricServiceProvider).setEnabled(false));
-        setState(() => _step = _GateStep.accountAuth);
-      }
+    ref.listen<int>(accountSwitchRequestProvider, (previous, next) {
+      if (previous != null && next != previous) unawaited(_disconnect(everywhere: false));
+    });
+    ref.listen<int>(accountDisconnectEverywhereRequestProvider, (previous, next) {
+      if (previous != null && next != previous) unawaited(_disconnect(everywhere: true));
     });
 
-    return profileAsync.when(
-      loading: () => const _Splash(),
-      error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
-      data: (profile) {
-        if (_step == _GateStep.loading) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _evaluate(profile?.id);
-          });
-          return const _Splash();
-        }
-        return switch (_step) {
-          _GateStep.loading => const _Splash(),
-          _GateStep.accountAuth => _GateNavigator(
-              child: AccountGateScreen(
-                onAuthenticated: _onAccountAuthenticated,
-                onContinueOffline: () => setState(() => _step = _GateStep.onboarding),
-              ),
-            ),
-          _GateStep.onboarding => _GateNavigator(
-              child: OnboardingScreen(
-                // The profile was just created; no need to wait for the
-                // stream to catch up before moving to the next step.
-                onDone: () => _evaluate('pending'),
-              ),
-            ),
-          _GateStep.pinSetup => _GateNavigator(
-              child: PinSetupScreen(
-                onDone: () async {
-                  final account = ref.read(accountRepositoryProvider);
-                  final accountId = account.isSignedIn ? account.currentUser!.id : null;
-                  await ref.read(pinServiceProvider).markPinSetupOffered(accountId: accountId);
-                  // Straight into the app - re-locking immediately after the
-                  // user just set (or skipped) the PIN would force them to
-                  // re-type the code they only just entered.
-                  setState(() => _step = _GateStep.unlocked);
-                },
-              ),
-            ),
-          _GateStep.locked => _GateNavigator(
-              child: LockScreen(
-                onUnlocked: () => setState(() => _step = _GateStep.unlocked),
-              ),
-            ),
-          _GateStep.unlocked => _UnlockedApp(child: widget.child),
-        };
-      },
-    );
+    return switch (_step) {
+      _GateStep.loading => const _Splash(),
+      _GateStep.email => _GateNavigator(
+          child: AccountGateScreen(onAuthenticated: _onAccountAuthenticated),
+        ),
+      _GateStep.pinSetup => _GateNavigator(
+          child: PinSetupScreen(onDone: _goUnlocked),
+        ),
+      _GateStep.locked => _GateNavigator(
+          child: LockScreen(
+            email: _lockedEmail,
+            onUnlocked: _onPinAccepted,
+            onForgotCode: () => setState(() => _step = _GateStep.pinRecovery),
+            onSwitchAccount: () => ref.read(accountSwitchRequestProvider.notifier).state++,
+          ),
+        ),
+      _GateStep.pinRecovery => _GateNavigator(
+          child: PinRecoveryScreen(
+            email: _lockedEmail ?? '',
+            onDone: _goUnlocked,
+            onCancel: () => setState(() => _step = _GateStep.locked),
+          ),
+        ),
+      _GateStep.unlocked => _UnlockedApp(child: widget.child),
+    };
   }
 }
 
 /// Starts the cloud sync coordinator exactly once per app-unlocked session
 /// (the very moment collaboration data could matter), never before the
-/// gate settles - starting it during onboarding/auth would just mean every
-/// pass no-ops until a session exists, so this simply avoids the churn.
+/// gate settles - starting it during email/PIN screens would just mean
+/// every pass no-ops until a session exists, so this simply avoids the
+/// churn.
 class _UnlockedApp extends ConsumerStatefulWidget {
   const _UnlockedApp({required this.child});
   final Widget child;
@@ -236,32 +253,25 @@ class _UnlockedAppState extends ConsumerState<_UnlockedApp> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Gives every pre-unlock screen (account auth, onboarding, PIN setup,
-/// lock screen) its own real [Navigator] - and therefore its own
-/// [Overlay].
-///
-/// [AppGate] sits in `MaterialApp.router`'s `builder`, one level *above*
-/// the app's actual router: `widget.child` passed into [AppGate] already
-/// *is* that router (with its own Navigator/Overlay inside), but every
-/// branch here other than `unlocked` returns a screen built directly,
-/// without `widget.child` anywhere in the tree - so until now, every
-/// field on every pre-unlock screen rendered with zero Navigator/Overlay
-/// ancestor anywhere above it, unlike literally every other screen in the
-/// app (all reached through the router, which always provides one).
-/// Missing Overlay ancestry is a known source of unreliable text-field/IME
-/// behaviour in Flutter (selection handles, the composing-range UI, and
-/// related low-level text-input plumbing all expect one) - and it lines
-/// up exactly with what real-device testing showed: every field on these
-/// screens misbehaved, while every field on every router-hosted business
-/// screen (kilométrage included) never did.
+/// Gives every pre-unlock screen (email/OTP, PIN setup, lock, PIN recovery)
+/// its own real [Navigator] - and therefore its own [Overlay], which
+/// several low-level text-input behaviours (selection handles, the
+/// composing-range UI) depend on - plus a [PopScope] that refuses to pop:
+/// since [AppGate] only ever mounts *one* of these branches or the real
+/// app at a time (never both), there is nothing to reveal underneath, but
+/// this is a deliberate second guarantee (spec bloc 8/21) that the Android
+/// back button can never be used to slip past a pre-unlock screen.
 class _GateNavigator extends StatelessWidget {
   const _GateNavigator({required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Navigator(
-      onGenerateRoute: (settings) => MaterialPageRoute(builder: (_) => child),
+    return PopScope(
+      canPop: false,
+      child: Navigator(
+        onGenerateRoute: (settings) => MaterialPageRoute(builder: (_) => child),
+      ),
     );
   }
 }

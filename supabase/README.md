@@ -64,9 +64,10 @@ sinon un collaborateur autorisé sur le véhicule ne verra simplement rien
 ## Authentification : email + code à 6 chiffres, sans mot de passe
 
 L'app n'a **aucun mot de passe** — création de compte et connexion sont la
-même chose : l'utilisateur saisit son email (+ son nom la première fois),
-reçoit un code à 6 chiffres, le saisit, et c'est tout. La sécurité "au
-quotidien" sur chaque appareil vient du code d'accès local (PIN), pas d'un
+même chose : l'utilisateur saisit son email, reçoit un code à 6 chiffres, le
+saisit, et c'est tout (le nom est demandé plus tard, dans le profil, jamais
+à l'inscription). La sécurité "au quotidien" sur chaque appareil vient du
+code d'accès local (PIN), pas d'un
 mot de passe de compte.
 
 Ça utilise l'endpoint OTP passwordless de Supabase (`signInWithOtp` +
@@ -113,6 +114,33 @@ est de ne jamais inclure `{{ .ConfirmationURL }}` dans le template.
 Sans cette étape, les emails partiront quand même mais soit l'utilisateur
 ne verra aucun code (juste un lien), soit - le cas ici - il verra un code
 déjà invalidé par un scanner automatique avant même de le lire.
+
+## Appareils autorisés (`devices`) — un OTP par appareil, jamais plus
+
+Refonte complète du parcours de connexion : un appareil ne repasse par
+email/OTP **qu'une seule fois** par compte - ensuite il est "autorisé" et
+n'a plus besoin que du code d'accès local (PIN). C'est la table `devices`
+(déjà créée par `0001_init.sql`) qui porte cette autorisation côté serveur,
+avec un id composite `<installation_id>_<user_id>` : un même téléphone
+ayant servi à deux comptes différents obtient deux lignes indépendantes,
+jamais un upsert qui écraserait la ligne de l'autre compte (RLS l'aurait
+de toute façon refusé silencieusement).
+
+- `AccountRepository.registerThisDevice()` upsert la ligne juste après un
+  `verifyEmailCode` réussi.
+- `AccountRepository.isDeviceStillAuthorized()` revérifie - en best-effort,
+  seulement si une connexion est disponible - que la ligne existe encore à
+  chaque lancement de l'app, avant d'afficher l'écran PIN. Une révocation
+  depuis "Compte & sécurité → Appareils connectés" (qui fait un simple
+  `delete` sur cette table) force donc l'appareil révoqué à repasser par
+  email/OTP dès son prochain accès - jamais bloqué hors connexion, jamais
+  un faux blocage : une erreur réseau est traitée comme "toujours autorisé"
+  plutôt que de punir un usage hors ligne légitime.
+- "Changer de compte" (email/OTP à nouveau, même pour la même adresse) ne
+  touche pas aux lignes `devices` existantes - il efface seulement le
+  repère local "cet appareil est actuellement autorisé pour X", donc la
+  prochaine authentification crée une nouvelle ligne pour le nouveau
+  compte sans jamais supprimer l'ancienne.
 
 ## Synchronisation cloud (véhicules) — appliquer la migration 0003
 
