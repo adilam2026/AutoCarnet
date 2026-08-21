@@ -95,8 +95,17 @@ enum InviteRedeemError {
 }
 
 class InviteRedeemException implements Exception {
-  const InviteRedeemException(this.error);
+  const InviteRedeemException(this.error, {this.technicalDetail});
   final InviteRedeemError error;
+
+  /// The raw Postgrest/backend error text, only ever populated for
+  /// [InviteRedeemError.unknown] - i.e. an error this app doesn't have a
+  /// specific, clear message for. Never shown for a recognized error
+  /// (those already have a clear message of their own), and never a
+  /// substitute for fixing the actual cause - it exists so a real
+  /// backend rejection is diagnosable from the device itself instead of
+  /// only ever showing a generic "try again".
+  final String? technicalDetail;
 
   String get message => switch (error) {
         InviteRedeemError.invalid => 'Code de partage invalide.',

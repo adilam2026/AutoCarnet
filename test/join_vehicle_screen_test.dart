@@ -197,4 +197,47 @@ void main() {
     expect(find.text('Audi Q5'), findsOneWidget);
     expect(find.text('Véhicule ajouté'), findsNothing);
   });
+
+  testWidgets(
+      'an unrecognized backend rejection shows the raw technical detail alongside the generic '
+      'message, so a real Postgrest/RLS/constraint error is diagnosable from the device instead '
+      'of only ever "réessayez"', (tester) async {
+    await pump(tester);
+    fake.previewToReturn = _preview();
+    fake.acceptError = const InviteRedeemException(
+      InviteRedeemError.unknown,
+      technicalDetail: '42501: new row violates row-level security policy for table "vehicle_members"',
+    );
+
+    await tester.enterText(find.byType(TextField), 'GOODCODE');
+    await tester.tap(find.text('Continuer'));
+    await tester.pump();
+    await tester.tap(find.text('Rejoindre ce véhicule'));
+    await tester.pump();
+
+    expect(
+      find.textContaining('42501: new row violates row-level security policy'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Une erreur est survenue'), findsOneWidget);
+  });
+
+  testWidgets('a recognized error (e.g. expired) never shows a technical detail, even if one is set',
+      (tester) async {
+    await pump(tester);
+    fake.previewToReturn = _preview();
+    fake.acceptError = const InviteRedeemException(
+      InviteRedeemError.expired,
+      technicalDetail: 'PGRST100: something internal',
+    );
+
+    await tester.enterText(find.byType(TextField), 'GOODCODE');
+    await tester.tap(find.text('Continuer'));
+    await tester.pump();
+    await tester.tap(find.text('Rejoindre ce véhicule'));
+    await tester.pump();
+
+    expect(find.text('Ce code de partage a expiré.'), findsOneWidget);
+    expect(find.textContaining('PGRST100'), findsNothing);
+  });
 }

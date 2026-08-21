@@ -65,9 +65,10 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
         _loading = false;
       });
     } on InviteRedeemException catch (e) {
+      debugPrint('JoinVehicleScreen.previewInvite rejected: ${e.technicalDetail}');
       if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = _displayMessage(e);
         _loading = false;
       });
     } catch (e) {
@@ -78,6 +79,19 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// The user-facing message for a rejected invite - the clear, specific
+  /// message for a recognized error, or (only for the [InviteRedeemError.
+  /// unknown] bucket, where this app has no clear message of its own) that
+  /// generic message plus the raw backend rejection, so a real Postgrest/
+  /// RLS/constraint error is diagnosable from the device that hit it
+  /// instead of only ever showing "réessayez".
+  String _displayMessage(InviteRedeemException e) {
+    if (e.error == InviteRedeemError.unknown && e.technicalDetail != null) {
+      return '${e.message}\n\nDétail technique : ${e.technicalDetail}';
+    }
+    return e.message;
   }
 
   /// Confirms the actual adhésion - the only call in this whole screen that
@@ -107,9 +121,10 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
         _loading = false;
       });
     } on InviteRedeemException catch (e) {
+      debugPrint('JoinVehicleScreen.acceptInvite rejected: ${e.technicalDetail}');
       if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = _displayMessage(e);
         _loading = false;
       });
     } catch (e) {
@@ -185,7 +200,15 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
             LengthLimitingTextInputFormatter(11),
           ],
           decoration: InputDecoration(
-            hintText: 'Q7K9-M2P4',
+            // A persistent label (never a value, never clearable "by
+            // mistake") plus a clearly-fake example hint - a real code
+            // shaped like a plausible example (e.g. "Q7K9-M2P4") was read
+            // by testers as a pre-filled value they couldn't delete, when
+            // the field was actually empty the whole time: hint text is
+            // never real content, it just always reappears once the
+            // field is empty, which reads exactly like that.
+            labelText: 'Code de partage',
+            hintText: 'ex. ····-····',
             border: const OutlineInputBorder(),
             errorText: _error,
           ),

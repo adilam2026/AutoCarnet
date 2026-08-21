@@ -95,7 +95,7 @@ class SharingRepository {
         alreadyOwner: row['already_owner'] as bool? ?? false,
       );
     } on PostgrestException catch (e) {
-      throw InviteRedeemException(_mapRedeemError(e));
+      throw InviteRedeemException(_mapRedeemError(e), technicalDetail: _technicalDetail(e));
     }
   }
 
@@ -113,9 +113,17 @@ class SharingRepository {
         status: 'accepted',
       );
     } on PostgrestException catch (e) {
-      throw InviteRedeemException(_mapRedeemError(e));
+      throw InviteRedeemException(_mapRedeemError(e), technicalDetail: _technicalDetail(e));
     }
   }
+
+  /// Postgrest error code + message (e.g. '42501: new row violates
+  /// row-level security policy...') - only ever attached to
+  /// [InviteRedeemError.unknown], where the app has no clear message of
+  /// its own. This can't be fixed from the client, but a real rejection
+  /// from Postgres/RLS/a constraint needs to be diagnosable from the
+  /// device that hit it, not just show a generic "try again".
+  String _technicalDetail(PostgrestException e) => '${e.code}: ${e.message}';
 
   InviteRedeemError _mapRedeemError(PostgrestException e) {
     return switch (e.message) {
