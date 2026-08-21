@@ -224,7 +224,7 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
     BuildContext context,
     WidgetRef ref,
     Expense expense,
-    AsyncValue<Vehicle> vehicleAsync,
+    AsyncValue<Vehicle?> vehicleAsync,
   ) async {
     final vehicle = vehicleAsync.maybeWhen(data: (v) => v, orElse: () => null);
     if (vehicle == null) return;

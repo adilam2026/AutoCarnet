@@ -72,9 +72,18 @@ class VehicleRepository {
         .write(const VehiclesCompanion(myRole: Value(null)));
   }
 
-  Stream<Vehicle> watchOne(String id) {
+  /// Nullable on purpose (`watchSingleOrNull`, not `watchSingle`): right
+  /// after accepting a share invite, the vehicle exists on the cloud but
+  /// hasn't necessarily reached this device's local mirror yet (the next
+  /// sync pass does that - see VehicleSyncService._pull). A screen watching
+  /// this stream during that window must see a normal "not here yet" data
+  /// state it can react to (e.g. show a syncing view and retry), never a
+  /// crash - `watchSingle()` throws `StateError('Expected exactly one
+  /// element, but got 0')` the moment the underlying query has zero rows,
+  /// which is exactly what happened here.
+  Stream<Vehicle?> watchOne(String id) {
     final query = _db.select(_db.vehicles)..where((v) => v.id.equals(id));
-    return query.watchSingle();
+    return query.watchSingleOrNull();
   }
 
   Future<Vehicle> getOne(String id) {
@@ -424,7 +433,7 @@ final vehiclesListProvider = StreamProvider<List<Vehicle>>((ref) {
   return ref.watch(vehicleRepositoryProvider).watchAll(currentUserId: currentUserId);
 });
 
-final vehicleByIdProvider = StreamProvider.family<Vehicle, String>((ref, id) {
+final vehicleByIdProvider = StreamProvider.family<Vehicle?, String>((ref, id) {
   return ref.watch(vehicleRepositoryProvider).watchOne(id);
 });
 

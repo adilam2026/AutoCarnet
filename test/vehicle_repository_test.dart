@@ -174,4 +174,36 @@ void main() {
     expect(await repo.existsLocally(id), isTrue);
     expect(await repo.existsLocally('never-synced-id'), isFalse);
   });
+
+  test(
+      'watchOne emits null (not a crash) for an id that does not exist '
+      'locally yet - regression for the "Rejoindre un véhicule" crash '
+      '(Drift\'s watchSingle() throwing StateError("Expected exactly one '
+      'element, but got 0") the instant a share invite is accepted but the '
+      'vehicle has not reached the local mirror yet), then emits the row '
+      'once it is inserted, without ever throwing', () async {
+    final emissions = <Vehicle?>[];
+    final sub = repo.watchOne('not-synced-yet-id').listen(emissions.add);
+    await Future<void>.delayed(Duration.zero);
+    expect(emissions, everyElement(isNull));
+    expect(emissions, isNotEmpty);
+
+    final id = await repo.createVehicle(
+      brand: 'Peugeot',
+      model: '308',
+      currentMileage: 12000,
+    );
+    // Drift re-runs a table-level watch on any write to that table, even
+    // an unrelated row - watchOne('not-synced-yet-id') must keep emitting
+    // null for that unrelated insert, and never throw.
+    await Future<void>.delayed(Duration.zero);
+    expect(emissions, everyElement(isNull));
+    await sub.cancel();
+
+    final sub2 = repo.watchOne(id).listen(emissions.add);
+    await Future<void>.delayed(Duration.zero);
+    expect(emissions.last, isA<Vehicle>());
+    expect(emissions.last!.id, id);
+    await sub2.cancel();
+  });
 }

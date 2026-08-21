@@ -91,6 +91,8 @@ class SharingRepository {
         ownerDisplayName: row['owner_display_name'] as String? ?? 'Propriétaire',
         role: VehiclePermission.fromWire(row['role'] as String),
         expiresAt: DateTime.parse(row['expires_at'] as String),
+        alreadyMember: row['already_member'] as bool? ?? false,
+        alreadyOwner: row['already_owner'] as bool? ?? false,
       );
     } on PostgrestException catch (e) {
       throw InviteRedeemException(_mapRedeemError(e));
@@ -122,6 +124,7 @@ class SharingRepository {
       'code_already_used' => InviteRedeemError.alreadyUsed,
       'code_expired' => InviteRedeemError.expired,
       'not_authenticated' => InviteRedeemError.notAuthenticated,
+      'already_owner' => InviteRedeemError.alreadyOwner,
       _ => InviteRedeemError.unknown,
     };
   }

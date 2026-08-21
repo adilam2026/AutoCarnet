@@ -56,6 +56,8 @@ class InvitePreview {
     required this.ownerDisplayName,
     required this.role,
     required this.expiresAt,
+    required this.alreadyMember,
+    required this.alreadyOwner,
   });
 
   final String vehicleId;
@@ -65,23 +67,45 @@ class InvitePreview {
   final String ownerDisplayName;
   final VehiclePermission role;
   final DateTime expiresAt;
+
+  /// The caller already has a `vehicle_members` row for this vehicle
+  /// (e.g. joined earlier via a different code). Redeeming must not
+  /// create a second membership row - the UI offers "Ouvrir le véhicule"
+  /// instead of "Rejoindre".
+  final bool alreadyMember;
+
+  /// The caller is this vehicle's owner (`vehicles.user_id`), typing
+  /// their own share code. Owners already have full access outside
+  /// `vehicle_members` - redeeming must never consume the code or create
+  /// a redundant self-membership row.
+  final bool alreadyOwner;
 }
 
 /// Deliberately generic where the mandate asks for it (a wrong/nonexistent
 /// code must never leak technical detail), and specific for the states
 /// that deserve their own clear message (expired/cancelled/already used).
-enum InviteRedeemError { invalid, cancelled, alreadyUsed, expired, notAuthenticated, unknown }
+enum InviteRedeemError {
+  invalid,
+  cancelled,
+  alreadyUsed,
+  expired,
+  notAuthenticated,
+  alreadyOwner,
+  unknown,
+}
 
 class InviteRedeemException implements Exception {
   const InviteRedeemException(this.error);
   final InviteRedeemError error;
 
   String get message => switch (error) {
-        InviteRedeemError.invalid => 'Ce code n\'est pas valide. Vérifiez qu\'il est bien saisi.',
-        InviteRedeemError.cancelled => 'Ce code a été annulé par le propriétaire du véhicule.',
-        InviteRedeemError.alreadyUsed => 'Ce code a déjà été utilisé.',
-        InviteRedeemError.expired => 'Ce code a expiré. Demandez-en un nouveau au propriétaire.',
+        InviteRedeemError.invalid => 'Code invalide ou introuvable.',
+        InviteRedeemError.cancelled => 'Cette invitation n\'est plus valide.',
+        InviteRedeemError.alreadyUsed => 'Cette invitation n\'est plus valide.',
+        InviteRedeemError.expired =>
+          'Ce code de partage a expiré. Demandez un nouveau code au propriétaire.',
         InviteRedeemError.notAuthenticated => 'Connectez-vous d\'abord pour rejoindre ce véhicule.',
+        InviteRedeemError.alreadyOwner => 'Vous êtes déjà propriétaire de ce véhicule.',
         InviteRedeemError.unknown => 'Une erreur est survenue. Réessayez.',
       };
 }

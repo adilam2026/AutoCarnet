@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/sync/vehicle_sync_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
-import '../../vehicles/data/vehicle_repository.dart';
 import '../data/sharing_models.dart';
 import '../data/sharing_repository.dart';
 
@@ -74,23 +73,9 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
     });
     try {
       final invite = await ref.read(sharingRepositoryProvider).acceptInvite(_codeCtrl.text.trim());
-      // The vehicle only exists on the cloud from this device's point of
-      // view right now - pulling it down before navigating avoids
-      // VehicleHomeScreen's watchOne() finding zero local rows and
-      // crashing. Best-effort: if sync doesn't complete in time (e.g. a
-      // slow connection), land on the vehicles list instead, where it'll
-      // simply appear once the next sync pass picks it up.
-      await ref.read(vehicleSyncServiceProvider).syncNow();
-      if (!mounted) return;
-      final vehicleRepo = ref.read(vehicleRepositoryProvider);
-      final arrived = await vehicleRepo.existsLocally(invite.vehicleId);
       if (!mounted) return;
       showAppSnackBar(context, 'Vous avez rejoint le véhicule.', icon: Icons.check_circle_outline);
-      if (arrived) {
-        context.go('/vehicles/${invite.vehicleId}');
-      } else {
-        context.go('/');
-      }
+      await _openVehicle(invite.vehicleId);
     } on InviteRedeemException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -105,6 +90,24 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Navigates into a vehicle the account already has access to (or just
+  /// gained access to), without ever risking VehicleHomeScreen's `.when`
+  /// hitting an error state: nudges a sync first since - right after
+  /// accepting an invite - the vehicle exists on the cloud but hasn't
+  /// necessarily reached this device's local mirror yet. Best-effort: if
+  /// sync doesn't complete in time (e.g. a slow connection),
+  /// VehicleHomeScreen's own "Synchronisation en cours" view (see
+  /// vehicle_home_screen.dart) takes over from there rather than crashing.
+  Future<void> _openVehicle(String vehicleId) async {
+    try {
+      await ref.read(vehicleSyncServiceProvider).syncNow();
+    } catch (_) {
+      // Offline/transient - proceed anyway, VehicleHomeScreen handles it.
+    }
+    if (!mounted) return;
+    context.go('/vehicles/$vehicleId');
   }
 
   @override
@@ -157,6 +160,7 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
 
   Widget _buildPreview(BuildContext context) {
     final preview = _preview!;
+    final alreadyHasAccess = preview.alreadyOwner || preview.alreadyMember;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -175,8 +179,10 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
                 _row(context, Icons.person_outline, 'Propriétaire', preview.ownerDisplayName),
                 const SizedBox(height: AppSpacing.sm),
                 _row(context, Icons.shield_outlined, 'Accès proposé', preview.role.label),
-                const SizedBox(height: AppSpacing.sm),
-                _row(context, Icons.timer_outlined, 'Code valable jusqu\'au', _fmt(preview.expiresAt)),
+                if (!alreadyHasAccess) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  _row(context, Icons.timer_outlined, 'Code valable jusqu\'au', _fmt(preview.expiresAt)),
+                ],
               ],
             ),
           ),
@@ -186,12 +192,34 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           const SizedBox(height: AppSpacing.sm),
         ],
-        FilledButton(
-          onPressed: _loading ? null : _accept,
-          child: _loading
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Rejoindre ce véhicule'),
-        ),
+        if (preview.alreadyOwner) ...[
+          Text(
+            'Vous êtes déjà propriétaire de ce véhicule.',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          FilledButton(
+            onPressed: _loading ? null : () => _openVehicle(preview.vehicleId),
+            child: const Text('Ouvrir le véhicule'),
+          ),
+        ] else if (preview.alreadyMember) ...[
+          Text(
+            'Vous avez déjà accès à ce véhicule.',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          FilledButton(
+            onPressed: _loading ? null : () => _openVehicle(preview.vehicleId),
+            child: const Text('Ouvrir le véhicule'),
+          ),
+        ] else
+          FilledButton(
+            onPressed: _loading ? null : _accept,
+            child: _loading
+                ? const SizedBox(
+                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Rejoindre ce véhicule'),
+          ),
         const SizedBox(height: AppSpacing.xs),
         TextButton(
           onPressed: _loading ? null : () => setState(() => _step = _Step.enterCode),

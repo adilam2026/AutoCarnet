@@ -47,11 +47,13 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                   'le budget carburant de ce véhicule.',
               actionLabel: 'Ajouter un plein',
               onAction: vehicleAsync.maybeWhen(
-                data: (vehicle) => () => showFuelFormSheet(
-                      context,
-                      vehicleId: widget.vehicleId,
-                      currentMileage: vehicle.currentMileage,
-                    ),
+                data: (vehicle) => vehicle == null
+                    ? null
+                    : () => showFuelFormSheet(
+                          context,
+                          vehicleId: widget.vehicleId,
+                          currentMileage: vehicle.currentMileage,
+                        ),
                 orElse: () => null,
               ),
             );
@@ -175,12 +177,15 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                   style: const TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 onTap: () => vehicleAsync.maybeWhen(
-                                  data: (vehicle) => showFuelFormSheet(
-                                    context,
-                                    vehicleId: widget.vehicleId,
-                                    currentMileage: vehicle.currentMileage,
-                                    editing: f,
-                                  ),
+                                  data: (vehicle) {
+                                    if (vehicle == null) return;
+                                    showFuelFormSheet(
+                                      context,
+                                      vehicleId: widget.vehicleId,
+                                      currentMileage: vehicle.currentMileage,
+                                      editing: f,
+                                    );
+                                  },
                                   orElse: () {},
                                 ),
                               ),
@@ -194,14 +199,16 @@ class _FuelTabState extends ConsumerState<FuelTab> {
         },
       ),
       floatingActionButton: vehicleAsync.maybeWhen(
-        data: (vehicle) => FloatingActionButton(
-          onPressed: () => showFuelFormSheet(
-            context,
-            vehicleId: widget.vehicleId,
-            currentMileage: vehicle.currentMileage,
-          ),
-          child: const Icon(Icons.add),
-        ),
+        data: (vehicle) => vehicle == null
+            ? null
+            : FloatingActionButton(
+                onPressed: () => showFuelFormSheet(
+                  context,
+                  vehicleId: widget.vehicleId,
+                  currentMileage: vehicle.currentMileage,
+                ),
+                child: const Icon(Icons.add),
+              ),
         orElse: () => null,
       ),
     );

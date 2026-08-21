@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/database/database.dart';
+import '../../../../core/sync/vehicle_sync_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_format.dart';
 import '../../../../core/utils/feedback.dart';
@@ -49,7 +52,108 @@ class VehicleHomeScreen extends ConsumerWidget {
     return vehicleAsync.when(
       loading: () => const Scaffold(body: LoadingView()),
       error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
-      data: (vehicle) => _VehicleHomeBody(vehicle: vehicle),
+      data: (vehicle) => vehicle == null
+          ? _VehicleSyncingView(vehicleId: vehicleId)
+          : _VehicleHomeBody(vehicle: vehicle),
+    );
+  }
+}
+
+/// Shown instead of crashing when a vehicle is known to exist (we just
+/// navigated here, e.g. right after accepting a share invite) but hasn't
+/// reached this device's local mirror yet - a normal, momentary state, not
+/// an error. Nudges a sync and waits; if the vehicle still hasn't shown up
+/// after a bounded number of attempts (stale/invalid link, revoked access,
+/// ...) it offers a safe way out instead of waiting forever.
+class _VehicleSyncingView extends ConsumerStatefulWidget {
+  const _VehicleSyncingView({required this.vehicleId});
+  final String vehicleId;
+
+  @override
+  ConsumerState<_VehicleSyncingView> createState() => _VehicleSyncingViewState();
+}
+
+class _VehicleSyncingViewState extends ConsumerState<_VehicleSyncingView> {
+  static const _maxAttempts = 6;
+  int _attempts = 0;
+  bool _gaveUp = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _attemptSync();
+  }
+
+  Future<void> _attemptSync() async {
+    if (!mounted || _attempts >= _maxAttempts) {
+      if (mounted && _attempts >= _maxAttempts) setState(() => _gaveUp = true);
+      return;
+    }
+    _attempts++;
+    try {
+      await ref.read(vehicleSyncServiceProvider).syncNow();
+    } catch (_) {
+      // Offline or transient failure: keep retrying on the timer below.
+    }
+    if (!mounted) return;
+    final stillMissing = ref.read(vehicleByIdProvider(widget.vehicleId)).value == null;
+    if (stillMissing && _attempts < _maxAttempts) {
+      _timer = Timer(const Duration(seconds: 1), _attemptSync);
+    } else if (stillMissing) {
+      setState(() => _gaveUp = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_gaveUp) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Véhicule introuvable')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sync_problem_outlined,
+                    size: 40, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(height: AppSpacing.md),
+                const Text(
+                  'Ce véhicule n\'est pas (encore) disponible sur cet appareil.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FilledButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('Retour à mes véhicules'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return const Scaffold(
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: AppSpacing.md),
+              Text('Synchronisation en cours...', textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

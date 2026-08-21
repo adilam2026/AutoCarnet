@@ -120,8 +120,10 @@ class _TimelineTabState extends ConsumerState<TimelineTab> {
                             index: i,
                             child: InkWell(
                               onTap: () => vehicleAsync.maybeWhen(
-                                data: (vehicle) =>
-                                    openTimelineEventSource(context, ref, e, vehicle),
+                                data: (vehicle) {
+                                  if (vehicle == null) return;
+                                  openTimelineEventSource(context, ref, e, vehicle);
+                                },
                                 orElse: () {},
                               ),
                               child: IntrinsicHeight(

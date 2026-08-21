@@ -45,11 +45,13 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                   'l\'historique et les dépenses du véhicule.',
               actionLabel: 'Ajouter un entretien',
               onAction: vehicleAsync.maybeWhen(
-                data: (vehicle) => () => showMaintenanceFormSheet(
-                      context,
-                      vehicleId: widget.vehicleId,
-                      currentMileage: vehicle.currentMileage,
-                    ),
+                data: (vehicle) => vehicle == null
+                    ? null
+                    : () => showMaintenanceFormSheet(
+                          context,
+                          vehicleId: widget.vehicleId,
+                          currentMileage: vehicle.currentMileage,
+                        ),
                 orElse: () => null,
               ),
             );
@@ -161,12 +163,15 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                                       )
                                     : null,
                                 onTap: () => vehicleAsync.maybeWhen(
-                                  data: (vehicle) => showMaintenanceFormSheet(
-                                    context,
-                                    vehicleId: widget.vehicleId,
-                                    currentMileage: vehicle.currentMileage,
-                                    editing: e,
-                                  ),
+                                  data: (vehicle) {
+                                    if (vehicle == null) return;
+                                    showMaintenanceFormSheet(
+                                      context,
+                                      vehicleId: widget.vehicleId,
+                                      currentMileage: vehicle.currentMileage,
+                                      editing: e,
+                                    );
+                                  },
                                   orElse: () {},
                                 ),
                               ),
@@ -180,14 +185,16 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
         },
       ),
       floatingActionButton: vehicleAsync.maybeWhen(
-        data: (vehicle) => FloatingActionButton(
-          onPressed: () => showMaintenanceFormSheet(
-            context,
-            vehicleId: widget.vehicleId,
-            currentMileage: vehicle.currentMileage,
-          ),
-          child: const Icon(Icons.add),
-        ),
+        data: (vehicle) => vehicle == null
+            ? null
+            : FloatingActionButton(
+                onPressed: () => showMaintenanceFormSheet(
+                  context,
+                  vehicleId: widget.vehicleId,
+                  currentMileage: vehicle.currentMileage,
+                ),
+                child: const Icon(Icons.add),
+              ),
         orElse: () => null,
       ),
     );
