@@ -38,7 +38,10 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
 
   Future<void> _loadPreview() async {
     final input = _codeCtrl.text.trim();
-    if (input.isEmpty) return;
+    if (input.isEmpty) {
+      setState(() => _error = 'Veuillez saisir un code de partage.');
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;

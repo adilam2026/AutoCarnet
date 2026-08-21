@@ -99,13 +99,12 @@ class InviteRedeemException implements Exception {
   final InviteRedeemError error;
 
   String get message => switch (error) {
-        InviteRedeemError.invalid => 'Code invalide ou introuvable.',
-        InviteRedeemError.cancelled => 'Cette invitation n\'est plus valide.',
-        InviteRedeemError.alreadyUsed => 'Cette invitation n\'est plus valide.',
-        InviteRedeemError.expired =>
-          'Ce code de partage a expiré. Demandez un nouveau code au propriétaire.',
+        InviteRedeemError.invalid => 'Code de partage invalide.',
+        InviteRedeemError.cancelled => 'Cette invitation n\'est plus disponible.',
+        InviteRedeemError.alreadyUsed => 'Cette invitation n\'est plus disponible.',
+        InviteRedeemError.expired => 'Ce code de partage a expiré.',
         InviteRedeemError.notAuthenticated => 'Connectez-vous d\'abord pour rejoindre ce véhicule.',
-        InviteRedeemError.alreadyOwner => 'Vous êtes déjà propriétaire de ce véhicule.',
+        InviteRedeemError.alreadyOwner => 'Ce véhicule vous appartient déjà.',
         InviteRedeemError.unknown => 'Une erreur est survenue. Réessayez.',
       };
 }

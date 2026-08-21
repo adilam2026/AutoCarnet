@@ -7,39 +7,39 @@ import 'package:flutter_test/flutter_test.dart';
 /// one element, but got 0" in the first place), only these clear messages.
 void main() {
   group('InviteRedeemException.message (pure)', () {
-    test('TEST B: no invitation found', () {
+    test('TEST 3: invalid code', () {
       expect(
         const InviteRedeemException(InviteRedeemError.invalid).message,
-        'Code invalide ou introuvable.',
+        'Code de partage invalide.',
       );
     });
 
-    test('TEST C: expired code', () {
+    test('TEST 5: expired code', () {
       expect(
         const InviteRedeemException(InviteRedeemError.expired).message,
-        'Ce code de partage a expiré. Demandez un nouveau code au propriétaire.',
+        'Ce code de partage a expiré.',
       );
     });
 
-    test('TEST D: already-used code', () {
-      expect(
-        const InviteRedeemException(InviteRedeemError.alreadyUsed).message,
-        'Cette invitation n\'est plus valide.',
-      );
-    });
-
-    test('a cancelled code reads the same way as an already-used one - both '
-        '"no longer valid" from the joiner\'s point of view', () {
+    test('a cancelled invitation', () {
       expect(
         const InviteRedeemException(InviteRedeemError.cancelled).message,
-        'Cette invitation n\'est plus valide.',
+        'Cette invitation n\'est plus disponible.',
       );
     });
 
-    test('TEST F: owner redeeming their own code', () {
+    test('an already-used code reads the same way as a cancelled one - both '
+        '"no longer available" from the joiner\'s point of view', () {
+      expect(
+        const InviteRedeemException(InviteRedeemError.alreadyUsed).message,
+        'Cette invitation n\'est plus disponible.',
+      );
+    });
+
+    test('owner redeeming their own code', () {
       expect(
         const InviteRedeemException(InviteRedeemError.alreadyOwner).message,
-        'Vous êtes déjà propriétaire de ce véhicule.',
+        'Ce véhicule vous appartient déjà.',
       );
     });
   });

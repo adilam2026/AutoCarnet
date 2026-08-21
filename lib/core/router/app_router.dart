@@ -24,6 +24,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/vehicles/new',
         builder: (context, state) => const VehicleCreateScreen(),
       ),
+      // Must come before '/vehicles/:id' below: go_router matches routes in
+      // declaration order, and ':id' matches any single segment including
+      // the literal "join" - if the dynamic route were declared first,
+      // tapping "Rejoindre un véhicule" (which pushes '/vehicles/join')
+      // would resolve to VehicleHomeScreen(vehicleId: 'join') instead of
+      // this screen, never showing the code-entry form at all.
+      GoRoute(
+        path: '/vehicles/join',
+        builder: (context, state) => const JoinVehicleScreen(),
+      ),
       GoRoute(
         path: '/vehicles/:id',
         builder: (context, state) => VehicleHomeScreen(
@@ -59,10 +69,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => TimelineTab(
           vehicleId: state.pathParameters['id']!,
         ),
-      ),
-      GoRoute(
-        path: '/vehicles/join',
-        builder: (context, state) => const JoinVehicleScreen(),
       ),
       GoRoute(
         path: '/providers',
