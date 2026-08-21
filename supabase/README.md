@@ -192,6 +192,29 @@ en retour - repéré en testant en conditions réelles juste après 0004.
 2. Colle le contenu de `migrations/0005_fix_rls_recursion.sql`.
 3. **Run**.
 
+## Correctifs obligatoires — migrations 0006 et 0007 (partage de véhicule)
+
+Deux correctifs supplémentaires sur "Rejoindre un véhicule", nécessaires
+après 0004/0005 pour que le parcours fonctionne réellement de bout en
+bout :
+
+1. SQL Editor → **New query** → colle `migrations/0006_invite_already_member_owner.sql` → **Run**.
+   (`preview_vehicle_invite`/`accept_vehicle_invite` reconnaissent
+   désormais explicitement "déjà membre" / "déjà propriétaire du
+   véhicule", au lieu de rejouer le parcours normal dans ces cas.)
+2. SQL Editor → **New query** → colle `migrations/0007_fix_ambiguous_vehicle_id.sql` → **Run**.
+   **Celle-ci est la plus importante : elle corrige le vrai bug qui
+   faisait échouer *toute* tentative de "Rejoindre un véhicule" depuis la
+   création de la fonctionnalité (0004)** - une colonne `vehicle_id` non
+   qualifiée dans `accept_vehicle_invite()`, ambiguë avec la colonne de
+   retour du même nom (Postgres 42702). L'adhésion créait déjà la ligne
+   `vehicle_members` avec succès avant d'échouer sur cette ligne, donc
+   l'échec semblait total côté app alors que la moitié du travail avait
+   réellement été faite côté base.
+
+Sans l'étape 2, "Rejoindre un véhicule" échoue systématiquement au clic
+sur "Rejoindre ce véhicule", même avec un code parfaitement valide.
+
 ## Ce qui n'est PAS encore fait
 
 - **Stockage des pièces jointes** (photos, PDF de documents) : nécessite un
