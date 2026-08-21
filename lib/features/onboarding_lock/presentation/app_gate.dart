@@ -204,12 +204,28 @@ class _AppGateState extends ConsumerState<AppGate> {
     return switch (_step) {
       _GateStep.loading => const _Splash(),
       _GateStep.email => _GateNavigator(
+          // Every branch below shares the exact same widget type
+          // (_GateNavigator wrapping a bare Navigator) with no key, Flutter
+          // would otherwise treat a transition between two of them (e.g.
+          // locked -> pinRecovery) as an *update* of the same Element
+          // rather than a fresh mount - and a bare Navigator's
+          // onGenerateRoute is only ever consulted for its *initial*
+          // route, so it would keep showing whatever screen it first
+          // mounted forever, no matter how many times _step changes
+          // afterwards. This was a real, confirmed bug (see
+          // gate_navigator_key_regression_test.dart): "Code oublié ?"/
+          // "Changer de compte" changed `_step` correctly but the screen
+          // never visibly moved on. A distinct key per step forces a
+          // genuine remount on every transition.
+          key: const ValueKey(_GateStep.email),
           child: AccountGateScreen(onAuthenticated: _onAccountAuthenticated),
         ),
       _GateStep.pinSetup => _GateNavigator(
+          key: const ValueKey(_GateStep.pinSetup),
           child: PinSetupScreen(onDone: _goUnlocked),
         ),
       _GateStep.locked => _GateNavigator(
+          key: const ValueKey(_GateStep.locked),
           child: LockScreen(
             email: _lockedEmail,
             onUnlocked: _onPinAccepted,
@@ -218,6 +234,7 @@ class _AppGateState extends ConsumerState<AppGate> {
           ),
         ),
       _GateStep.pinRecovery => _GateNavigator(
+          key: const ValueKey(_GateStep.pinRecovery),
           child: PinRecoveryScreen(
             email: _lockedEmail ?? '',
             onDone: _goUnlocked,
@@ -262,7 +279,7 @@ class _UnlockedAppState extends ConsumerState<_UnlockedApp> {
 /// this is a deliberate second guarantee (spec bloc 8/21) that the Android
 /// back button can never be used to slip past a pre-unlock screen.
 class _GateNavigator extends StatelessWidget {
-  const _GateNavigator({required this.child});
+  const _GateNavigator({super.key, required this.child});
   final Widget child;
 
   @override
