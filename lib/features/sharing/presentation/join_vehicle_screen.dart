@@ -81,16 +81,16 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
     }
   }
 
-  /// The user-facing message for a rejected invite - the clear, specific
-  /// message for a recognized error, or (only for the [InviteRedeemError.
-  /// unknown] bucket, where this app has no clear message of its own) that
-  /// generic message plus the raw backend rejection, so a real Postgrest/
-  /// RLS/constraint error is diagnosable from the device that hit it
-  /// instead of only ever showing "réessayez".
-  String _displayMessage(InviteRedeemException e) {
-    if (e.error == InviteRedeemError.unknown && e.technicalDetail != null) {
-      return '${e.message}\n\nDétail technique : ${e.technicalDetail}';
-    }
+  /// The user-facing message for a rejected invite - always a clear,
+  /// generic message, never the raw backend error: a raw SQL/Postgrest
+  /// rejection must never reach an end user, in a normal build or
+  /// otherwise. [InviteRedeemException.technicalDetail] still carries the
+  /// real error for diagnosis - see the debugPrint calls at each call
+  /// site, which log it every time this fires. [fallback] overrides the
+  /// generic message for the [InviteRedeemError.unknown] bucket only,
+  /// letting each call site's fallback text match its own action.
+  String _displayMessage(InviteRedeemException e, {String? fallback}) {
+    if (e.error == InviteRedeemError.unknown && fallback != null) return fallback;
     return e.message;
   }
 
@@ -124,14 +124,14 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
       debugPrint('JoinVehicleScreen.acceptInvite rejected: ${e.technicalDetail}');
       if (!mounted) return;
       setState(() {
-        _error = _displayMessage(e);
+        _error = _displayMessage(e, fallback: 'Impossible de rejoindre ce véhicule. Réessayez.');
         _loading = false;
       });
     } catch (e) {
       debugPrint('JoinVehicleScreen.acceptInvite failed: $e');
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible d\'ajouter ce véhicule. Réessayez.';
+        _error = 'Impossible de rejoindre ce véhicule. Réessayez.';
         _loading = false;
       });
     }
@@ -200,15 +200,14 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
             LengthLimitingTextInputFormatter(11),
           ],
           decoration: InputDecoration(
-            // A persistent label (never a value, never clearable "by
-            // mistake") plus a clearly-fake example hint - a real code
-            // shaped like a plausible example (e.g. "Q7K9-M2P4") was read
-            // by testers as a pre-filled value they couldn't delete, when
-            // the field was actually empty the whole time: hint text is
-            // never real content, it just always reappears once the
-            // field is empty, which reads exactly like that.
+            // A persistent label only, deliberately no hintText: an
+            // example code shown as a hint (even a clearly-fake one) was
+            // read by testers as a pre-filled value they couldn't delete,
+            // when the field was actually empty the whole time - hint
+            // text is never real content, it just always reappears once
+            // the field is empty, which reads exactly like that. The
+            // label alone already makes the field's purpose clear.
             labelText: 'Code de partage',
-            hintText: 'ex. ····-····',
             border: const OutlineInputBorder(),
             errorText: _error,
           ),

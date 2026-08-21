@@ -199,14 +199,14 @@ void main() {
   });
 
   testWidgets(
-      'an unrecognized backend rejection shows the raw technical detail alongside the generic '
-      'message, so a real Postgrest/RLS/constraint error is diagnosable from the device instead '
-      'of only ever "réessayez"', (tester) async {
+      'an unrecognized backend rejection never leaks the raw technical detail to the user - only '
+      'a clear generic message, even though it is still carried on the exception for debug '
+      'logging (spec: a raw SQL/Postgrest error must never reach an end user)', (tester) async {
     await pump(tester);
     fake.previewToReturn = _preview();
     fake.acceptError = const InviteRedeemException(
       InviteRedeemError.unknown,
-      technicalDetail: '42501: new row violates row-level security policy for table "vehicle_members"',
+      technicalDetail: '42702: column reference "vehicle_id" is ambiguous',
     );
 
     await tester.enterText(find.byType(TextField), 'GOODCODE');
@@ -215,11 +215,9 @@ void main() {
     await tester.tap(find.text('Rejoindre ce véhicule'));
     await tester.pump();
 
-    expect(
-      find.textContaining('42501: new row violates row-level security policy'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('Une erreur est survenue'), findsOneWidget);
+    expect(find.textContaining('42702'), findsNothing);
+    expect(find.textContaining('ambiguous'), findsNothing);
+    expect(find.text('Impossible de rejoindre ce véhicule. Réessayez.'), findsOneWidget);
   });
 
   testWidgets('a recognized error (e.g. expired) never shows a technical detail, even if one is set',
