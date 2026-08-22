@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AutoCarnet — Concept d'accueil</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="page-head">
+    <span class="eyebrow">AutoCarnet · Proposition visuelle</span>
+    <h1>Deux directions pour l'écran d'accueil</h1>
+    <p>Comparez les deux concepts et les quatre scénarios ci-dessous. Le châssis (structure, informations, interactions) est identique — seuls la palette, la typographie de surface et les textures changent.</p>
+  </header>
+
+  <div class="control-bar">
+    <div class="control-group">
+      <span class="control-label">Concept</span>
+      <div class="seg" id="conceptSeg" role="tablist" aria-label="Choix du concept">
+        <button type="button" data-concept="a" aria-pressed="true">A · Premium clair</button>
+        <button type="button" data-concept="b" aria-pressed="false">B · Automobile premium</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Scénario</span>
+      <div class="seg" id="scenarioSeg" role="tablist" aria-label="Choix du scénario">
+        <button type="button" data-scenario="1" aria-pressed="true">1 · À jour</button>
+        <button type="button" data-scenario="2" aria-pressed="false">2 · Actions à prévoir</button>
+        <button type="button" data-scenario="3" aria-pressed="false">3 · Plusieurs véhicules</button>
+        <button type="button" data-scenario="4" aria-pressed="false">4 · Aucun véhicule</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="device-notch"></div>
+    <div class="screen">
+      <div class="phone" id="phone" data-concept="a">
+
+        <!-- ============================== HEADER ============================== -->
+        <div class="app-header">
+          <div class="header-row">
+            <button class="icon-btn" id="menuBtn" aria-label="Ouvrir le menu">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+            </button>
+            <div class="brand">
+              <span class="mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V12l2-5h12l2 5v4.5"/><path d="M4 16.5a1.5 1.5 0 0 0 1.5 1.5H7a1.5 1.5 0 0 0 1.5-1.5"/><path d="M15.5 16.5A1.5 1.5 0 0 0 17 18h1.5a1.5 1.5 0 0 0 1.5-1.5"/><path d="M4 13h16"/></svg>
+              </span>
+              AutoCarnet
+            </div>
+            <button class="avatar" id="avatarBtn" aria-label="Mon compte">AT</button>
+          </div>
+
+          <div data-scenario-el="1,2">
+            <p class="greeting-name">Bonjour Adil</p>
+            <div class="greeting-status" data-when="1">
+              <span class="dot good"></span> Votre Audi Q5 est à jour.
+            </div>
+            <div class="greeting-status" data-when="2" hidden>
+              <span class="dot warn"></span> 2 actions sont à prévoir prochainement.
+            </div>
+          </div>
+          <div data-scenario-el="3">
+            <p class="greeting-name">Bonjour Adil</p>
+            <div class="greeting-status"><span class="dot warn"></span> Vos 3 véhicules, sous contrôle.</div>
+          </div>
+          <div data-scenario-el="4">
+            <p class="greeting-name">Bonjour Adil</p>
+            <div class="greeting-status"><span class="dot good"></span> Prêt à ajouter votre premier véhicule.</div>
+          </div>
+        </div>
+
+        <!-- =============================== BODY =============================== -->
+        <div class="scroller">
+
+          <!-- ---- Scénario 4 : aucun véhicule ---- -->
+          <div data-scenario-el="4" class="empty-state" hidden>
+            <svg class="empty-art" viewBox="0 0 200 120" fill="none">
+              <ellipse cx="100" cy="104" rx="72" ry="7" fill="currentColor" opacity="0.10"/>
+              <path d="M34 78 L48 46 Q54 36 68 36 L132 36 Q146 36 152 46 L166 78" stroke="currentColor" stroke-width="3" stroke-linejoin="round" fill="none"/>
+              <path d="M28 78 h144 a8 8 0 0 1 8 8 v4 a6 6 0 0 1 -6 6 H26 a6 6 0 0 1 -6 -6 v-4 a8 8 0 0 1 8 -8 Z" stroke="currentColor" stroke-width="3" fill="none"/>
+              <line x1="66" y1="46" x2="60" y2="78" stroke="currentColor" stroke-width="2.4"/>
+              <line x1="134" y1="46" x2="140" y2="78" stroke="currentColor" stroke-width="2.4"/>
+              <circle cx="62" cy="92" r="12" fill="none" stroke="currentColor" stroke-width="3"/>
+              <circle cx="138" cy="92" r="12" fill="none" stroke="currentColor" stroke-width="3"/>
+            </svg>
+            <h2>Bienvenue dans AutoCarnet</h2>
+            <p>Centralisez l'entretien, les documents et les dépenses de vos véhicules — un carnet complet, toujours avec vous.</p>
+            <div class="empty-actions">
+              <button class="primary-btn">Ajouter mon premier véhicule</button>
+              <button class="ghost-btn">Rejoindre un véhicule</button>
+            </div>
+          </div>
+
+          <!-- ---- Scénarios 1–3 : contenu normal ---- -->
+          <div data-scenario-el="1,2,3">
+
+            <!-- Carte(s) véhicule -->
+            <div class="section" style="padding-top:20px">
+              <div data-scenario-el="1,2">
+                <div class="veh-card" tabindex="0" role="button" aria-label="Ouvrir la fiche du véhicule">
+                  <svg class="silhouette" viewBox="0 0 200 90" fill="none"><path d="M18 58 L34 30 Q40 22 52 22 L148 22 Q160 22 166 30 L182 58" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/><path d="M10 58 H190 a8 8 0 0 1 8 8 v2 a6 6 0 0 1 -6 6 H8 a6 6 0 0 1 -6 -6 v-2 a8 8 0 0 1 8 -8 Z" stroke="currentColor" stroke-width="6"/><circle cx="46" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/><circle cx="154" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/></svg>
+                  <div class="ring">
+                    <svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="18"/><circle class="value" cx="22" cy="22" r="18" stroke-dasharray="113" data-pct1="92" data-pct2="68"/></svg>
+                    <div class="num" data-ring-num data-when1="92" data-when2="68"></div>
+                  </div>
+                  <div class="veh-top">
+                    <div>
+                      <p class="veh-name">Audi Q5</p>
+                      <p class="veh-sub">2021 · 12345-A-6</p>
+                    </div>
+                  </div>
+                  <div class="odo">
+                    <span class="num" data-when1="86 750" data-when2="91 200"></span>
+                    <span class="unit">km</span>
+                    <span class="status-pill good" data-when="1" style="margin-left:auto"><span class="dot good"></span>À jour</span>
+                    <span class="status-pill warn" data-when="2" hidden style="margin-left:auto"><span class="dot warn"></span>À surveiller</span>
+                  </div>
+                  <div class="veh-meta">
+                    <div>
+                      <div class="label">Prochaine révision</div>
+                      <div class="value" data-when1="Vidange · dans 8 000 km" data-when2="Vidange · dans 800 km"></div>
+                    </div>
+                    <div>
+                      <div class="label">Prochaine échéance</div>
+                      <div class="value" data-when1="Assurance · 12/05/2027" data-when2="Assurance · dans 32 jours"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div data-scenario-el="3">
+                <div class="carousel" id="carousel">
+                  <div class="veh-card" tabindex="0" role="button" aria-label="Audi Q5">
+                    <svg class="silhouette" viewBox="0 0 200 90" fill="none"><path d="M18 58 L34 30 Q40 22 52 22 L148 22 Q160 22 166 30 L182 58" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/><path d="M10 58 H190 a8 8 0 0 1 8 8 v2 a6 6 0 0 1 -6 6 H8 a6 6 0 0 1 -6 -6 v-2 a8 8 0 0 1 8 -8 Z" stroke="currentColor" stroke-width="6"/><circle cx="46" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/><circle cx="154" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/></svg>
+                    <div class="ring"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="18"/><circle class="value" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="15"/></svg><div class="num">92</div></div>
+                    <div class="veh-top"><div><p class="veh-name">Audi Q5</p><p class="veh-sub">2021 · 12345-A-6</p></div></div>
+                    <div class="odo"><span class="num">86 750</span><span class="unit">km</span><span class="status-pill good" style="margin-left:auto"><span class="dot good"></span>À jour</span></div>
+                    <div class="veh-meta"><div><div class="label">Prochaine révision</div><div class="value">dans 8 000 km</div></div><div><div class="label">Échéance</div><div class="value">Assurance · 12/05/27</div></div></div>
+                  </div>
+                  <div class="veh-card" tabindex="0" role="button" aria-label="Renault Clio">
+                    <svg class="silhouette" viewBox="0 0 200 90" fill="none"><path d="M18 58 L34 30 Q40 22 52 22 L148 22 Q160 22 166 30 L182 58" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/><path d="M10 58 H190 a8 8 0 0 1 8 8 v2 a6 6 0 0 1 -6 6 H8 a6 6 0 0 1 -6 -6 v-2 a8 8 0 0 1 8 -8 Z" stroke="currentColor" stroke-width="6"/><circle cx="46" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/><circle cx="154" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/></svg>
+                    <div class="ring"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="18"/><circle class="value" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="48"/></svg><div class="num">57</div></div>
+                    <div class="veh-top"><div><p class="veh-name">Renault Clio</p><p class="veh-sub">2016 · 98765-B-2</p></div></div>
+                    <div class="odo"><span class="num">142 300</span><span class="unit">km</span><span class="status-pill warn" style="margin-left:auto"><span class="dot warn"></span>À surveiller</span></div>
+                    <div class="veh-meta"><div><div class="label">Contrôle technique</div><div class="value">dans 15 jours</div></div><div><div class="label">Échéance</div><div class="value">Vignette · janv. 2027</div></div></div>
+                  </div>
+                  <div class="veh-card" tabindex="0" role="button" aria-label="Tesla Model 3">
+                    <svg class="silhouette" viewBox="0 0 200 90" fill="none"><path d="M18 58 L34 30 Q40 22 52 22 L148 22 Q160 22 166 30 L182 58" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/><path d="M10 58 H190 a8 8 0 0 1 8 8 v2 a6 6 0 0 1 -6 6 H8 a6 6 0 0 1 -6 -6 v-2 a8 8 0 0 1 8 -8 Z" stroke="currentColor" stroke-width="6"/><circle cx="46" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/><circle cx="154" cy="76" r="14" fill="none" stroke="currentColor" stroke-width="6"/></svg>
+                    <div class="ring"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="18"/><circle class="value" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="11"/></svg><div class="num">96</div></div>
+                    <div class="veh-top"><div><p class="veh-name">Tesla Model 3</p><p class="veh-sub">2023 · 45612-C-9</p></div></div>
+                    <div class="odo"><span class="num">34 120</span><span class="unit">km</span><span class="status-pill good" style="margin-left:auto"><span class="dot good"></span>À jour</span></div>
+                    <div class="veh-meta"><div><div class="label">Prochaine révision</div><div class="value">dans 11 000 km</div></div><div><div class="label">Échéance</div><div class="value">Assurance · 03/09/26</div></div></div>
+                  </div>
+                </div>
+                <div class="dots" id="carouselDots">
+                  <span class="active"></span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- À faire -->
+            <div class="section">
+              <div class="section-head">
+                <span class="section-title">À faire prochainement</span>
+              </div>
+
+              <div data-scenario-el="1" class="all-good">
+                <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><b>Tout est à jour</b><span class="sub">Aucune action requise pour le moment.</span></div>
+              </div>
+
+              <div data-scenario-el="2" class="todo-list">
+                <div class="todo-item critical">
+                  <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3c-3 3-5 6-5 9.5a5 5 0 0 0 10 0C17 9 15 6 12 3Z"/></svg></div>
+                  <div class="todo-text"><div class="todo-title">Vidange</div><div class="todo-sub">Audi Q5</div></div>
+                  <div class="todo-when">dans 800 km</div>
+                </div>
+                <div class="todo-item warn">
+                  <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3Z"/></svg></div>
+                  <div class="todo-text"><div class="todo-title">Assurance auto</div><div class="todo-sub">Audi Q5</div></div>
+                  <div class="todo-when">dans 32 jours</div>
+                </div>
+                <div class="todo-item info">
+                  <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></div>
+                  <div class="todo-text"><div class="todo-title">Vignette 2027</div><div class="todo-sub">Audi Q5</div></div>
+                  <div class="todo-when">janv. 2027</div>
+                </div>
+              </div>
+
+              <div data-scenario-el="3" class="todo-list">
+                <div class="todo-item warn">
+                  <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
+                  <div class="todo-text"><div class="todo-title">Contrôle technique</div><div class="todo-sub">Renault Clio</div></div>
+                  <div class="todo-when">dans 15 jours</div>
+                </div>
+                <div class="todo-item info">
+                  <div class="todo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3Z"/></svg></div>
+                  <div class="todo-text"><div class="todo-title">Assurance auto</div><div class="todo-sub">Audi Q5</div></div>
+                  <div class="todo-when">12/05/2027</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="section">
+              <div class="section-head"><span class="section-title">Actions rapides</span></div>
+              <div class="tiles">
+                <button class="tile" data-toast="Ouvrir : ajouter une opération">
+                  <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5 20 9l-9.5 9.5L5 20l1.5-5.5L16 4.5"/><path d="M13 5.5 18 10.5"/></svg></span>
+                  <span>Opération</span>
+                </button>
+                <button class="tile" data-toast="Ouvrir : mettre à jour le kilométrage">
+                  <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13l3.2-3.2M12 5V3"/></svg></span>
+                  <span>Kilométrage</span>
+                </button>
+                <button class="tile" data-toast="Ouvrir : ajouter un plein">
+                  <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V7a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v13"/><path d="M4 20h11M14 9.5h1.6L18 12v5a1.5 1.5 0 0 0 3 0V9l-2.5-3"/></svg></span>
+                  <span>Plein</span>
+                </button>
+                <button class="tile" data-toast="Ouvrir : ajouter un document">
+                  <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7 3.5Z"/><path d="M14 3.5V8h4"/></svg></span>
+                  <span>Document</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Indicateurs -->
+            <div class="section">
+              <div class="section-head"><span class="section-title">Votre carnet</span></div>
+              <div class="stat-strip">
+                <div class="stat-card ring-card">
+                  <div class="ring"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="18"/><circle class="value" cx="22" cy="22" r="18" stroke-dasharray="113" data-pct1="92" data-pct2="68" data-pct3="79"/></svg></div>
+                  <div><div class="stat-label">Santé</div><div class="stat-value" data-when1="92" data-when2="68" data-when3="79">—</div></div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Dépenses 2026</div>
+                  <div class="stat-value" data-when1="4 250" data-when2="4 250" data-when3="9 480">—</div>
+                  <div class="stat-sub">MAD</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Dernier entretien</div>
+                  <div class="stat-value" style="font-size:14px">Vidange</div>
+                  <div class="stat-sub">il y a 2 mois</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Km / an estimé</div>
+                  <div class="stat-value" data-when1="13 200" data-when2="15 800" data-when3="11 400">—</div>
+                  <div class="stat-sub">km</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- =============================== NAV BAS =============================== -->
+        <nav class="bottom-nav">
+          <button class="nav-item active"><span class="nav-dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V12l2-5h12l2 5v4.5"/><path d="M4 16.5a1.5 1.5 0 0 0 1.5 1.5H7a1.5 1.5 0 0 0 1.5-1.5"/><path d="M15.5 16.5A1.5 1.5 0 0 0 17 18h1.5a1.5 1.5 0 0 0 1.5-1.5"/><path d="M4 13h16"/></svg><span>Véhicules</span></button>
+          <button class="nav-item"><span class="nav-dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5v3.5L5 15h14l-2-3.5V8a5 5 0 0 0-5-5Z"/><path d="M10 18a2 2 0 0 0 4 0"/></svg><span>Alertes</span></button>
+          <button class="nav-item"><span class="nav-dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14 14 4l6 6-10 10H4v-6Z"/><path d="M13 7l4 4"/></svg><span>Revendre</span></button>
+          <button class="nav-item"><span class="nav-dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Plus</span></button>
+        </nav>
+
+        <!-- ================================= FAB ================================= -->
+        <button class="fab" id="fabBtn" data-scenario-el="1,2,3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Ajouter
+        </button>
+
+        <!-- =============================== OVERLAYS ============================== -->
+        <div class="overlay-backdrop" id="backdrop"></div>
+
+        <aside class="drawer" id="drawer">
+          <div class="drawer-brand">
+            <span class="mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V12l2-5h12l2 5v4.5"/><path d="M4 13h16"/></svg>
+            </span>
+            <div><b>AutoCarnet</b><span>Adil T.</span></div>
+          </div>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V12l2-5h12l2 5v4.5"/><path d="M4 13h16"/></svg>Mes véhicules</button>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5v3.5L5 15h14l-2-3.5V8a5 5 0 0 0-5-5Z"/></svg>Alertes</button>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14 14 4l6 6-10 10H4v-6Z"/></svg>Revendre</button>
+          <div class="sheet-divider"></div>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>Prestataires</button>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.2-3.4 4-5 7-5s5.8 1.6 7 5"/></svg>Compte &amp; sécurité</button>
+          <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Journal d'audit</button>
+          <div class="drawer-spacer"></div>
+          <div class="drawer-lock">
+            <button class="drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12H3m0 0 3-3M3 12l3 3"/><path d="M9 5V4a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-1"/></svg>Verrouiller AutoCarnet</button>
+          </div>
+        </aside>
+
+        <div class="sheet" id="sheet">
+          <div class="sheet-grip"></div>
+          <div class="sheet-label">Actions sur ce véhicule</div>
+          <button class="sheet-item" data-toast="Ouvrir : ajouter une opération"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5 20 9l-9.5 9.5L5 20l1.5-5.5L16 4.5"/></svg></span>Ajouter une opération</button>
+          <button class="sheet-item" data-toast="Ouvrir : mettre à jour le kilométrage"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13l3.2-3.2"/></svg></span>Mettre à jour le kilométrage</button>
+          <button class="sheet-item" data-toast="Ouvrir : ajouter un plein"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V7a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v13"/></svg></span>Ajouter un plein</button>
+          <button class="sheet-item" data-toast="Ouvrir : ajouter un document"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7 3.5Z"/></svg></span>Ajouter un document</button>
+          <div class="sheet-divider"></div>
+          <div class="sheet-label">Véhicules</div>
+          <button class="sheet-item" data-toast="Ouvrir : ajouter mon véhicule"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V12l2-5h12l2 5v4.5"/></svg></span>Ajouter mon véhicule</button>
+          <button class="sheet-item" data-toast="Ouvrir : rejoindre un véhicule"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg></span>Rejoindre un véhicule</button>
+        </div>
+
+        <div class="toast" id="toast"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <p class="page-foot">Maquette statique — aucune donnée réelle, aucune connexion au code Flutter. Concept &amp; scénario mémorisés dans ce navigateur.</p>
+
+  <script src="script.js"></script>
+</body>
+</html>
