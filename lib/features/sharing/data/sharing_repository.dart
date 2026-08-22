@@ -104,11 +104,16 @@ class SharingRepository {
     try {
       final rows = await _client.rpc('accept_vehicle_invite', params: {'p_code': code});
       final row = (rows as List).first as Map<String, dynamic>;
+      // out_-prefixed keys (see 0008_rename_accept_invite_out_columns.sql):
+      // the function's RETURNS TABLE columns were renamed so they can
+      // never again collide with a real table column name inside the
+      // function body (the root cause of a live, hard-to-pin-down 42702
+      // "ambiguous column" error).
       return VehicleInvite(
         id: '',
-        vehicleId: row['vehicle_id'] as String,
+        vehicleId: row['out_vehicle_id'] as String,
         rawCode: null,
-        role: VehiclePermission.fromWire(row['role'] as String),
+        role: VehiclePermission.fromWire(row['out_role'] as String),
         expiresAt: DateTime.now(),
         status: 'accepted',
       );
