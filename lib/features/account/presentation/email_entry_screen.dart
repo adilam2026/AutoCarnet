@@ -94,9 +94,19 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.directions_car_filled,
-                      size: 72, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: AppSpacing.md),
+                  Center(
+                    child: Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.directions_car_filled,
+                          size: 40, color: Theme.of(context).colorScheme.primary),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   Text('Bienvenue sur AutoCarnet',
                       textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: AppSpacing.sm),

@@ -146,8 +146,15 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.mark_email_read_outlined, size: 56, color: scheme.primary),
-                  const SizedBox(height: AppSpacing.md),
+                  Center(
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
+                      child: Icon(Icons.mark_email_read_outlined, size: 34, color: scheme.primary),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   Text('Vérifiez votre email',
                       textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: AppSpacing.sm),
@@ -173,7 +180,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                     autocorrect: false,
                     maxLength: 6,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 28, letterSpacing: 8, fontWeight: FontWeight.w600),
+                    style: AppTypography.mono(context, fontSize: 28, fontWeight: FontWeight.w600)
+                        .copyWith(letterSpacing: 8),
                     decoration: const InputDecoration(
                       labelText: 'Code de vérification',
                       counterText: '',
