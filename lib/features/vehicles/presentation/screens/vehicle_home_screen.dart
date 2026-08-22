@@ -29,6 +29,7 @@ import '../../domain/vehicle_health.dart';
 import '../../domain/vehicle_ownership.dart';
 import '../../../sharing/presentation/share_vehicle_screen.dart';
 import '../../../sharing/presentation/vehicle_access_screen.dart';
+import '../../../dashboard/presentation/widgets/vehicle_hero_card.dart' show formatReminderDue;
 import '../providers/vehicle_form_providers.dart';
 import '../widgets/add_operation_sheet.dart';
 import '../widgets/health_factors_sheet.dart';
@@ -297,10 +298,9 @@ class _VehicleHomeBody extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
         children: [
-          _HeaderCard(vehicle: vehicle),
-          const SizedBox(height: AppSpacing.sm),
-          _MileageCard(
+          _VehicleSummaryCard(
             vehicle: vehicle,
+            health: health,
             completeness: completeness,
             lastUpdate: lastMileageEntry?.recordedAt,
             onUpdate: canEdit ? () => showMileageUpdateSheet(context, ref, vehicle) : null,
@@ -309,6 +309,7 @@ class _VehicleHomeBody extends ConsumerWidget {
                       MaterialPageRoute(builder: (_) => VehicleEditScreen(vehicle: vehicle)),
                     )
                 : null,
+            onTapHealth: () => showHealthFactorsSheet(context, health),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('À faire prochainement'),
@@ -344,8 +345,6 @@ class _VehicleHomeBody extends ConsumerWidget {
             maintenanceEntries: maintenanceEntries,
             expenseThisYear: expenseStats.maybeWhen(data: (s) => s.thisYear, orElse: () => null),
             fuelStats: fuelStats.maybeWhen(data: (s) => s, orElse: () => null),
-            health: health,
-            onTapHealth: () => showHealthFactorsSheet(context, health),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Administratif'),
@@ -462,61 +461,78 @@ class _VehicleHomeBody extends ConsumerWidget {
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.vehicle});
-  final Vehicle vehicle;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitleParts = <String>[
-      if (vehicle.plate != null) vehicle.plate!,
-      if (vehicle.year != null) '${vehicle.year}',
-    ];
-    if (subtitleParts.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(
-        subtitleParts.join(' • '),
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-      ),
-    );
-  }
-}
-
-class _MileageCard extends StatelessWidget {
-  const _MileageCard({
+/// The vehicle as a real "instrument cluster" hero, matching the home
+/// dashboard's VehicleHeroCard language (mono odometer, health ring) -
+/// merges the old separate header/mileage cards into one premium summary.
+class _VehicleSummaryCard extends StatelessWidget {
+  const _VehicleSummaryCard({
     required this.vehicle,
+    required this.health,
     required this.completeness,
     required this.lastUpdate,
     required this.onUpdate,
     required this.onComplete,
+    required this.onTapHealth,
   });
   final Vehicle vehicle;
+  final VehicleHealthScore health;
   final double completeness;
   final DateTime? lastUpdate;
   final VoidCallback? onUpdate;
   final VoidCallback? onComplete;
+  final VoidCallback onTapHealth;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final completenessPercent = (completeness * 100).round();
+    final subtitleParts = <String>[
+      if (vehicle.year != null) '${vehicle.year}',
+      if (vehicle.plate != null) vehicle.plate!,
+    ];
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${vehicle.currentMileage.toStringAsFixed(0)} km',
-              style: Theme.of(context).textTheme.headlineMedium,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // The vehicle name is already the AppBar title on this
+                // screen (unlike the home dashboard, which has none) - only
+                // the subtitle (year/plate) belongs here too, never a
+                // second "Peugeot 308" competing with it.
+                if (subtitleParts.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      subtitleParts.join(' · '),
+                      style: AppTypography.mono(context,
+                          fontSize: 12.5, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                _HealthRingBadge(score: health.score, onTap: onTapHealth),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(vehicle.currentMileage.toStringAsFixed(0),
+                    style: AppTypography.mono(context, fontSize: 32, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 6),
+                Text('km',
+                    style: AppTypography.mono(context, fontSize: 13, color: scheme.onSurfaceVariant)),
+              ],
             ),
             const SizedBox(height: 2),
             Text(
               lastUpdate != null
-                  ? 'Dernière mise à jour : ${_fmt(lastUpdate!)}'
+                  ? 'Mis à jour le ${_fmt(lastUpdate!)}'
                   : 'Kilométrage jamais mis à jour',
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -566,6 +582,39 @@ class _MileageCard extends StatelessWidget {
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }
 
+class _HealthRingBadge extends StatelessWidget {
+  const _HealthRingBadge({required this.score, required this.onTap});
+  final int score;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.expand(
+              child: CircularProgressIndicator(
+                value: score / 100,
+                strokeWidth: 3.5,
+                backgroundColor: scheme.outlineVariant,
+                valueColor: AlwaysStoppedAnimation(scheme.primary),
+              ),
+            ),
+            Text('$score', style: AppTypography.mono(context, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NextRevisionCard extends StatelessWidget {
   const _NextRevisionCard({required this.estimate, required this.title});
   final RevisionEstimate estimate;
@@ -575,6 +624,7 @@ class _NextRevisionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final overdue = estimate.isOverdue;
+    final railColor = overdue ? scheme.error : scheme.secondary;
     final lines = <String>[];
     if (estimate.remainingKm != null) {
       lines.add(overdue && estimate.isOverdueByMileage
@@ -590,35 +640,53 @@ class _NextRevisionCard extends StatelessWidget {
     } else if (estimate.remainingKm != null) {
       lines.add('Ajoutez régulièrement votre kilométrage pour une estimation de date.');
     }
-    return Card(
-      color: overdue ? scheme.errorContainer.withValues(alpha: 0.5) : null,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              overdue ? Icons.warning_amber_outlined : Icons.event_available_outlined,
-              color: overdue ? scheme.error : scheme.primary,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall),
-                  for (final l in lines)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(l, style: Theme.of(context).textTheme.bodySmall),
-                    ),
-                ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLowest,
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: railColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        overdue ? Icons.warning_amber_outlined : Icons.event_available_outlined,
+                        size: 20,
+                        color: railColor,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                            for (final l in lines)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(l,
+                                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -639,6 +707,7 @@ class _TodoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final visible = reminders.where((r) => r.id != excludeReminderId).toList()
       ..sort((a, b) {
         double keyOf(Reminder r) {
@@ -651,74 +720,84 @@ class _TodoCard extends StatelessWidget {
       });
 
     if (visible.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.green),
-              const SizedBox(width: AppSpacing.sm),
-              Text('Tout est à jour', style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline, color: scheme.tertiary),
+            const SizedBox(width: AppSpacing.sm),
+            const Text('Tout est à jour', style: TextStyle(fontWeight: FontWeight.w700)),
+          ],
         ),
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Column(
-          children: [
-            for (final r in visible.take(4))
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                child: Row(
-                  children: [
-                    _urgencyDot(context, reminderUrgency(r, currentMileage: currentMileage)),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        '${r.title} — ${_dueLabel(r)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
+    return Column(
+      children: [
+        for (var i = 0; i < visible.length && i < 4; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.xs),
+          _ReminderTile(reminder: visible[i], currentMileage: currentMileage),
+        ],
+      ],
+    );
+  }
+}
+
+class _ReminderTile extends StatelessWidget {
+  const _ReminderTile({required this.reminder, required this.currentMileage});
+  final Reminder reminder;
+  final double currentMileage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final urgency = reminderUrgency(reminder, currentMileage: currentMileage);
+    final railColor = switch (urgency) {
+      ReminderUrgency.urgent => scheme.error,
+      ReminderUrgency.upcoming => scheme.secondary,
+      ReminderUrgency.later || ReminderUrgency.done => scheme.onSurfaceVariant,
+    };
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLowest,
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: railColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(reminder.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                       ),
-                    ),
-                  ],
+                      Text(formatReminderDue(reminder, currentMileage),
+                          style: AppTypography.mono(context,
+                              fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
+                    ],
+                  ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  Widget _urgencyDot(BuildContext context, ReminderUrgency u) {
-    final color = switch (u) {
-      ReminderUrgency.urgent => Theme.of(context).colorScheme.error,
-      ReminderUrgency.upcoming => Colors.orange,
-      ReminderUrgency.later => Colors.green,
-      ReminderUrgency.done => Theme.of(context).colorScheme.outline,
-    };
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-
-  String _dueLabel(Reminder r) {
-    if (r.dueDate != null) {
-      final d = r.dueDate!;
-      final overdue = d.isBefore(DateTime.now());
-      return overdue
-          ? 'en retard depuis le ${d.day}/${d.month}/${d.year}'
-          : 'le ${d.day}/${d.month}/${d.year}';
-    }
-    if (r.dueMileage != null) return 'à ${r.dueMileage!.toStringAsFixed(0)} km';
-    return '';
   }
 }
 
@@ -764,7 +843,7 @@ class _RecentOperationsCard extends ConsumerWidget {
                 (entries[i].partsCost + entries[i].laborCost) > 0
                     ? '${formatAmount(entries[i].partsCost + entries[i].laborCost)} ${entries[i].currency}'
                     : '',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: AppTypography.mono(context, fontSize: 13, fontWeight: FontWeight.w600),
               ),
               onTap: () => showMaintenanceFormSheet(
                 context,
@@ -783,80 +862,56 @@ class _RecentOperationsCard extends ConsumerWidget {
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }
 
+/// Santé lives as the ring badge on [_VehicleSummaryCard] now - never
+/// duplicated here too.
 class _OverviewGrid extends StatelessWidget {
   const _OverviewGrid({
     required this.maintenanceEntries,
     required this.expenseThisYear,
     required this.fuelStats,
-    required this.health,
-    required this.onTapHealth,
   });
   final List<MaintenanceEntry> maintenanceEntries;
   final double? expenseThisYear;
   final FuelStats? fuelStats;
-  final VehicleHealthScore health;
-  final VoidCallback onTapHealth;
 
   @override
   Widget build(BuildContext context) {
-    // Two content-driven rows (never a fixed aspect ratio) so a tile never
-    // overflows when the system font scale is large.
-    return Column(
-      children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _OverviewTile(
-                  icon: Icons.build_outlined,
-                  label: 'Entretien',
-                  value: maintenanceEntries.isEmpty
-                      ? null
-                      : '${([...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date))).first.mileage.toStringAsFixed(0)} km',
-                  emptyMessage: 'Aucun entretien enregistré',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _OverviewTile(
-                  icon: Icons.payments_outlined,
-                  label: 'Dépenses cette année',
-                  value: expenseThisYear == null ? null : formatAmount(expenseThisYear!),
-                  emptyMessage: 'Pas encore de données',
-                ),
-              ),
-            ],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _OverviewTile(
+              icon: Icons.build_outlined,
+              label: 'Entretien',
+              value: maintenanceEntries.isEmpty
+                  ? null
+                  : '${([...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date))).first.mileage.toStringAsFixed(0)} km',
+              emptyMessage: 'Aucun entretien',
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _OverviewTile(
-                  icon: Icons.speed_outlined,
-                  label: 'Consommation',
-                  value: fuelStats?.averageConsumption != null
-                      ? '${fuelStats!.averageConsumption!.toStringAsFixed(1)} L/100'
-                      : null,
-                  emptyMessage: 'Ajoutez 2 pleins complets pour calculer la consommation',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _OverviewTile(
-                  icon: Icons.favorite_outline,
-                  label: 'Santé',
-                  value: '${health.score}/100',
-                  onTap: onTapHealth,
-                ),
-              ),
-            ],
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _OverviewTile(
+              icon: Icons.payments_outlined,
+              label: 'Dépenses ${DateTime.now().year}',
+              value: expenseThisYear == null ? null : formatAmount(expenseThisYear!),
+              emptyMessage: 'Pas de données',
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _OverviewTile(
+              icon: Icons.speed_outlined,
+              label: 'Consommation',
+              value: fuelStats?.averageConsumption != null
+                  ? '${fuelStats!.averageConsumption!.toStringAsFixed(1)} L/100'
+                  : null,
+              emptyMessage: 'Pas assez de pleins',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -867,52 +922,45 @@ class _OverviewTile extends StatelessWidget {
     required this.label,
     required this.value,
     this.emptyMessage,
-    this.onTap,
   });
   final IconData icon;
   final String label;
   final String? value;
   final String? emptyMessage;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: scheme.onSurfaceVariant),
-              const SizedBox(height: 4),
-              Text(label,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 6),
+          Text(label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9.5, letterSpacing: 0.3, color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 3),
+          value != null
+              ? Text(value!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall),
-              const SizedBox(height: 2),
-              value != null
-                  ? Text(
-                      value!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    )
-                  : Text(
-                      emptyMessage ?? 'Pas de données',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-            ],
-          ),
-        ),
+                  style: AppTypography.mono(context, fontSize: 15, fontWeight: FontWeight.w600))
+              : Text(
+                  emptyMessage ?? 'Pas de données',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),
+                ),
+        ],
       ),
     );
   }
@@ -1023,9 +1071,14 @@ class _ModuleTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Card(
         child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: scheme.primaryContainer.withValues(alpha: 0.6),
-            child: Icon(icon, color: scheme.primary, size: 20),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: scheme.primary, size: 19),
           ),
           title: Text(label),
           trailing: Row(
