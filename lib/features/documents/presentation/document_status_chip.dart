@@ -10,9 +10,9 @@ class DocumentStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (label, color) = switch (status) {
-      DocumentVersionStatus.valid => ('Valide', scheme.primary),
+      DocumentVersionStatus.valid => ('Valide', scheme.tertiary),
       DocumentVersionStatus.expiringSoon =>
-        ('Expire bientôt', scheme.tertiary),
+        ('Expire bientôt', scheme.secondary),
       DocumentVersionStatus.expired => ('Expiré', scheme.error),
       DocumentVersionStatus.archived => ('Archivé', scheme.outline),
       DocumentVersionStatus.replaced => ('Remplacé', scheme.outline),
