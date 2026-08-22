@@ -10,6 +10,7 @@ import '../../../core/widgets/loading_error_views.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../reminders/domain/reminder_urgency.dart';
 import '../../vehicles/data/vehicle_repository.dart';
+import 'widgets/vehicle_hero_card.dart' show formatReminderDue;
 
 /// Cross-vehicle view of every reminder (bloc 12, §15.11) - the dashboard
 /// used to bury this inside each vehicle; now it's a first-class
@@ -165,33 +166,13 @@ class _AlertsBodyState extends ConsumerState<AlertsBody> {
                         final r = filtered[i];
                         final urgency = urgencyOf[r.id]!;
                         final vehicle = vehicles[r.vehicleId];
-                        final scheme = Theme.of(context).colorScheme;
-                        return Card(
-                          child: ListTile(
-                            onTap: vehicle != null
-                                ? () => context.push('/vehicles/${vehicle.id}')
-                                : null,
-                            leading: CircleAvatar(
-                              backgroundColor: _urgencyColor(scheme, urgency)
-                                  .withValues(alpha: 0.18),
-                              child: Icon(
-                                _urgencyIcon(urgency),
-                                color: _urgencyColor(scheme, urgency),
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(r.title,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                              [
-                                if (vehicle != null) '${vehicle.brand} ${vehicle.model}',
-                                _dueLabel(r),
-                              ].join(' • '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                          ),
+                        return _AlertTile(
+                          reminder: r,
+                          vehicle: vehicle,
+                          urgency: urgency,
+                          onTap: vehicle != null
+                              ? () => context.push('/vehicles/${vehicle.id}')
+                              : null,
                         );
                       },
                     ),
@@ -202,20 +183,39 @@ class _AlertsBodyState extends ConsumerState<AlertsBody> {
     );
   }
 
-  Color _urgencyColor(ColorScheme scheme, ReminderUrgency u) => switch (u) {
+}
+
+/// Same rail-coloured tile language as the home dashboard's "À faire" list
+/// and the fiche véhicule's reminder tiles - one consistent way to show a
+/// reminder anywhere in the app.
+class _AlertTile extends StatelessWidget {
+  const _AlertTile({
+    required this.reminder,
+    required this.vehicle,
+    required this.urgency,
+    required this.onTap,
+  });
+  final Reminder reminder;
+  final Vehicle? vehicle;
+  final ReminderUrgency urgency;
+  final VoidCallback? onTap;
+
+  Color _railColor(ColorScheme scheme) => switch (urgency) {
         ReminderUrgency.urgent => scheme.error,
-        ReminderUrgency.upcoming => Colors.orange,
-        ReminderUrgency.later => Colors.green,
+        ReminderUrgency.upcoming => scheme.secondary,
+        ReminderUrgency.later => scheme.tertiary,
         ReminderUrgency.done => scheme.outline,
       };
 
-  IconData _urgencyIcon(ReminderUrgency u) => switch (u) {
+  IconData get _icon => switch (urgency) {
         ReminderUrgency.urgent => Icons.warning_amber_outlined,
         ReminderUrgency.upcoming => Icons.schedule_outlined,
         ReminderUrgency.later => Icons.notifications_outlined,
         ReminderUrgency.done => Icons.check_circle_outline,
       };
 
+  /// Fallback for the rare sync-lag case where the reminder's vehicle
+  /// isn't locally known yet - formatReminderDue needs a real currentMileage.
   String _dueLabel(Reminder r) {
     if (r.dueDate != null) {
       final d = r.dueDate!;
@@ -226,5 +226,78 @@ class _AlertsBodyState extends ConsumerState<AlertsBody> {
     }
     if (r.dueMileage != null) return '${r.dueMileage!.toStringAsFixed(0)} km';
     return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final railColor = _railColor(scheme);
+    final due = vehicle != null
+        ? formatReminderDue(reminder, vehicle!.currentMileage)
+        : _dueLabel(reminder);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Material(
+        color: scheme.surfaceContainerLowest,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 3, color: railColor),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: railColor.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(_icon, size: 17, color: railColor),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(reminder.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                                if (vehicle != null)
+                                  Text('${vehicle!.brand} ${vehicle!.model}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(due,
+                              style: AppTypography.mono(context,
+                                  fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
