@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database.dart';
 import '../database/providers.dart';
 import '../notifications/notification_repository.dart';
+import 'conflict_repository.dart';
 import 'document_sync_service.dart';
 import 'expense_sync_service.dart';
 import 'frequency_pref_sync_service.dart';
@@ -45,6 +46,7 @@ class SyncCoordinator {
     required this.mileage,
     required this.frequencyPrefs,
     required this.notifications,
+    required this.conflicts,
   });
 
   final AppDatabase _db;
@@ -58,6 +60,12 @@ class SyncCoordinator {
   final MileageSyncService mileage;
   final FrequencyPrefSyncService frequencyPrefs;
   final NotificationRepository notifications;
+  final ConflictRepository conflicts;
+
+  // Conflict ids already notified about, so a conflict sitting unresolved
+  // across many sync passes only ever produces one notification, not one
+  // every 30 seconds.
+  final Set<String> _notifiedConflictIds = {};
 
   Timer? _timer;
   final List<RealtimeChannel> _channels = [];
@@ -90,6 +98,33 @@ class SyncCoordinator {
     await reminders.syncNow();
     await mileage.syncNow();
     await frequencyPrefs.syncNow();
+    await _notifyNewConflicts();
+  }
+
+  /// A version-mismatch push is recorded by ConflictRepository from deep
+  /// inside each *SyncService, which has no notion of "notify the user" -
+  /// centralizing that here (rather than threading NotificationRepository
+  /// into all eight services) keeps "what happened" and "tell the user"
+  /// as two separate concerns.
+  Future<void> _notifyNewConflicts() async {
+    final myUserId = _client.auth.currentUser?.id;
+    if (myUserId == null) return;
+    final unresolved = await (_db.select(
+      _db.syncConflicts,
+    )..where((c) => c.resolved.equals(false))).get();
+    for (final conflict in unresolved) {
+      if (_notifiedConflictIds.contains(conflict.id)) continue;
+      _notifiedConflictIds.add(conflict.id);
+      await notifications.add(
+        accountId: myUserId,
+        type: AppNotificationType.syncConflict,
+        title: 'Modification simultanée détectée',
+        body:
+            'Une donnée a été modifiée à la fois ici et par un autre '
+            'collaborateur - choisissez quelle version garder.',
+        vehicleId: conflict.vehicleId,
+      );
+    }
   }
 
   void start() {
@@ -147,20 +182,25 @@ class SyncCoordinator {
     if (myUserId == null) return;
     final row = payload.newRecord;
     if (row.isEmpty) return;
-    final actorId = row['updated_by'] as String? ?? row['created_by'] as String?;
+    final actorId =
+        row['updated_by'] as String? ?? row['created_by'] as String?;
     if (actorId == null || actorId == myUserId) return;
 
     final vehicleId = row['vehicle_id'] as String?;
     if (vehicleId == null) return;
-    final vehicle =
-        await (_db.select(_db.vehicles)..where((v) => v.id.equals(vehicleId))).getSingleOrNull();
-    final vehicleLabel =
-        vehicle != null ? '${vehicle.brand} ${vehicle.model}' : 'un véhicule partagé';
+    final vehicle = await (_db.select(
+      _db.vehicles,
+    )..where((v) => v.id.equals(vehicleId))).getSingleOrNull();
+    final vehicleLabel = vehicle != null
+        ? '${vehicle.brand} ${vehicle.model}'
+        : 'un véhicule partagé';
     final isDeleted = row['is_deleted'] as bool? ?? false;
 
     await notifications.add(
       accountId: myUserId,
-      type: isDeleted ? AppNotificationType.remoteDelete : AppNotificationType.remoteEdit,
+      type: isDeleted
+          ? AppNotificationType.remoteDelete
+          : AppNotificationType.remoteEdit,
       title: _titleFor(table, isDeleted),
       body: vehicleLabel,
       vehicleId: vehicleId,
@@ -205,6 +245,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
     mileage: ref.watch(mileageSyncServiceProvider),
     frequencyPrefs: ref.watch(frequencyPrefSyncServiceProvider),
     notifications: ref.watch(notificationRepositoryProvider),
+    conflicts: ref.watch(conflictRepositoryProvider),
   );
   ref.onDispose(coordinator.stop);
   return coordinator;

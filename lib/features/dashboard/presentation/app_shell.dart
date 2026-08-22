@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/notifications/notification_repository.dart';
+import '../../../core/sync/conflict_repository.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../resale/presentation/resale_body.dart';
+import '../../sync/presentation/conflict_resolution_screen.dart';
+import '../../sync/presentation/notifications_screen.dart';
 import 'alerts_body.dart';
 import 'vehicles_list_body.dart';
 
@@ -70,7 +74,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_index]),
-        actions: const [_AccountAvatarButton()],
+        actions: const [_NotificationBellButton(), _AccountAvatarButton()],
       ),
       drawer: _AppDrawer(onSelectTab: _goToTab),
       body: IndexedStack(
@@ -120,6 +124,30 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: 'Plus',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Entry point to the persistent notification center (see
+/// AppNotifications' class doc) - a red badge with the unread count is the
+/// only thing that ever draws attention to it, exactly like a phone's own
+/// notification tray.
+class _NotificationBellButton extends ConsumerWidget {
+  const _NotificationBellButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadNotificationCountProvider).value ?? 0;
+    return IconButton(
+      tooltip: 'Notifications',
+      onPressed: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      icon: Badge(
+        isLabelVisible: unreadCount > 0,
+        label: Text('$unreadCount'),
+        child: const Icon(Icons.notifications_outlined),
       ),
     );
   }
@@ -229,15 +257,20 @@ class _AppDrawer extends ConsumerWidget {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
               child: Align(
                 alignment: Alignment.bottomLeft,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.directions_car_filled,
-                        color: Theme.of(context).colorScheme.onPrimary, size: 32),
+                    Icon(
+                      Icons.directions_car_filled,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      size: 32,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       profileAsync.maybeWhen(
@@ -303,6 +336,29 @@ class _AppDrawer extends ConsumerWidget {
                 context.push('/audit-log');
               },
             ),
+            Builder(
+              builder: (context) {
+                final conflictCount =
+                    ref.watch(unresolvedConflictsProvider).value?.length ?? 0;
+                if (conflictCount == 0) return const SizedBox.shrink();
+                return ListTile(
+                  leading: Icon(
+                    Icons.sync_problem_outlined,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: const Text('Conflits de synchronisation'),
+                  trailing: Badge(label: Text('$conflictCount')),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ConflictResolutionScreen(),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.exit_to_app),
@@ -331,7 +387,9 @@ class _MoreMenuBody extends StatelessWidget {
           child: ListTile(
             leading: const Icon(Icons.storefront_outlined),
             title: const Text('Prestataires'),
-            subtitle: const Text('Garages, stations, organismes réutilisés partout'),
+            subtitle: const Text(
+              'Garages, stations, organismes réutilisés partout',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/providers'),
           ),
@@ -351,7 +409,9 @@ class _MoreMenuBody extends StatelessWidget {
           child: ListTile(
             leading: const Icon(Icons.fact_check_outlined),
             title: const Text('Journal d\'audit'),
-            subtitle: const Text('Trace technique des modifications, séparée du carnet'),
+            subtitle: const Text(
+              'Trace technique des modifications, séparée du carnet',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/audit-log'),
           ),
