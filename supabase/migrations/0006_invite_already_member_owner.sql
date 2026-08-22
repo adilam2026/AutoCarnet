@@ -13,7 +13,17 @@
 -- propriétaire" and skip straight to opening the vehicle, never presenting
 -- a "Rejoindre" action that would be a no-op (or worse, a wasted code) in
 -- either case.
-create or replace function public.preview_vehicle_invite(p_code text)
+--
+-- Dropped first: this adds two new return columns (already_member,
+-- already_owner) to the existing 0004 signature, and Postgres refuses
+-- `create or replace function` when the return row type changes (42P13 -
+-- "cannot change return type of existing function"). Safe here: nothing
+-- else in the schema depends on this function (no view/policy calls it,
+-- only the app via RPC), so dropping and recreating it is a no-op for
+-- everything except the function itself.
+drop function if exists public.preview_vehicle_invite(text);
+
+create function public.preview_vehicle_invite(p_code text)
 returns table (
   vehicle_id uuid,
   brand text,
