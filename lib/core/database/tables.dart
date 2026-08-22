@@ -73,6 +73,15 @@ class Vehicles extends Table {
   // otherwise "succeed" locally and then just fail to ever sync). Null for
   // an owned vehicle (ownerId null or == the signed-in account).
   TextColumn get myRole => text().nullable()();
+  // Optimistic-concurrency counter mirrored from the cloud row - 0 means
+  // "never confirmed synced yet" (still a plain insert candidate), any
+  // other value is the last version this device knows the server holds.
+  // See lib/core/sync/occ_sync.dart: a push only succeeds if this still
+  // matches the server's own counter, otherwise it's a real conflict, not
+  // a race resolved by whoever happens to write last.
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -89,6 +98,12 @@ class MileageEntries extends Table {
   TextColumn get sourceId => text().nullable()();
   TextColumn get note => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+  // Append-only history (see class doc) - never updated in place, so
+  // there's no version/updatedBy to track, only who recorded it and
+  // whether it has reached the server yet.
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  TextColumn get createdBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -137,9 +152,13 @@ class Documents extends Table {
   // Only meaningful (and only ever checked) for a driver document
   // (vehicleId null): a vehicle-scoped document's visibility already
   // follows the vehicle it belongs to. Set directly at creation time from
-  // whichever account is signed in then - documents have no cloud sync of
-  // their own yet. See DocumentRepository.watchDriverDocuments.
+  // whichever account is signed in then. Doubles as this row's "created by"
+  // for sync attribution - there is deliberately no separate column for it.
   TextColumn get ownerId => text().nullable()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -159,6 +178,15 @@ class DocumentVersions extends Table {
   TextColumn get status =>
       textEnum<DocumentVersionStatus>().withDefault(const Constant('valid'))();
   DateTimeColumn get createdAt => dateTime()();
+  // Nullable purely because it was added by a later migration to a table
+  // that already had rows (see database.dart schemaVersion 6) - every row
+  // written from that point on always sets it, exactly like createdAt.
+  DateTimeColumn get updatedAt => dateTime().nullable()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -196,6 +224,11 @@ class MaintenanceEntries extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -235,6 +268,11 @@ class Expenses extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -256,6 +294,11 @@ class FuelEntries extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -310,6 +353,11 @@ class OperationFrequencyPreferences extends Table {
   RealColumn get frequencyKm => real().nullable()();
   IntColumn get frequencyMonths => integer().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -333,6 +381,55 @@ class Reminders extends Table {
   DateTimeColumn get snoozedUntil => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A version-mismatch push hit on a synced record: the local edit that
+/// couldn't be applied is preserved exactly as typed (never silently
+/// dropped or merged) until the owner picks which copy wins. Purely local -
+/// there is nothing to sync about a conflict itself, only its resolution
+/// (a normal update, pushed like any other edit once decided).
+class SyncConflicts extends Table {
+  TextColumn get id => text()();
+  TextColumn get syncedTableName => text()();
+  TextColumn get recordId => text()();
+  TextColumn get vehicleId => text().nullable()();
+  // Both snapshots are stored as JSON so this table stays generic across
+  // every synced table's own (very different) column set, instead of
+  // needing one SyncConflicts-like table per business table.
+  TextColumn get localSnapshotJson => text()();
+  TextColumn get remoteSnapshotJson => text()();
+  TextColumn get remoteUpdatedBy => text().nullable()();
+  DateTimeColumn get detectedAt => dateTime()();
+  BoolColumn get resolved => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Persistent, per-device in-app notification (collaborator joined/left,
+/// someone else edited a shared vehicle's data, a sync conflict needs a
+/// decision...) - deliberately local-only (see sync_coordinator.dart):
+/// read state genuinely is a per-device thing, the same way a phone's
+/// notification tray is never expected to mirror across devices.
+class AppNotifications extends Table {
+  TextColumn get id => text()();
+  TextColumn get accountId => text()();
+  TextColumn get vehicleId => text().nullable()();
+  TextColumn get type => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text().nullable()();
+  TextColumn get linkedEntityType => text().nullable()();
+  TextColumn get linkedEntityId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get readAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

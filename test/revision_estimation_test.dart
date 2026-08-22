@@ -11,6 +11,8 @@ MileageEntry _entry(DateTime date, double value) => MileageEntry(
       sourceId: null,
       note: null,
       createdAt: date,
+      syncStatus: 'pendingSync',
+      createdBy: null,
     );
 
 void main() {

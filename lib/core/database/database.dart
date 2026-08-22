@@ -28,13 +28,15 @@ part 'database.g.dart';
     AuditEvents,
     OperationFrequencyPreferences,
     Reminders,
+    SyncConflicts,
+    AppNotifications,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +54,52 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.addColumn(localProfiles, localProfiles.ownerId);
+          }
+          if (from < 6) {
+            // Phase 4: multi-table collaboration - every synced table gets
+            // an optimistic-concurrency version counter plus who
+            // created/last touched it, and two brand new local-only tables
+            // (SyncConflicts, AppNotifications) back the conflict-
+            // resolution UI and the notification center.
+            await m.addColumn(vehicles, vehicles.version);
+            await m.addColumn(vehicles, vehicles.createdBy);
+            await m.addColumn(vehicles, vehicles.updatedBy);
+            await m.addColumn(maintenanceEntries, maintenanceEntries.syncStatus);
+            await m.addColumn(maintenanceEntries, maintenanceEntries.version);
+            await m.addColumn(maintenanceEntries, maintenanceEntries.createdBy);
+            await m.addColumn(maintenanceEntries, maintenanceEntries.updatedBy);
+            await m.addColumn(expenses, expenses.syncStatus);
+            await m.addColumn(expenses, expenses.version);
+            await m.addColumn(expenses, expenses.createdBy);
+            await m.addColumn(expenses, expenses.updatedBy);
+            await m.addColumn(fuelEntries, fuelEntries.syncStatus);
+            await m.addColumn(fuelEntries, fuelEntries.version);
+            await m.addColumn(fuelEntries, fuelEntries.createdBy);
+            await m.addColumn(fuelEntries, fuelEntries.updatedBy);
+            await m.addColumn(documents, documents.syncStatus);
+            await m.addColumn(documents, documents.version);
+            await m.addColumn(documents, documents.updatedBy);
+            await m.addColumn(documentVersions, documentVersions.updatedAt);
+            await m.addColumn(documentVersions, documentVersions.syncStatus);
+            await m.addColumn(documentVersions, documentVersions.version);
+            await m.addColumn(documentVersions, documentVersions.createdBy);
+            await m.addColumn(documentVersions, documentVersions.updatedBy);
+            await m.addColumn(reminders, reminders.syncStatus);
+            await m.addColumn(reminders, reminders.version);
+            await m.addColumn(reminders, reminders.createdBy);
+            await m.addColumn(reminders, reminders.updatedBy);
+            await m.addColumn(mileageEntries, mileageEntries.syncStatus);
+            await m.addColumn(mileageEntries, mileageEntries.createdBy);
+            await m.addColumn(
+                operationFrequencyPreferences, operationFrequencyPreferences.syncStatus);
+            await m.addColumn(
+                operationFrequencyPreferences, operationFrequencyPreferences.version);
+            await m.addColumn(
+                operationFrequencyPreferences, operationFrequencyPreferences.createdBy);
+            await m.addColumn(
+                operationFrequencyPreferences, operationFrequencyPreferences.updatedBy);
+            await m.createTable(syncConflicts);
+            await m.createTable(appNotifications);
           }
         },
       );
