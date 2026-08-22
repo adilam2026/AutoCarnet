@@ -163,15 +163,17 @@ class _DocumentsTabState extends ConsumerState<DocumentsTab> {
                                   horizontal: AppSpacing.md,
                                   vertical: AppSpacing.xs,
                                 ),
-                                leading: CircleAvatar(
-                                  backgroundColor: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer
-                                      .withValues(alpha: 0.6),
+                                leading: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
                                   child: Icon(
                                     Icons.description_outlined,
                                     color: Theme.of(context).colorScheme.primary,
-                                    size: 20,
+                                    size: 19,
                                   ),
                                 ),
                                 title: Text(
@@ -203,9 +205,10 @@ class _DocumentsTabState extends ConsumerState<DocumentsTab> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showDocumentFormSheet(context, vehicleId: widget.vehicleId),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter un document'),
       ),
     );
   }

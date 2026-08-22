@@ -136,15 +136,17 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                                   horizontal: AppSpacing.md,
                                   vertical: AppSpacing.xs,
                                 ),
-                                leading: CircleAvatar(
-                                  backgroundColor: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer
-                                      .withValues(alpha: 0.6),
+                                leading: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
                                   child: Icon(
                                     Icons.build_outlined,
                                     color: Theme.of(context).colorScheme.primary,
-                                    size: 20,
+                                    size: 19,
                                   ),
                                 ),
                                 title: Text(
@@ -158,8 +160,8 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                                 trailing: total > 0
                                     ? Text(
                                         '${formatAmount(total)} ${e.currency}',
-                                        style:
-                                            const TextStyle(fontWeight: FontWeight.w700),
+                                        style: AppTypography.mono(context,
+                                            fontSize: 13, fontWeight: FontWeight.w600),
                                       )
                                     : null,
                                 onTap: () => vehicleAsync.maybeWhen(
@@ -187,13 +189,14 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
       floatingActionButton: vehicleAsync.maybeWhen(
         data: (vehicle) => vehicle == null
             ? null
-            : FloatingActionButton(
+            : FloatingActionButton.extended(
                 onPressed: () => showMaintenanceFormSheet(
                   context,
                   vehicleId: widget.vehicleId,
                   currentMileage: vehicle.currentMileage,
                 ),
-                child: const Icon(Icons.add),
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter un entretien'),
               ),
         orElse: () => null,
       ),

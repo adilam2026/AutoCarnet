@@ -150,17 +150,19 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                                 horizontal: AppSpacing.md,
                                 vertical: AppSpacing.xs,
                               ),
-                              leading: CircleAvatar(
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer
-                                    .withValues(alpha: 0.6),
+                              leading: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
                                 child: Icon(
                                   isLinked
                                       ? Icons.link_outlined
                                       : Icons.payments_outlined,
                                   color: Theme.of(context).colorScheme.primary,
-                                  size: 20,
+                                  size: 19,
                                 ),
                               ),
                               title: Text(
@@ -177,7 +179,8 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                               ),
                               trailing: Text(
                                 '${formatAmount(e.amount)} ${e.currency}',
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: AppTypography.mono(context,
+                                    fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                               onTap: () => _openSource(context, ref, e, vehicleAsync),
                             ),
@@ -213,9 +216,10 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showExpenseFormSheet(context, vehicleId: widget.vehicleId),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter une dépense'),
       ),
     );
   }

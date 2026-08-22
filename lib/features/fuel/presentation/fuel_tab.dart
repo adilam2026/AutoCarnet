@@ -152,15 +152,17 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                   horizontal: AppSpacing.md,
                                   vertical: AppSpacing.xs,
                                 ),
-                                leading: CircleAvatar(
-                                  backgroundColor: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer
-                                      .withValues(alpha: 0.6),
+                                leading: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
                                   child: Icon(
                                     Icons.local_gas_station_outlined,
                                     color: Theme.of(context).colorScheme.primary,
-                                    size: 20,
+                                    size: 19,
                                   ),
                                 ),
                                 title: Text(
@@ -174,7 +176,8 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                 ),
                                 trailing: Text(
                                   formatAmount(f.totalAmount),
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                  style: AppTypography.mono(context,
+                                      fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                                 onTap: () => vehicleAsync.maybeWhen(
                                   data: (vehicle) {
@@ -201,13 +204,14 @@ class _FuelTabState extends ConsumerState<FuelTab> {
       floatingActionButton: vehicleAsync.maybeWhen(
         data: (vehicle) => vehicle == null
             ? null
-            : FloatingActionButton(
+            : FloatingActionButton.extended(
                 onPressed: () => showFuelFormSheet(
                   context,
                   vehicleId: widget.vehicleId,
                   currentMileage: vehicle.currentMileage,
                 ),
-                child: const Icon(Icons.add),
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter un plein'),
               ),
         orElse: () => null,
       ),
