@@ -142,7 +142,7 @@ class _MileageUpdateFormState extends State<_MileageUpdateForm> {
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: const Text(
               'Cette valeur est inférieure au kilométrage actuel. Aucune '
@@ -156,7 +156,7 @@ class _MileageUpdateFormState extends State<_MileageUpdateForm> {
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

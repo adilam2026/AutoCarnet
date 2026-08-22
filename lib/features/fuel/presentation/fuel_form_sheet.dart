@@ -312,8 +312,22 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Text('Total : ${_total.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.titleSmall),
+                  Text.rich(
+                    TextSpan(
+                      text: 'Total : ',
+                      style: Theme.of(context).textTheme.titleSmall,
+                      children: [
+                        TextSpan(
+                          text: _total.toStringAsFixed(2),
+                          style: AppTypography.mono(
+                            context,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   ProviderPickerField(
                     label: 'Station-service',

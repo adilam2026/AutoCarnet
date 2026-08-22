@@ -118,8 +118,13 @@ class _OperationTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: CircleAvatar(
-          backgroundColor: scheme.primaryContainer.withValues(alpha: 0.6),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(11),
+          ),
           child: Icon(icon, color: scheme.primary, size: 20),
         ),
         title: Text(label),
