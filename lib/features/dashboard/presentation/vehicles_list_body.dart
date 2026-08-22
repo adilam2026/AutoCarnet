@@ -2,88 +2,63 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/loading_error_views.dart';
+import '../../documents/presentation/document_form_sheet.dart';
+import '../../expenses/data/expense_repository.dart';
+import '../../fuel/presentation/fuel_form_sheet.dart';
+import '../../maintenance/data/maintenance_repository.dart';
+import '../../maintenance/domain/revision_estimation.dart';
+import '../../maintenance/presentation/maintenance_form_sheet.dart';
+import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
+import '../../reminders/domain/reminder_urgency.dart';
 import '../../vehicles/data/vehicle_repository.dart';
-import '../../vehicles/presentation/widgets/vehicle_card.dart';
+import '../../vehicles/domain/vehicle_health.dart';
+import '../../vehicles/presentation/widgets/mileage_update_sheet.dart';
+import 'widgets/vehicle_hero_card.dart';
 
-/// "Mes véhicules" - the app's home base. AutoCarnet is multi-vehicle by
-/// design: this list is always the entry point, never a single-vehicle
-/// dashboard (bloc 3, §6.2).
-class VehiclesListBody extends ConsumerWidget {
+/// AutoCarnet's home base ("Premium clair" concept, 2026) - a real personal
+/// dashboard, not a bare vehicle list: a greeting, the vehicle(s) as the
+/// central element, what needs attention, one-tap logging, and a compact
+/// read on the carnet as a whole. Every number shown here already exists
+/// somewhere in the app (health score, reminders, expenses, mileage
+/// history) - nothing is invented for this screen.
+class VehiclesListBody extends ConsumerStatefulWidget {
   const VehiclesListBody({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VehiclesListBody> createState() => _VehiclesListBodyState();
+}
+
+class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
+  int _selectedIndex = 0;
+  late final PageController _pageController = PageController(viewportFraction: 0.9);
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final vehiclesAsync = ref.watch(vehiclesListProvider);
 
     return vehiclesAsync.when(
       loading: () => const LoadingView(),
       error: (e, _) => ErrorView(message: e.toString()),
       data: (vehicles) {
-        if (vehicles.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.directions_car_outlined,
-                      size: 56, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Aucun véhicule pour le moment',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Ajoutez votre véhicule pour commencer à suivre son '
-                    'entretien, ses documents et ses dépenses - ou rejoignez '
-                    'un véhicule déjà suivi par un proche.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => context.push('/vehicles/new'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Ajouter mon véhicule'),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => context.push('/vehicles/join'),
-                      icon: const Icon(Icons.qr_code_2_outlined),
-                      label: const Text('Rejoindre un véhicule'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
-          children: [
-            for (var i = 0; i < vehicles.length; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.sm),
-              _StaggeredEntry(
-                index: i,
-                child: VehicleCard(
-                  vehicle: vehicles[i],
-                  onTap: () => context.push('/vehicles/${vehicles[i].id}'),
-                ),
-              ),
-            ],
-          ],
+        if (vehicles.isEmpty) return _EmptyDashboard();
+        final index = _selectedIndex.clamp(0, vehicles.length - 1);
+        return _Dashboard(
+          vehicles: vehicles,
+          selectedIndex: index,
+          pageController: _pageController,
+          onVehicleChanged: (i) => setState(() => _selectedIndex = i),
         );
       },
     );
@@ -96,26 +71,635 @@ final globalReminderCountProvider = Provider<int>((ref) {
   return async.maybeWhen(data: (r) => r.length, orElse: () => 0);
 });
 
-class _StaggeredEntry extends StatelessWidget {
-  const _StaggeredEntry({required this.index, required this.child});
-  final int index;
-  final Widget child;
+String _greetingLine(WidgetRef ref) {
+  final name = ref.watch(localProfileProvider).value?.displayName.trim();
+  return (name == null || name.isEmpty) ? 'Bonjour' : 'Bonjour $name';
+}
+
+/// "Votre Audi Q5 est à jour." / "2 actions sont à prévoir prochainement."
+/// - a single, always-true-to-the-data status line, never both patterns of
+/// wording contradicting each other for the same state.
+class _StatusLine extends ConsumerWidget {
+  const _StatusLine({required this.vehicles});
+  final List<Vehicle> vehicles;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final remindersAsync = ref.watch(allActiveRemindersProvider);
+    final actionable = remindersAsync.maybeWhen(
+      data: (all) {
+        final mileageById = {for (final v in vehicles) v.id: v.currentMileage};
+        return all.where((r) {
+          final u = reminderUrgency(r, currentMileage: mileageById[r.vehicleId]);
+          return u == ReminderUrgency.urgent || u == ReminderUrgency.upcoming;
+        }).length;
+      },
+      orElse: () => 0,
+    );
+
+    final String text;
+    if (vehicles.length == 1) {
+      final v = vehicles.first;
+      text = actionable == 0
+          ? 'Votre ${v.brand} ${v.model} est à jour.'
+          : actionable == 1
+              ? '1 action est à prévoir prochainement.'
+              : '$actionable actions sont à prévoir prochainement.';
+    } else {
+      text = actionable == 0
+          ? 'Vos ${vehicles.length} véhicules sont à jour.'
+          : actionable == 1
+              ? '1 action est à prévoir sur vos véhicules.'
+              : '$actionable actions sont à prévoir sur vos véhicules.';
+    }
+
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          margin: const EdgeInsets.only(right: 7),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: actionable == 0 ? scheme.tertiary : scheme.secondary,
+          ),
+        ),
+        Expanded(
+          child: Text(text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyDashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(_greetingLine(ref), style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: AppSpacing.xl),
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.directions_car_filled, size: 44, color: scheme.primary),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Bienvenue dans AutoCarnet',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Centralisez l\'entretien, les documents et les dépenses de vos '
+                'véhicules - un carnet complet, toujours avec vous.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => context.push('/vehicles/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter mon premier véhicule'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/vehicles/join'),
+                icon: const Icon(Icons.qr_code_2_outlined),
+                label: const Text('Rejoindre un véhicule'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Dashboard extends ConsumerWidget {
+  const _Dashboard({
+    required this.vehicles,
+    required this.selectedIndex,
+    required this.pageController,
+    required this.onVehicleChanged,
+  });
+
+  final List<Vehicle> vehicles;
+  final int selectedIndex;
+  final PageController pageController;
+  final ValueChanged<int> onVehicleChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = vehicles[selectedIndex];
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(0, AppSpacing.md, 0, fabSafeBottomPadding(context)),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_greetingLine(ref), style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 6),
+              _StatusLine(vehicles: vehicles),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (vehicles.length == 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: _VehicleCardWithReminders(
+              vehicle: vehicles.first,
+              onTap: () => context.push('/vehicles/${vehicles.first.id}'),
+            ),
+          )
+        else
+          _VehicleCarousel(
+            vehicles: vehicles,
+            selectedIndex: selectedIndex,
+            controller: pageController,
+            onChanged: onVehicleChanged,
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionLabel('À faire prochainement'),
+        const SizedBox(height: AppSpacing.sm),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _TodoSection(vehicles: vehicles),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionLabel('Actions rapides'),
+        const SizedBox(height: AppSpacing.sm),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _QuickActionsRow(vehicle: selected),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionLabel('Votre carnet'),
+        const SizedBox(height: AppSpacing.sm),
+        _InsightsStrip(vehicle: selected),
+        const SizedBox(height: AppSpacing.md),
+      ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final delay = (index.clamp(0, 6)) * 40;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 220 + delay),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, (1 - value) * 10),
-          child: child,
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
         ),
       ),
-      child: child,
+    );
+  }
+}
+
+/// Wires a single vehicle's own active reminders into [VehicleHeroCard] -
+/// the small piece of glue both the single-vehicle and carousel paths need.
+class _VehicleCardWithReminders extends ConsumerWidget {
+  const _VehicleCardWithReminders({required this.vehicle, required this.onTap});
+  final Vehicle vehicle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reminders = ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value ?? const [];
+    return VehicleHeroCard(vehicle: vehicle, reminders: reminders, onTap: onTap);
+  }
+}
+
+class _VehicleCarousel extends StatelessWidget {
+  const _VehicleCarousel({
+    required this.vehicles,
+    required this.selectedIndex,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final List<Vehicle> vehicles;
+  final int selectedIndex;
+  final PageController controller;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        SizedBox(
+          height: 208,
+          child: PageView.builder(
+            controller: controller,
+            itemCount: vehicles.length,
+            onPageChanged: onChanged,
+            itemBuilder: (context, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              child: _VehicleCardWithReminders(
+                vehicle: vehicles[i],
+                onTap: () => context.push('/vehicles/${vehicles[i].id}'),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < vehicles.length; i++)
+              AnimatedContainer(
+                duration: AppMotion.fast,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == selectedIndex ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: i == selectedIndex ? scheme.primary : scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Up to 3 nearest active reminders across every vehicle, most urgent
+/// first - or a positive "tout est à jour" state when there are none
+/// (spec: the section disappears/turns positive, it never just shows an
+/// empty list).
+class _TodoSection extends ConsumerWidget {
+  const _TodoSection({required this.vehicles});
+  final List<Vehicle> vehicles;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remindersAsync = ref.watch(allActiveRemindersProvider);
+    return remindersAsync.when(
+      loading: () => const SizedBox(
+          height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (all) {
+        final mileageById = {for (final v in vehicles) v.id: v.currentMileage};
+        final vehicleById = {for (final v in vehicles) v.id: v};
+
+        int rank(Reminder r) => switch (
+            reminderUrgency(r, currentMileage: mileageById[r.vehicleId])) {
+          ReminderUrgency.urgent => 0,
+          ReminderUrgency.upcoming => 1,
+          ReminderUrgency.later => 2,
+          ReminderUrgency.done => 3,
+        };
+        double proximity(Reminder r) {
+          final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
+          final mileage = mileageById[r.vehicleId];
+          final byKm =
+              (r.dueMileage != null && mileage != null) ? r.dueMileage! - mileage : null;
+          if (byDays != null && byKm != null) return byDays < byKm ? byDays : byKm;
+          return byDays ?? byKm ?? double.infinity;
+        }
+
+        final top = [...all]
+          ..sort((a, b) {
+            final rc = rank(a).compareTo(rank(b));
+            return rc != 0 ? rc : proximity(a).compareTo(proximity(b));
+          });
+
+        if (top.isEmpty) return const _AllGoodCard();
+
+        return Column(
+          children: [
+            for (var i = 0; i < top.length && i < 3; i++) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.xs),
+              _TodoTile(
+                reminder: top[i],
+                vehicle: vehicleById[top[i].vehicleId],
+                urgency: reminderUrgency(top[i], currentMileage: mileageById[top[i].vehicleId]),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AllGoodCard extends StatelessWidget {
+  const _AllGoodCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, color: scheme.tertiary),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Tout est à jour', style: TextStyle(fontWeight: FontWeight.w700)),
+                Text('Aucune action requise pour le moment.',
+                    style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodoTile extends StatelessWidget {
+  const _TodoTile({required this.reminder, required this.vehicle, required this.urgency});
+  final Reminder reminder;
+  final Vehicle? vehicle;
+  final ReminderUrgency urgency;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final railColor = switch (urgency) {
+      ReminderUrgency.urgent => scheme.error,
+      ReminderUrgency.upcoming => scheme.secondary,
+      ReminderUrgency.later || ReminderUrgency.done => scheme.onSurfaceVariant,
+    };
+    final due = vehicle != null ? formatReminderDue(reminder, vehicle!.currentMileage) : '—';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLowest,
+          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: railColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(reminder.title,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            if (vehicle != null)
+                              Text('${vehicle!.brand} ${vehicle!.model}',
+                                  style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      Text(due,
+                          style: AppTypography.mono(context,
+                              fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Direct-tap tiles for the four most frequent logging actions - each opens
+/// its target form immediately (no intermediate sheet), unlike the rarer
+/// "add/join a vehicle" action which stays behind the tab's FAB.
+class _QuickActionsRow extends ConsumerWidget {
+  const _QuickActionsRow({required this.vehicle});
+  final Vehicle vehicle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.build_outlined,
+            label: 'Opération',
+            onTap: () => showMaintenanceFormSheet(context,
+                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.speed_outlined,
+            label: 'Kilométrage',
+            onTap: () => showMileageUpdateSheet(context, ref, vehicle),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.local_gas_station_outlined,
+            label: 'Plein',
+            onTap: () => showFuelFormSheet(context,
+                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.description_outlined,
+            label: 'Document',
+            onTap: () => showDocumentFormSheet(context, vehicleId: vehicle.id),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Column(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 17, color: scheme.primary),
+              ),
+              const SizedBox(height: 6),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A compact, horizontally-scrolling read on the carnet as a whole - never
+/// an analytics dashboard, just the handful of numbers an owner actually
+/// wants at a glance.
+class _InsightsStrip extends ConsumerWidget {
+  const _InsightsStrip({required this.vehicle});
+  final Vehicle vehicle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final health = ref.watch(vehicleHealthScoreProvider(vehicle));
+    final expenseStats = ref.watch(vehicleExpenseStatsProvider(vehicle.id));
+    final maintenance = ref.watch(vehicleMaintenanceProvider(vehicle.id)).value;
+    final mileageHistory = ref.watch(vehicleMileageHistoryProvider(vehicle.id)).value;
+    final currency = ref.watch(defaultCurrencyProvider);
+
+    final lastMaintenance = (maintenance == null || maintenance.isEmpty) ? null : maintenance.first;
+    final monthlyPace = mileageHistory == null ? null : estimateMonthlyPaceKm(mileageHistory);
+
+    return SizedBox(
+      height: 84,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        children: [
+          _StatCard(
+            label: 'Santé',
+            value: health == null ? '—' : '${health.score}',
+            sub: '/ 100',
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _StatCard(
+            label: 'Dépenses ${DateTime.now().year}',
+            value: expenseStats.maybeWhen(
+                data: (s) => formatAmount(s.thisYear), orElse: () => '—'),
+            sub: currency,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _StatCard(
+            label: 'Dernier entretien',
+            value: lastMaintenance == null ? 'Aucun' : _monthsAgo(lastMaintenance.date),
+            sub: lastMaintenance?.category ?? '',
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _StatCard(
+            label: 'Km / an estimé',
+            value: monthlyPace == null ? '—' : formatAmount(monthlyPace * 12),
+            sub: 'km',
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _monthsAgo(DateTime date) {
+    final days = DateTime.now().difference(date).inDays;
+    if (days < 31) return 'Il y a ${days}j';
+    final months = (days / 30.4).round();
+    return 'Il y a ${months}mois';
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value, required this.sub});
+  final String label;
+  final String value;
+  final String sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 128,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9.5, letterSpacing: 0.3, color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 4),
+          Text(value, style: AppTypography.mono(context, fontSize: 17, fontWeight: FontWeight.w600)),
+          if (sub.isNotEmpty)
+            Text(sub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+        ],
+      ),
     );
   }
 }

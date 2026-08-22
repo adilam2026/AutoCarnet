@@ -1,5 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/database/database.dart';
 import '../../documents/data/document_repository.dart';
+import '../../maintenance/data/maintenance_repository.dart';
+import '../../reminders/data/reminder_repository.dart';
+import '../data/vehicle_repository.dart';
 
 enum HealthImpact { positive, negative, neutral }
 
@@ -153,3 +158,21 @@ VehicleHealthScore computeVehicleHealthScore({
 
   return VehicleHealthScore(score: score, factors: factors);
 }
+
+/// Wires the four inputs [computeVehicleHealthScore] needs from their
+/// individual providers, so any screen that just wants "this vehicle's
+/// score" (e.g. a dashboard card) doesn't have to reassemble the same four
+/// watches vehicle_home_screen.dart does. Returns null only while any of
+/// the four underlying streams hasn't emitted yet (first frame).
+final vehicleHealthScoreProvider = Provider.family<VehicleHealthScore?, Vehicle>((ref, vehicle) {
+  final reminders = ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value;
+  final maintenance = ref.watch(vehicleMaintenanceProvider(vehicle.id)).value;
+  final documents = ref.watch(vehicleDocumentsProvider(vehicle.id)).value;
+  if (reminders == null || maintenance == null || documents == null) return null;
+  return computeVehicleHealthScore(
+    activeReminders: reminders,
+    maintenanceEntries: maintenance,
+    documents: documents,
+    completeness: ref.watch(vehicleRepositoryProvider).completeness(vehicle),
+  );
+});

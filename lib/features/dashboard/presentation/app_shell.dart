@@ -83,10 +83,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         ],
       ),
       floatingActionButton: _index == 0
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               tooltip: 'Ajouter ou rejoindre un véhicule',
               onPressed: () => _showAddOrJoinSheet(context),
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter'),
             )
           : null,
       bottomNavigationBar: NavigationBar(
