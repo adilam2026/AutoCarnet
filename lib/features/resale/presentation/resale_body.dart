@@ -255,12 +255,14 @@ class _VehicleHeaderCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium),
-                  Text(
-                    '${vehicle.currentMileage.toStringAsFixed(0)} km'
-                    '${vehicle.year != null ? ' • ${vehicle.year}' : ''}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Row(
+                    children: [
+                      Text(vehicle.currentMileage.toStringAsFixed(0),
+                          style: AppTypography.mono(context,
+                              fontSize: 12.5, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
+                      Text(' km${vehicle.year != null ? ' · ${vehicle.year}' : ''}',
+                          style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
+                    ],
                   ),
                 ],
               ),
@@ -349,7 +351,7 @@ class _EstimationCard extends StatelessWidget {
                     Icon(
                       factor.satisfied ? Icons.check_circle_outline : Icons.circle_outlined,
                       size: 16,
-                      color: factor.satisfied ? Colors.green : scheme.onSurfaceVariant,
+                      color: factor.satisfied ? scheme.tertiary : scheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
@@ -371,10 +373,11 @@ class _ConfidenceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final (label, color) = switch (confidence) {
-      ConfidenceLevel.low => ('Confiance : faible', Colors.orange),
-      ConfidenceLevel.medium => ('Confiance : moyenne', Colors.blue),
-      ConfidenceLevel.good => ('Confiance : bonne', Colors.green),
+      ConfidenceLevel.low => ('Confiance : faible', scheme.secondary),
+      ConfidenceLevel.medium => ('Confiance : moyenne', scheme.onSurfaceVariant),
+      ConfidenceLevel.good => ('Confiance : bonne', scheme.tertiary),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
@@ -414,10 +417,9 @@ class _TierChip extends StatelessWidget {
             value ?? 'Indisponible',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: value == null ? scheme.onSurfaceVariant : null,
-                ),
+            style: value != null
+                ? AppTypography.mono(context, fontSize: 15, fontWeight: FontWeight.w600)
+                : TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -432,6 +434,12 @@ class _HealthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final level = healthLevelForScore(health.score);
+    final levelColor = switch (level) {
+      VehicleHealthLevel.good => scheme.tertiary,
+      VehicleHealthLevel.attention => scheme.secondary,
+      VehicleHealthLevel.critical => scheme.error,
+    };
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -444,9 +452,7 @@ class _HealthCard extends StatelessWidget {
                 value: health.score / 100,
                 minHeight: 8,
                 backgroundColor: scheme.surfaceContainerHighest,
-                color: health.score >= 70
-                    ? Colors.green
-                    : (health.score >= 40 ? Colors.orange : scheme.error),
+                color: levelColor,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -464,8 +470,8 @@ class _HealthCard extends StatelessWidget {
                       },
                       size: 18,
                       color: switch (factor.impact) {
-                        HealthImpact.positive => Colors.green,
-                        HealthImpact.negative => Colors.orange,
+                        HealthImpact.positive => scheme.tertiary,
+                        HealthImpact.negative => scheme.secondary,
                         HealthImpact.neutral => scheme.onSurfaceVariant,
                       },
                     ),
@@ -512,7 +518,7 @@ class _ReadinessCard extends StatelessWidget {
                     Icon(
                       item.ok ? Icons.check_circle : Icons.error_outline,
                       size: 18,
-                      color: item.ok ? Colors.green : scheme.error,
+                      color: item.ok ? scheme.tertiary : scheme.error,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
