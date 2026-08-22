@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
+import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../resale/presentation/resale_body.dart';
 import 'alerts_body.dart';
 import 'vehicles_list_body.dart';
@@ -181,6 +182,43 @@ class _AppDrawer extends ConsumerWidget {
   const _AppDrawer({required this.onSelectTab});
   final ValueChanged<int> onSelectTab;
 
+  /// "Verrouiller AutoCarnet": deliberately NOT a dissociation - only hides
+  /// the app behind the PIN/biometric screen. The account stays associated
+  /// with this device, and a correct PIN returns straight to the home page
+  /// (see AppGate._goUnlocked). Kept very easy to reach - bottom of the
+  /// main drawer, one tap plus a light confirmation - since this is the
+  /// frequent action; the rare/sensitive ones (dissociate, disconnect
+  /// everywhere) live behind "Gestion du compte" in Compte & sécurité.
+  Future<void> _onLockApp(BuildContext context, WidgetRef ref) async {
+    // Read the notifier before the drawer finishes closing (it's popped
+    // right before this is called) - by the time the dialog's await below
+    // resolves, `_AppDrawer`'s own element is disposed, and `ref` itself
+    // can no longer be used past that point.
+    final lockRequest = ref.read(sessionLockRequestProvider.notifier);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Verrouiller AutoCarnet ?'),
+        content: const Text(
+          'Le code d\'accès (ou la biométrie) sera nécessaire pour rouvrir. '
+          'Le compte reste connecté sur cet appareil.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Verrouiller'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    lockRequest.state++;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(localProfileProvider);
@@ -262,6 +300,15 @@ class _AppDrawer extends ConsumerWidget {
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/audit-log');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.exit_to_app),
+              title: const Text('Verrouiller AutoCarnet'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _onLockApp(context, ref);
               },
             ),
           ],

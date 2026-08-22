@@ -10,6 +10,7 @@ import '../../onboarding_lock/data/biometric_service.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../onboarding_lock/presentation/pin_dialogs.dart';
+import 'account_management_screen.dart';
 import 'devices_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -118,10 +119,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// Reverrouille l'application sur cet appareil - the local PIN check
   /// only, nothing else (spec bloc 1/7's VERROUILLAGE LOCAL). Deliberately
   /// never called "se déconnecter" anywhere in the UI: that verb is
-  /// reserved for [_onSwitchAccount]/[_onDisconnectEverywhere], which
-  /// really do end the account's authorization. This one only ever
-  /// re-locks; the account stays fully signed in and is instantly usable
-  /// again with just the PIN/biometric.
+  /// reserved for the dissociate/disconnect-everywhere actions under
+  /// "Gestion du compte" (see [AccountManagementScreen]), which really do
+  /// end the account's authorization. This one only ever re-locks; the
+  /// account stays fully signed in and is instantly usable again with just
+  /// the PIN/biometric. The same action is also reachable from the main
+  /// drawer as "Verrouiller AutoCarnet" - see [AppShell].
   Future<void> _onLockNow() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -148,97 +151,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(sessionLockRequestProvider.notifier).state++;
   }
 
-  /// "Changer de compte" (spec bloc 11/CAS 1/2/3): pure navigation to the
-  /// email screen - nothing about this account is forgotten. Whichever
-  /// email is entered next resolves on its own: already known on this
-  /// device -> straight to its own PIN, no OTP; genuinely new -> a real
-  /// OTP as usual.
-  Future<void> _onSwitchAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Changer de compte sur cet appareil ?'),
-        content: const Text(
-          'Saisissez l\'adresse email de l\'autre compte. S\'il est déjà '
-          'connu sur cet appareil, vous accéderez directement à son code '
-          'd\'accès - sinon un code de vérification vous sera envoyé.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Changer de compte'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    ref.read(accountSwitchRequestProvider.notifier).state++;
-  }
-
-  /// "Dissocier ce compte de cet appareil" (spec bloc 15's "RÉVOQUER/
-  /// DISSOCIER"/"VRAIE DÉCONNEXION") - the only action that really does
-  /// end this account's authorization on this device: a fresh OTP will be
-  /// required next time, even for this exact email. Any *other* account
-  /// this device also knows is left completely untouched.
-  Future<void> _onDissociateThisDevice() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Dissocier ce compte de cet appareil ?'),
-        content: const Text(
-          'Ce compte ne sera plus reconnu sur cet appareil : un email et un '
-          'code de vérification seront à nouveau nécessaires pour vous '
-          'reconnecter, même avec cette même adresse. Vos données restent '
-          'sur le cloud.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Dissocier'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    ref.read(accountDissociateRequestProvider.notifier).state++;
-  }
-
-  /// Revokes every device's session for this account at once (spec bloc
-  /// 6) - a distinct, clearly-named security action, not another word for
-  /// "déconnexion"/"verrouiller". Other devices keep their `devices` row
-  /// (still listed under "Appareils connectés") but their cached session
-  /// can no longer be refreshed.
-  Future<void> _onDisconnectEverywhere() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Déconnecter tous les appareils ?'),
-        content: const Text(
-          'Toutes les sessions de ce compte, sur tous les appareils, seront '
-          'fermées. Vos données restent sur le cloud.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Déconnecter tout'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    ref.read(accountDisconnectEverywhereRequestProvider.notifier).state++;
+  /// "Gestion du compte": the only entry point left on this page for the
+  /// rare/sensitive dissociate-this-device and disconnect-everywhere
+  /// actions - deliberately one tap further away than the frequent
+  /// "Verrouiller maintenant" above, and never reachable by mistake.
+  /// "Changer de compte" is deliberately NOT here at all: it stays
+  /// reachable only from the lock screen (spec: comptes multiples se
+  /// gèrent depuis l'écran de code, pas depuis les réglages).
+  void _onOpenAccountManagement() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const AccountManagementScreen()));
   }
 
   Future<void> _onChangeCurrency(LocalProfile profile, String currency) async {
@@ -285,21 +207,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.swap_horiz),
-                    title: const Text('Changer de compte'),
-                    onTap: _onSwitchAccount,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.link_off),
-                    title: const Text('Dissocier ce compte de cet appareil'),
-                    onTap: _onDissociateThisDevice,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Déconnecter tous les appareils'),
-                    onTap: _onDisconnectEverywhere,
+                    leading: const Icon(Icons.manage_accounts_outlined),
+                    title: const Text('Gestion du compte'),
+                    subtitle: const Text('Dissocier cet appareil, déconnecter tous les appareils'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _onOpenAccountManagement,
                   ),
                 ],
               ),
