@@ -11,11 +11,13 @@ import '../../../core/widgets/dismissible_delete.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../../core/widgets/stat_tile.dart';
+import '../../account/data/account_repository.dart';
 import '../../fuel/data/fuel_repository.dart';
 import '../../fuel/presentation/fuel_form_sheet.dart';
 import '../../maintenance/data/maintenance_repository.dart';
 import '../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../vehicles/data/vehicle_repository.dart';
+import '../../vehicles/domain/vehicle_ownership.dart';
 import '../data/expense_repository.dart';
 import 'expense_form_sheet.dart';
 
@@ -38,6 +40,11 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
     final expensesAsync = ref.watch(vehicleExpensesProvider(widget.vehicleId));
     final statsAsync = ref.watch(vehicleExpenseStatsProvider(widget.vehicleId));
     final vehicleAsync = ref.watch(vehicleByIdProvider(widget.vehicleId));
+    final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+    final canEdit = vehicleAsync.maybeWhen(
+      data: (v) => v != null && canEditVehicle(v, currentUserId),
+      orElse: () => false,
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Dépenses')),
       body: expensesAsync.when(
@@ -48,25 +55,36 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
             return EmptyState(
               icon: Icons.payments_outlined,
               title: 'Aucune dépense enregistrée',
-              subtitle:
-                  'Suivez toutes les dépenses de ce véhicule pour connaître '
-                  'son coût réel au fil du temps.',
-              actionLabel: 'Ajouter une dépense',
-              onAction: () =>
-                  showExpenseFormSheet(context, vehicleId: widget.vehicleId),
+              subtitle: canEdit
+                  ? 'Suivez toutes les dépenses de ce véhicule pour connaître '
+                        'son coût réel au fil du temps.'
+                  : 'Vous avez un accès en lecture seule à ce véhicule.',
+              actionLabel: canEdit ? 'Ajouter une dépense' : null,
+              onAction: !canEdit
+                  ? null
+                  : () => showExpenseFormSheet(
+                      context,
+                      vehicleId: widget.vehicleId,
+                    ),
             );
           }
           final categories = {for (final e in expenses) e.category}.toList()
             ..sort();
           final filtered = expenses
-              .where((e) => _categoryFilter == null || e.category == _categoryFilter)
+              .where(
+                (e) => _categoryFilter == null || e.category == _categoryFilter,
+              )
               .where((e) => _period.matches(e.date))
               .toList();
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -135,14 +153,19 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                         subtitle: 'Essayez une autre catégorie ou période.',
                       )
                     : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm,
-                            AppSpacing.md, fabSafeBottomPadding(context)),
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          fabSafeBottomPadding(context),
+                        ),
                         itemCount: filtered.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (context, i) {
                           final e = filtered[i];
-                          final isLinked = e.linkedMaintenanceId != null ||
+                          final isLinked =
+                              e.linkedMaintenanceId != null ||
                               e.linkedFuelId != null;
                           final tile = Card(
                             child: ListTile(
@@ -154,7 +177,9 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                                 width: 38,
                                 height: 38,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
                                   borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: Icon(
@@ -179,17 +204,28 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                               ),
                               trailing: Text(
                                 '${formatAmount(e.amount)} ${e.currency}',
-                                style: AppTypography.mono(context,
-                                    fontSize: 13, fontWeight: FontWeight.w600),
+                                style: AppTypography.mono(
+                                  context,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              onTap: () => _openSource(context, ref, e, vehicleAsync),
+                              onTap: !canEdit
+                                  ? null
+                                  : () => _openSource(
+                                      context,
+                                      ref,
+                                      e,
+                                      vehicleAsync,
+                                    ),
                             ),
                           );
-                          if (isLinked) {
+                          if (isLinked || !canEdit) {
                             // A generated expense must be edited/deleted from
                             // its source operation, never independently -
                             // otherwise its amount could drift from what
-                            // created it.
+                            // created it. A viewer never gets the
+                            // swipe-to-delete affordance either way.
                             return tile;
                           }
                           return DismissibleDelete(
@@ -203,8 +239,11 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
                                   .read(expenseRepositoryProvider)
                                   .softDelete(e.id);
                               if (context.mounted) {
-                                showAppSnackBar(context, 'Dépense supprimée',
-                                    icon: Icons.delete_outline);
+                                showAppSnackBar(
+                                  context,
+                                  'Dépense supprimée',
+                                  icon: Icons.delete_outline,
+                                );
                               }
                             },
                             child: tile,
@@ -216,11 +255,14 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showExpenseFormSheet(context, vehicleId: widget.vehicleId),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter une dépense'),
-      ),
+      floatingActionButton: !canEdit
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () =>
+                  showExpenseFormSheet(context, vehicleId: widget.vehicleId),
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter une dépense'),
+            ),
     );
   }
 
@@ -247,8 +289,9 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
       return;
     }
     if (expense.linkedFuelId != null) {
-      final entry =
-          await ref.read(fuelRepositoryProvider).getById(expense.linkedFuelId!);
+      final entry = await ref
+          .read(fuelRepositoryProvider)
+          .getById(expense.linkedFuelId!);
       if (entry != null && context.mounted) {
         showFuelFormSheet(
           context,
@@ -260,7 +303,11 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
       return;
     }
     if (context.mounted) {
-      showExpenseFormSheet(context, vehicleId: widget.vehicleId, editing: expense);
+      showExpenseFormSheet(
+        context,
+        vehicleId: widget.vehicleId,
+        editing: expense,
+      );
     }
   }
 

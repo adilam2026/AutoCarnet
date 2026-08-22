@@ -9,7 +9,9 @@ import '../../../core/utils/period_filter.dart';
 import '../../../core/widgets/dismissible_delete.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_error_views.dart';
+import '../../account/data/account_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
+import '../../vehicles/domain/vehicle_ownership.dart';
 import '../data/maintenance_repository.dart';
 import 'maintenance_form_sheet.dart';
 
@@ -27,8 +29,15 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
 
   @override
   Widget build(BuildContext context) {
-    final entriesAsync = ref.watch(vehicleMaintenanceProvider(widget.vehicleId));
+    final entriesAsync = ref.watch(
+      vehicleMaintenanceProvider(widget.vehicleId),
+    );
     final vehicleAsync = ref.watch(vehicleByIdProvider(widget.vehicleId));
+    final currentUserId = ref.watch(accountRepositoryProvider).currentUser?.id;
+    final canEdit = vehicleAsync.maybeWhen(
+      data: (v) => v != null && canEditVehicle(v, currentUserId),
+      orElse: () => false,
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Entretiens')),
       body: entriesAsync.when(
@@ -39,33 +48,43 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
             return EmptyState(
               icon: Icons.build_outlined,
               title: 'Aucun entretien enregistré',
-              subtitle:
-                  'Commencez votre carnet avec votre dernière vidange ou '
-                  'révision : chaque intervention alimente automatiquement '
-                  'l\'historique et les dépenses du véhicule.',
-              actionLabel: 'Ajouter un entretien',
-              onAction: vehicleAsync.maybeWhen(
-                data: (vehicle) => vehicle == null
-                    ? null
-                    : () => showMaintenanceFormSheet(
-                          context,
-                          vehicleId: widget.vehicleId,
-                          currentMileage: vehicle.currentMileage,
-                        ),
-                orElse: () => null,
-              ),
+              subtitle: canEdit
+                  ? 'Commencez votre carnet avec votre dernière vidange ou '
+                        'révision : chaque intervention alimente automatiquement '
+                        'l\'historique et les dépenses du véhicule.'
+                  : 'Vous avez un accès en lecture seule à ce véhicule.',
+              actionLabel: canEdit ? 'Ajouter un entretien' : null,
+              onAction: !canEdit
+                  ? null
+                  : vehicleAsync.maybeWhen(
+                      data: (vehicle) => vehicle == null
+                          ? null
+                          : () => showMaintenanceFormSheet(
+                              context,
+                              vehicleId: widget.vehicleId,
+                              currentMileage: vehicle.currentMileage,
+                            ),
+                      orElse: () => null,
+                    ),
             );
           }
-          final categories = {for (final e in entries) e.category}.toList()..sort();
+          final categories = {for (final e in entries) e.category}.toList()
+            ..sort();
           final filtered = entries
-              .where((e) => _categoryFilter == null || e.category == _categoryFilter)
+              .where(
+                (e) => _categoryFilter == null || e.category == _categoryFilter,
+              )
               .where((e) => _period.matches(e.date))
               .toList();
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -76,7 +95,8 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                           ChoiceChip(
                             label: const Text('Tout'),
                             selected: _categoryFilter == null,
-                            onSelected: (_) => setState(() => _categoryFilter = null),
+                            onSelected: (_) =>
+                                setState(() => _categoryFilter = null),
                           ),
                           const SizedBox(width: 8),
                           for (final c in categories) ...[
@@ -107,14 +127,79 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                         subtitle: 'Essayez une autre catégorie ou période.',
                       )
                     : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md,
-                            AppSpacing.md, fabSafeBottomPadding(context)),
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          fabSafeBottomPadding(context),
+                        ),
                         itemCount: filtered.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (context, i) {
                           final e = filtered[i];
                           final total = e.partsCost + e.laborCost;
+                          final card = Card(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xs,
+                              ),
+                              leading: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Icon(
+                                  Icons.build_outlined,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 19,
+                                ),
+                              ),
+                              title: Text(
+                                e.category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${_fmt(e.date)} • ${e.mileage.toStringAsFixed(0)} km',
+                              ),
+                              trailing: total > 0
+                                  ? Text(
+                                      '${formatAmount(total)} ${e.currency}',
+                                      style: AppTypography.mono(
+                                        context,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    )
+                                  : null,
+                              onTap: !canEdit
+                                  ? null
+                                  : () => vehicleAsync.maybeWhen(
+                                      data: (vehicle) {
+                                        if (vehicle == null) return;
+                                        showMaintenanceFormSheet(
+                                          context,
+                                          vehicleId: widget.vehicleId,
+                                          currentMileage:
+                                              vehicle.currentMileage,
+                                          editing: e,
+                                        );
+                                      },
+                                      orElse: () {},
+                                    ),
+                            ),
+                          );
+                          // A viewer never even sees the swipe-to-delete
+                          // affordance - RG: never let a read-only
+                          // collaborator's action appear to succeed locally
+                          // and then simply fail to ever reach the server.
+                          if (!canEdit) return card;
                           return DismissibleDelete(
                             itemKey: ValueKey(e.id),
                             confirmTitle: 'Supprimer cet entretien ?',
@@ -126,58 +211,14 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
                                   .read(maintenanceRepositoryProvider)
                                   .softDelete(e.id);
                               if (context.mounted) {
-                                showAppSnackBar(context, 'Entretien supprimé',
-                                    icon: Icons.delete_outline);
+                                showAppSnackBar(
+                                  context,
+                                  'Entretien supprimé',
+                                  icon: Icons.delete_outline,
+                                );
                               }
                             },
-                            child: Card(
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.md,
-                                  vertical: AppSpacing.xs,
-                                ),
-                                leading: Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(11),
-                                  ),
-                                  child: Icon(
-                                    Icons.build_outlined,
-                                    color: Theme.of(context).colorScheme.primary,
-                                    size: 19,
-                                  ),
-                                ),
-                                title: Text(
-                                  e.category,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  '${_fmt(e.date)} • ${e.mileage.toStringAsFixed(0)} km',
-                                ),
-                                trailing: total > 0
-                                    ? Text(
-                                        '${formatAmount(total)} ${e.currency}',
-                                        style: AppTypography.mono(context,
-                                            fontSize: 13, fontWeight: FontWeight.w600),
-                                      )
-                                    : null,
-                                onTap: () => vehicleAsync.maybeWhen(
-                                  data: (vehicle) {
-                                    if (vehicle == null) return;
-                                    showMaintenanceFormSheet(
-                                      context,
-                                      vehicleId: widget.vehicleId,
-                                      currentMileage: vehicle.currentMileage,
-                                      editing: e,
-                                    );
-                                  },
-                                  orElse: () {},
-                                ),
-                              ),
-                            ),
+                            child: card,
                           );
                         },
                       ),
@@ -186,20 +227,22 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
           );
         },
       ),
-      floatingActionButton: vehicleAsync.maybeWhen(
-        data: (vehicle) => vehicle == null
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: () => showMaintenanceFormSheet(
-                  context,
-                  vehicleId: widget.vehicleId,
-                  currentMileage: vehicle.currentMileage,
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text('Ajouter un entretien'),
-              ),
-        orElse: () => null,
-      ),
+      floatingActionButton: !canEdit
+          ? null
+          : vehicleAsync.maybeWhen(
+              data: (vehicle) => vehicle == null
+                  ? null
+                  : FloatingActionButton.extended(
+                      onPressed: () => showMaintenanceFormSheet(
+                        context,
+                        vehicleId: widget.vehicleId,
+                        currentMileage: vehicle.currentMileage,
+                      ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Ajouter un entretien'),
+                    ),
+              orElse: () => null,
+            ),
     );
   }
 
