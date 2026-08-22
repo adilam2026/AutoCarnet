@@ -32,8 +32,6 @@ Map<String, dynamic> vehicleToRemoteRow(Vehicle v) {
     'fuel_type': v.fuelType,
     'transmission': v.transmission,
     'color': v.color,
-    'acquisition_date': v.acquisitionDate?.toUtc().toIso8601String(),
-    'purchase_price': v.purchasePrice,
     'condition': v.condition?.name,
     'comments': v.comments,
     'current_mileage': v.currentMileage,
@@ -66,8 +64,6 @@ VehiclesCompanion vehicleFromRemoteRow(Map<String, dynamic> row) {
     fuelType: Value(row['fuel_type'] as String?),
     transmission: Value(row['transmission'] as String?),
     color: Value(row['color'] as String?),
-    acquisitionDate: Value(parseDate(row['acquisition_date'])),
-    purchasePrice: Value((row['purchase_price'] as num?)?.toDouble()),
     condition: Value(_enumFromName(VehicleCondition.values, row['condition'] as String?)),
     comments: Value(row['comments'] as String?),
     status: Value(

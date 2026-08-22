@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,6 +100,16 @@ class AppDatabase extends _$AppDatabase {
                 operationFrequencyPreferences, operationFrequencyPreferences.updatedBy);
             await m.createTable(syncConflicts);
             await m.createTable(appNotifications);
+          }
+          if (from < 7) {
+            // "Acquisition" (date d'acquisition + prix d'achat) is removed
+            // from the vehicle sheet entirely - the valuation engine
+            // (Revendre) now always uses its own reference price instead of
+            // a real purchase price, by explicit choice: accepting a less
+            // precise estimate over keeping a UI section nobody should see
+            // again.
+            await m.dropColumn(vehicles, 'acquisition_date');
+            await m.dropColumn(vehicles, 'purchase_price');
           }
         },
       );

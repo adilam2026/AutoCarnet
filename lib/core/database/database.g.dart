@@ -632,29 +632,6 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _acquisitionDateMeta = const VerificationMeta(
-    'acquisitionDate',
-  );
-  @override
-  late final GeneratedColumn<DateTime> acquisitionDate =
-      GeneratedColumn<DateTime>(
-        'acquisition_date',
-        aliasedName,
-        true,
-        type: DriftSqlType.dateTime,
-        requiredDuringInsert: false,
-      );
-  static const VerificationMeta _purchasePriceMeta = const VerificationMeta(
-    'purchasePrice',
-  );
-  @override
-  late final GeneratedColumn<double> purchasePrice = GeneratedColumn<double>(
-    'purchase_price',
-    aliasedName,
-    true,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-  );
   @override
   late final GeneratedColumnWithTypeConverter<VehicleCondition?, String>
   condition = GeneratedColumn<String>(
@@ -816,8 +793,6 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     transmission,
     color,
     photoPath,
-    acquisitionDate,
-    purchasePrice,
     condition,
     comments,
     currentMileage,
@@ -941,24 +916,6 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
       context.handle(
         _photoPathMeta,
         photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
-      );
-    }
-    if (data.containsKey('acquisition_date')) {
-      context.handle(
-        _acquisitionDateMeta,
-        acquisitionDate.isAcceptableOrUnknown(
-          data['acquisition_date']!,
-          _acquisitionDateMeta,
-        ),
-      );
-    }
-    if (data.containsKey('purchase_price')) {
-      context.handle(
-        _purchasePriceMeta,
-        purchasePrice.isAcceptableOrUnknown(
-          data['purchase_price']!,
-          _purchasePriceMeta,
-        ),
       );
     }
     if (data.containsKey('comments')) {
@@ -1109,14 +1066,6 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
         DriftSqlType.string,
         data['${effectivePrefix}photo_path'],
       ),
-      acquisitionDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}acquisition_date'],
-      ),
-      purchasePrice: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}purchase_price'],
-      ),
       condition: $VehiclesTable.$converterconditionn.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -1214,8 +1163,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
   final String? transmission;
   final String? color;
   final String? photoPath;
-  final DateTime? acquisitionDate;
-  final double? purchasePrice;
   final VehicleCondition? condition;
   final String? comments;
   final double currentMileage;
@@ -1245,8 +1192,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     this.transmission,
     this.color,
     this.photoPath,
-    this.acquisitionDate,
-    this.purchasePrice,
     this.condition,
     this.comments,
     required this.currentMileage,
@@ -1308,12 +1253,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     }
     if (!nullToAbsent || photoPath != null) {
       map['photo_path'] = Variable<String>(photoPath);
-    }
-    if (!nullToAbsent || acquisitionDate != null) {
-      map['acquisition_date'] = Variable<DateTime>(acquisitionDate);
-    }
-    if (!nullToAbsent || purchasePrice != null) {
-      map['purchase_price'] = Variable<double>(purchasePrice);
     }
     if (!nullToAbsent || condition != null) {
       map['condition'] = Variable<String>(
@@ -1385,12 +1324,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       photoPath: photoPath == null && nullToAbsent
           ? const Value.absent()
           : Value(photoPath),
-      acquisitionDate: acquisitionDate == null && nullToAbsent
-          ? const Value.absent()
-          : Value(acquisitionDate),
-      purchasePrice: purchasePrice == null && nullToAbsent
-          ? const Value.absent()
-          : Value(purchasePrice),
       condition: condition == null && nullToAbsent
           ? const Value.absent()
           : Value(condition),
@@ -1448,8 +1381,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       transmission: serializer.fromJson<String?>(json['transmission']),
       color: serializer.fromJson<String?>(json['color']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
-      acquisitionDate: serializer.fromJson<DateTime?>(json['acquisitionDate']),
-      purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
       condition: $VehiclesTable.$converterconditionn.fromJson(
         serializer.fromJson<String?>(json['condition']),
       ),
@@ -1494,8 +1425,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       'transmission': serializer.toJson<String?>(transmission),
       'color': serializer.toJson<String?>(color),
       'photoPath': serializer.toJson<String?>(photoPath),
-      'acquisitionDate': serializer.toJson<DateTime?>(acquisitionDate),
-      'purchasePrice': serializer.toJson<double?>(purchasePrice),
       'condition': serializer.toJson<String?>(
         $VehiclesTable.$converterconditionn.toJson(condition),
       ),
@@ -1532,8 +1461,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     Value<String?> transmission = const Value.absent(),
     Value<String?> color = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
-    Value<DateTime?> acquisitionDate = const Value.absent(),
-    Value<double?> purchasePrice = const Value.absent(),
     Value<VehicleCondition?> condition = const Value.absent(),
     Value<String?> comments = const Value.absent(),
     double? currentMileage,
@@ -1567,12 +1494,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     transmission: transmission.present ? transmission.value : this.transmission,
     color: color.present ? color.value : this.color,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
-    acquisitionDate: acquisitionDate.present
-        ? acquisitionDate.value
-        : this.acquisitionDate,
-    purchasePrice: purchasePrice.present
-        ? purchasePrice.value
-        : this.purchasePrice,
     condition: condition.present ? condition.value : this.condition,
     comments: comments.present ? comments.value : this.comments,
     currentMileage: currentMileage ?? this.currentMileage,
@@ -1615,12 +1536,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           : this.transmission,
       color: data.color.present ? data.color.value : this.color,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
-      acquisitionDate: data.acquisitionDate.present
-          ? data.acquisitionDate.value
-          : this.acquisitionDate,
-      purchasePrice: data.purchasePrice.present
-          ? data.purchasePrice.value
-          : this.purchasePrice,
       condition: data.condition.present ? data.condition.value : this.condition,
       comments: data.comments.present ? data.comments.value : this.comments,
       currentMileage: data.currentMileage.present
@@ -1661,8 +1576,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           ..write('transmission: $transmission, ')
           ..write('color: $color, ')
           ..write('photoPath: $photoPath, ')
-          ..write('acquisitionDate: $acquisitionDate, ')
-          ..write('purchasePrice: $purchasePrice, ')
           ..write('condition: $condition, ')
           ..write('comments: $comments, ')
           ..write('currentMileage: $currentMileage, ')
@@ -1697,8 +1610,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     transmission,
     color,
     photoPath,
-    acquisitionDate,
-    purchasePrice,
     condition,
     comments,
     currentMileage,
@@ -1733,8 +1644,6 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           other.transmission == this.transmission &&
           other.color == this.color &&
           other.photoPath == this.photoPath &&
-          other.acquisitionDate == this.acquisitionDate &&
-          other.purchasePrice == this.purchasePrice &&
           other.condition == this.condition &&
           other.comments == this.comments &&
           other.currentMileage == this.currentMileage &&
@@ -1766,8 +1675,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
   final Value<String?> transmission;
   final Value<String?> color;
   final Value<String?> photoPath;
-  final Value<DateTime?> acquisitionDate;
-  final Value<double?> purchasePrice;
   final Value<VehicleCondition?> condition;
   final Value<String?> comments;
   final Value<double> currentMileage;
@@ -1798,8 +1705,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.transmission = const Value.absent(),
     this.color = const Value.absent(),
     this.photoPath = const Value.absent(),
-    this.acquisitionDate = const Value.absent(),
-    this.purchasePrice = const Value.absent(),
     this.condition = const Value.absent(),
     this.comments = const Value.absent(),
     this.currentMileage = const Value.absent(),
@@ -1831,8 +1736,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.transmission = const Value.absent(),
     this.color = const Value.absent(),
     this.photoPath = const Value.absent(),
-    this.acquisitionDate = const Value.absent(),
-    this.purchasePrice = const Value.absent(),
     this.condition = const Value.absent(),
     this.comments = const Value.absent(),
     required double currentMileage,
@@ -1869,8 +1772,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Expression<String>? transmission,
     Expression<String>? color,
     Expression<String>? photoPath,
-    Expression<DateTime>? acquisitionDate,
-    Expression<double>? purchasePrice,
     Expression<String>? condition,
     Expression<String>? comments,
     Expression<double>? currentMileage,
@@ -1904,8 +1805,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       if (transmission != null) 'transmission': transmission,
       if (color != null) 'color': color,
       if (photoPath != null) 'photo_path': photoPath,
-      if (acquisitionDate != null) 'acquisition_date': acquisitionDate,
-      if (purchasePrice != null) 'purchase_price': purchasePrice,
       if (condition != null) 'condition': condition,
       if (comments != null) 'comments': comments,
       if (currentMileage != null) 'current_mileage': currentMileage,
@@ -1939,8 +1838,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Value<String?>? transmission,
     Value<String?>? color,
     Value<String?>? photoPath,
-    Value<DateTime?>? acquisitionDate,
-    Value<double?>? purchasePrice,
     Value<VehicleCondition?>? condition,
     Value<String?>? comments,
     Value<double>? currentMileage,
@@ -1974,8 +1871,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       transmission: transmission ?? this.transmission,
       color: color ?? this.color,
       photoPath: photoPath ?? this.photoPath,
-      acquisitionDate: acquisitionDate ?? this.acquisitionDate,
-      purchasePrice: purchasePrice ?? this.purchasePrice,
       condition: condition ?? this.condition,
       comments: comments ?? this.comments,
       currentMileage: currentMileage ?? this.currentMileage,
@@ -2047,12 +1942,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     if (photoPath.present) {
       map['photo_path'] = Variable<String>(photoPath.value);
     }
-    if (acquisitionDate.present) {
-      map['acquisition_date'] = Variable<DateTime>(acquisitionDate.value);
-    }
-    if (purchasePrice.present) {
-      map['purchase_price'] = Variable<double>(purchasePrice.value);
-    }
     if (condition.present) {
       map['condition'] = Variable<String>(
         $VehiclesTable.$converterconditionn.toSql(condition.value),
@@ -2122,8 +2011,6 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
           ..write('transmission: $transmission, ')
           ..write('color: $color, ')
           ..write('photoPath: $photoPath, ')
-          ..write('acquisitionDate: $acquisitionDate, ')
-          ..write('purchasePrice: $purchasePrice, ')
           ..write('condition: $condition, ')
           ..write('comments: $comments, ')
           ..write('currentMileage: $currentMileage, ')
@@ -13813,8 +13700,6 @@ typedef $$VehiclesTableCreateCompanionBuilder =
       Value<String?> transmission,
       Value<String?> color,
       Value<String?> photoPath,
-      Value<DateTime?> acquisitionDate,
-      Value<double?> purchasePrice,
       Value<VehicleCondition?> condition,
       Value<String?> comments,
       required double currentMileage,
@@ -13847,8 +13732,6 @@ typedef $$VehiclesTableUpdateCompanionBuilder =
       Value<String?> transmission,
       Value<String?> color,
       Value<String?> photoPath,
-      Value<DateTime?> acquisitionDate,
-      Value<double?> purchasePrice,
       Value<VehicleCondition?> condition,
       Value<String?> comments,
       Value<double> currentMileage,
@@ -14125,16 +14008,6 @@ class $$VehiclesTableFilterComposer
 
   ColumnFilters<String> get photoPath => $composableBuilder(
     column: $table.photoPath,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get acquisitionDate => $composableBuilder(
-    column: $table.acquisitionDate,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get purchasePrice => $composableBuilder(
-    column: $table.purchasePrice,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14520,16 +14393,6 @@ class $$VehiclesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get acquisitionDate => $composableBuilder(
-    column: $table.acquisitionDate,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<double> get purchasePrice => $composableBuilder(
-    column: $table.purchasePrice,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get condition => $composableBuilder(
     column: $table.condition,
     builder: (column) => ColumnOrderings(column),
@@ -14660,16 +14523,6 @@ class $$VehiclesTableAnnotationComposer
 
   GeneratedColumn<String> get photoPath =>
       $composableBuilder(column: $table.photoPath, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get acquisitionDate => $composableBuilder(
-    column: $table.acquisitionDate,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<double> get purchasePrice => $composableBuilder(
-    column: $table.purchasePrice,
-    builder: (column) => column,
-  );
 
   GeneratedColumnWithTypeConverter<VehicleCondition?, String> get condition =>
       $composableBuilder(column: $table.condition, builder: (column) => column);
@@ -14999,8 +14852,6 @@ class $$VehiclesTableTableManager
                 Value<String?> transmission = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
-                Value<DateTime?> acquisitionDate = const Value.absent(),
-                Value<double?> purchasePrice = const Value.absent(),
                 Value<VehicleCondition?> condition = const Value.absent(),
                 Value<String?> comments = const Value.absent(),
                 Value<double> currentMileage = const Value.absent(),
@@ -15031,8 +14882,6 @@ class $$VehiclesTableTableManager
                 transmission: transmission,
                 color: color,
                 photoPath: photoPath,
-                acquisitionDate: acquisitionDate,
-                purchasePrice: purchasePrice,
                 condition: condition,
                 comments: comments,
                 currentMileage: currentMileage,
@@ -15066,8 +14915,6 @@ class $$VehiclesTableTableManager
                 Value<String?> transmission = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
-                Value<DateTime?> acquisitionDate = const Value.absent(),
-                Value<double?> purchasePrice = const Value.absent(),
                 Value<VehicleCondition?> condition = const Value.absent(),
                 Value<String?> comments = const Value.absent(),
                 required double currentMileage,
@@ -15098,8 +14945,6 @@ class $$VehiclesTableTableManager
                 transmission: transmission,
                 color: color,
                 photoPath: photoPath,
-                acquisitionDate: acquisitionDate,
-                purchasePrice: purchasePrice,
                 condition: condition,
                 comments: comments,
                 currentMileage: currentMileage,

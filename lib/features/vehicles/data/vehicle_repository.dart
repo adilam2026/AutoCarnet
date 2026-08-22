@@ -116,8 +116,6 @@ class VehicleRepository {
     String? transmission,
     String? color,
     String? photoPath,
-    DateTime? acquisitionDate,
-    double? purchasePrice,
     String? comments,
   }) async {
     final id = newId();
@@ -137,8 +135,6 @@ class VehicleRepository {
             transmission: Value(transmission),
             color: Value(color),
             photoPath: Value(photoPath),
-            acquisitionDate: Value(acquisitionDate),
-            purchasePrice: Value(purchasePrice),
             comments: Value(comments),
             createdAt: now,
             updatedAt: now,
@@ -394,7 +390,10 @@ class VehicleRepository {
   double completeness(Vehicle v) {
     // Only counts fields actually reachable from VehicleEditScreen - a
     // field the UI can never fill in must never keep completeness from
-    // reaching 100% (photoPath: photo capture is a later phase).
+    // reaching 100% (photoPath: photo capture is a later phase). Comments
+    // is a free note, not structuring data, so it's deliberately excluded
+    // too: a sheet with every real field filled in is 100% complete
+    // whether or not the owner ever wrote a comment.
     final fields = <Object?>[
       v.trim,
       v.year,
@@ -403,11 +402,8 @@ class VehicleRepository {
       v.fuelType,
       v.transmission,
       v.color,
-      v.acquisitionDate,
-      v.purchasePrice,
       v.firstRegistrationDate,
       v.condition,
-      v.comments,
     ];
     final filled = fields.where((f) => f != null && f != '').length;
     return filled / fields.length;

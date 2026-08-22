@@ -17,10 +17,10 @@ abstract class ValuationEngine {
 
 /// AutoCarnet's own estimation engine (bloc 4-18): always produces a
 /// result, explainable step by step, explicitly labeled as an internal
-/// estimate rather than a real market quote. Prioritizes real owner data
-/// (purchase price + acquisition date) over the internal brand-tier
-/// fallback whenever available, since that's always more trustworthy than
-/// any static reference table this engine could ship with.
+/// estimate rather than a real market quote. Always starts from its own
+/// brand-tier reference price - there is no "real purchase price" input
+/// (the Acquisition section was removed from the vehicle sheet entirely),
+/// so depreciation always anchors on the first-registration date.
 class InternalValuationProvider implements ValuationEngine {
   const InternalValuationProvider();
 
@@ -28,26 +28,18 @@ class InternalValuationProvider implements ValuationEngine {
   ValuationResult compute(ValuationInput input) {
     final breakdown = <ValuationBreakdownLine>[];
 
-    final usingPurchasePrice = input.purchasePrice != null && input.purchasePrice! > 0;
-    final base = usingPurchasePrice
-        ? input.purchasePrice!
-        : VehicleValuationReference.estimatedNewPrice(input.brand, input.model);
-    final baseLabel = usingPurchasePrice
-        ? 'Valeur de référence (prix d\'achat renseigné)'
-        : 'Valeur de référence estimée par AutoCarnet (prix neuf approximatif)';
-    breakdown.add(ValuationBreakdownLine(label: baseLabel, runningTotal: base));
+    final base = VehicleValuationReference.estimatedNewPrice(input.brand, input.model);
+    breakdown.add(ValuationBreakdownLine(
+      label: 'Valeur de référence estimée par AutoCarnet (prix neuf approximatif)',
+      runningTotal: base,
+    ));
     var running = base;
 
-    // Depreciation anchors on the acquisition date when we're starting from
-    // a real purchase price (the price already reflects the vehicle's age
-    // at the time of purchase) - otherwise on the registration date.
-    final depreciationAnchor = (usingPurchasePrice && input.acquisitionDate != null)
-        ? input.acquisitionDate
-        : input.firstRegistrationDate;
-    final depreciationAgeMonths =
-        depreciationAnchor != null ? _monthsBetween(depreciationAnchor, DateTime.now()) : null;
-    if (depreciationAgeMonths != null && depreciationAgeMonths > 0) {
-      final factor = DepreciationRules.factorForAgeMonths(depreciationAgeMonths);
+    final ageMonths = input.firstRegistrationDate != null
+        ? _monthsBetween(input.firstRegistrationDate!, DateTime.now())
+        : null;
+    if (ageMonths != null && ageMonths > 0) {
+      final factor = DepreciationRules.factorForAgeMonths(ageMonths);
       final depreciated = running * factor;
       breakdown.add(ValuationBreakdownLine(
         label: 'Décote liée à l\'ancienneté',
@@ -57,15 +49,10 @@ class InternalValuationProvider implements ValuationEngine {
       running = depreciated;
     }
 
-    // Mileage is always compared to the vehicle's full age since first
-    // registration, regardless of which anchor depreciation used.
-    final registrationAgeMonths = input.firstRegistrationDate != null
-        ? _monthsBetween(input.firstRegistrationDate!, DateTime.now())
-        : null;
-    if (registrationAgeMonths != null && registrationAgeMonths > 0) {
+    if (ageMonths != null && ageMonths > 0) {
       final factor = MileageAdjustmentRules.adjustmentFactor(
         currentMileage: input.currentMileage,
-        ageMonths: registrationAgeMonths,
+        ageMonths: ageMonths,
       );
       if (factor != 1.0) {
         final adjusted = running * factor;

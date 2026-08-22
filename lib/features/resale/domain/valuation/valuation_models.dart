@@ -34,8 +34,6 @@ class ValuationInput {
   final double currentMileage;
   final String? fuelType;
   final String? transmission;
-  final double? purchasePrice;
-  final DateTime? acquisitionDate;
   final VehicleCondition? condition;
   final int maintenanceEntryCount;
   final bool hasRecentMaintenance;
@@ -49,8 +47,6 @@ class ValuationInput {
     required this.currentMileage,
     this.fuelType,
     this.transmission,
-    this.purchasePrice,
-    this.acquisitionDate,
     this.condition,
     this.maintenanceEntryCount = 0,
     this.hasRecentMaintenance = false,

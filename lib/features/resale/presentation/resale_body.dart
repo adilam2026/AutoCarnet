@@ -135,8 +135,6 @@ class _ResaleSummary extends ConsumerWidget {
             currentMileage: vehicle.currentMileage,
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
-            purchasePrice: vehicle.purchasePrice,
-            acquisitionDate: vehicle.acquisitionDate,
             condition: vehicle.condition,
             maintenanceEntryCount: maintenanceEntries.length,
           ),

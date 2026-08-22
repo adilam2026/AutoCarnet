@@ -27,8 +27,8 @@ class VehicleHeroCard extends ConsumerWidget {
   final List<Reminder> reminders;
   final VoidCallback onTap;
 
-  Reminder? _nearest(String sourceType) {
-    final candidates = reminders.where((r) => r.sourceType == sourceType).toList();
+  Reminder? _nearestMaintenance() {
+    final candidates = reminders.where((r) => r.sourceType == 'maintenance').toList();
     if (candidates.isEmpty) return null;
     double keyOf(Reminder r) {
       final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
@@ -46,8 +46,7 @@ class VehicleHeroCard extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final health = ref.watch(vehicleHealthScoreProvider(vehicle));
     final worst = _worstUrgency();
-    final revision = _nearest('maintenance');
-    final echeance = _nearest('document');
+    final revision = _nearestMaintenance();
 
     return Material(
       color: scheme.surfaceContainerLowest,
@@ -95,45 +94,46 @@ class VehicleHeroCard extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(
-                    formatAmount(vehicle.currentMileage),
-                    style: AppTypography.mono(context, fontSize: 30, fontWeight: FontWeight.w600),
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            formatAmount(vehicle.currentMileage),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.mono(context,
+                                fontSize: 30, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('km',
+                            style: AppTypography.mono(context,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  Text('km',
-                      style: AppTypography.mono(context,
-                          fontSize: 13, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant)),
-                  const Spacer(),
+                  const SizedBox(width: AppSpacing.sm),
                   _StatusPill(urgency: worst),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
               const Divider(height: 1),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _MetaColumn(
-                      label: 'Prochaine révision',
-                      value: revision == null
-                          ? 'Aucune prévue'
-                          : '${revision.title} · ${formatReminderDue(revision, vehicle.currentMileage)}',
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _MetaColumn(
-                      label: 'Prochaine échéance',
-                      value: echeance == null
-                          ? 'Aucune prévue'
-                          : '${echeance.title} · ${formatReminderDue(echeance, vehicle.currentMileage)}',
-                    ),
-                  ),
-                ],
+              // Deliberately neutral: no reminder title here (never
+              // "Vidange + filtres à prévoir") - this card is the summary,
+              // the nature of the operation belongs to the entretien tab.
+              // "Prochaine échéance" (document-based) was removed entirely
+              // rather than duplicated with "À faire prochainement" below.
+              _MetaColumn(
+                label: 'Prochaine révision',
+                value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
               ),
             ],
           ),
@@ -177,6 +177,24 @@ String formatReminderDue(Reminder r, double currentMileage) {
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
   return '—';
+}
+
+/// "12/11/2026 · 98 700 km" (or just one of the two) - the absolute,
+/// neutral form used by the dashboard's vehicle summary card: unlike
+/// [formatReminderDue], never a relative "dans X km/jours" phrasing, and
+/// never the reminder's own title, since this slot's whole point is to stay
+/// a plain fact rather than duplicate the entretien tab's own detail.
+String formatReminderAbsoluteDue(Reminder r) {
+  final parts = <String>[];
+  if (r.dueDate != null) {
+    final d = r.dueDate!;
+    parts.add(
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}');
+  }
+  if (r.dueMileage != null) {
+    parts.add('${formatAmount(r.dueMileage!)} km');
+  }
+  return parts.isEmpty ? '—' : parts.join(' · ');
 }
 
 class _HealthRing extends StatelessWidget {

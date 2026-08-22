@@ -47,8 +47,6 @@ class Vehicles extends Table {
   TextColumn get transmission => text().nullable()();
   TextColumn get color => text().nullable()();
   TextColumn get photoPath => text().nullable()();
-  DateTimeColumn get acquisitionDate => dateTime().nullable()();
-  RealColumn get purchasePrice => real().nullable()();
   TextColumn get condition => textEnum<VehicleCondition>().nullable()();
   TextColumn get comments => text().nullable()();
   RealColumn get currentMileage => real()();

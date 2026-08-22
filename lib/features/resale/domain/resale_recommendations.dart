@@ -33,12 +33,6 @@ List<String> buildResaleRecommendations({
   if (vehicle.condition == null) {
     recs.add('Indiquez l\'état général du véhicule pour affiner l\'estimation.');
   }
-  if (vehicle.purchasePrice == null) {
-    recs.add(
-      'Renseignez le prix d\'achat si vous le connaissez : c\'est la donnée '
-      'la plus fiable pour calculer une estimation.',
-    );
-  }
 
   return recs;
 }

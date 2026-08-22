@@ -145,4 +145,54 @@ void main() {
     expect(find.text('Vidange'), findsOneWidget);
     expect(find.text('Tout est à jour'), findsNothing);
   });
+
+  testWidgets(
+      'the vehicle summary card never shows "Prochaine échéance" - only '
+      '"Prochaine révision", with no reminder title duplicated in it',
+      (tester) async {
+    final reminders = ReminderRepository(db);
+    final repo = VehicleRepository(db, AuditRepository(db), reminders);
+    final vehicleId =
+        await repo.createVehicle(brand: 'Audi', model: 'Q5', currentMileage: 86750);
+    await reminders.upsertForSource(
+      vehicleId: vehicleId,
+      sourceType: 'maintenance',
+      sourceId: 'm1',
+      title: 'Vidange + filtres à prévoir',
+      dueMileage: 95400,
+    );
+    await reminders.upsertForSource(
+      vehicleId: vehicleId,
+      sourceType: 'document',
+      sourceId: 'd1',
+      title: 'Assurance à renouveler',
+      dueDate: DateTime.now().add(const Duration(days: 260)),
+    );
+
+    await pumpDashboard(tester);
+    await tester.pump();
+
+    expect(find.textContaining('Prochaine échéance'), findsNothing);
+    expect(find.textContaining('PROCHAINE ÉCHÉANCE'), findsNothing);
+    expect(find.textContaining('PROCHAINE RÉVISION'), findsOneWidget);
+    // The reminder's own title never leaks into this summary slot.
+    expect(find.textContaining('Vidange + filtres'), findsNothing);
+    expect(find.textContaining('95 400'), findsOneWidget);
+  });
+
+  testWidgets('the dashboard renders without a horizontal overflow on a narrow (320px) screen',
+      (tester) async {
+    final repo = VehicleRepository(db, AuditRepository(db), ReminderRepository(db));
+    await repo.createVehicle(brand: 'Audi', model: 'Q5', currentMileage: 86750);
+
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpDashboard(tester);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
 }

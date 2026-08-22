@@ -28,12 +28,10 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   late final TextEditingController _plate;
   late final TextEditingController _motorization;
   late final TextEditingController _color;
-  late final TextEditingController _purchasePrice;
   late final TextEditingController _comments;
   String _brandValue = '';
   String? _fuelType;
   String? _transmission;
-  DateTime? _acquisitionDate;
   DateTime? _firstRegistrationDate;
   VehicleCondition? _condition;
   bool _saving = false;
@@ -48,14 +46,11 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _plate = TextEditingController(text: v.plate ?? '');
     _motorization = TextEditingController(text: v.motorization ?? '');
     _color = TextEditingController(text: v.color ?? '');
-    _purchasePrice =
-        TextEditingController(text: v.purchasePrice?.toStringAsFixed(0) ?? '');
     _comments = TextEditingController(text: v.comments ?? '');
     _brandValue = v.brand;
     _fuelType = fuelTypes.contains(v.fuelType) ? v.fuelType : null;
     _transmission =
         transmissionTypes.contains(v.transmission) ? v.transmission : null;
-    _acquisitionDate = v.acquisitionDate;
     _firstRegistrationDate = v.firstRegistrationDate;
     _condition = v.condition;
   }
@@ -68,19 +63,8 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _plate.dispose();
     _motorization.dispose();
     _color.dispose();
-    _purchasePrice.dispose();
     _comments.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickAcquisitionDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _acquisitionDate ?? DateTime.now(),
-      firstDate: DateTime(1990),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _acquisitionDate = picked);
   }
 
   Future<void> _pickFirstRegistrationDate() async {
@@ -110,8 +94,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         fuelType: Value(_fuelType),
         transmission: Value(_transmission),
         color: Value(_color.text.trim().isEmpty ? null : _color.text.trim()),
-        acquisitionDate: Value(_acquisitionDate),
-        purchasePrice: Value(double.tryParse(_purchasePrice.text.trim())),
         firstRegistrationDate: Value(_firstRegistrationDate),
         firstRegistrationDatePrecision: const Value(null),
         condition: Value(_condition),
@@ -235,28 +217,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
                 DropdownMenuItem(value: c, child: Text(_conditionLabel(c))),
             ],
             onChanged: (v) => setState(() => _condition = v),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('Acquisition'),
-          const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(
-            onPressed: _pickAcquisitionDate,
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
-            ),
-            child: Text(
-              _acquisitionDate == null
-                  ? 'Date d\'acquisition'
-                  : 'Acquis le ${_fmt(_acquisitionDate!)}',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          TextField(
-            controller: _purchasePrice,
-            decoration: const InputDecoration(labelText: 'Prix d\'achat'),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Notes'),

@@ -355,10 +355,11 @@ class _VehicleCarousel extends StatelessWidget {
   }
 }
 
-/// Up to 3 nearest active reminders across every vehicle, most urgent
-/// first - or a positive "tout est à jour" state when there are none
-/// (spec: the section disappears/turns positive, it never just shows an
-/// empty list).
+/// Up to 3 reminders across every vehicle that are actually close (overdue,
+/// due within 60 days, or within 1 500 km - see [isReminderDueSoon]),
+/// nearest first - or a positive "tout est à jour" state when there are
+/// none (spec: the section disappears/turns positive, it never just shows
+/// an empty list, and never a distant reminder just to fill up to 3).
 class _TodoSection extends ConsumerWidget {
   const _TodoSection({required this.vehicles});
   final List<Vehicle> vehicles;
@@ -374,13 +375,11 @@ class _TodoSection extends ConsumerWidget {
         final mileageById = {for (final v in vehicles) v.id: v.currentMileage};
         final vehicleById = {for (final v in vehicles) v.id: v};
 
-        int rank(Reminder r) => switch (
-            reminderUrgency(r, currentMileage: mileageById[r.vehicleId])) {
-          ReminderUrgency.urgent => 0,
-          ReminderUrgency.upcoming => 1,
-          ReminderUrgency.later => 2,
-          ReminderUrgency.done => 3,
-        };
+        // A single ascending scalar (days or km remaining, whichever is
+        // known) is enough on its own: negative values (overdue) sort
+        // first automatically, then the soonest/closest next - exactly the
+        // "1. dépassé, 2. le plus proche, 3. km restant le plus faible"
+        // order the spec asks for, without a separate urgency-rank key.
         double proximity(Reminder r) {
           final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
           final mileage = mileageById[r.vehicleId];
@@ -390,11 +389,10 @@ class _TodoSection extends ConsumerWidget {
           return byDays ?? byKm ?? double.infinity;
         }
 
-        final top = [...all]
-          ..sort((a, b) {
-            final rc = rank(a).compareTo(rank(b));
-            return rc != 0 ? rc : proximity(a).compareTo(proximity(b));
-          });
+        final top = all
+            .where((r) => isReminderDueSoon(r, currentMileage: mileageById[r.vehicleId]))
+            .toList()
+          ..sort((a, b) => proximity(a).compareTo(proximity(b)));
 
         if (top.isEmpty) return const _AllGoodCard();
 
@@ -605,9 +603,9 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-/// A compact, horizontally-scrolling read on the carnet as a whole - never
-/// an analytics dashboard, just the handful of numbers an owner actually
-/// wants at a glance.
+/// A compact 2-column grid read on the carnet as a whole - never an
+/// analytics dashboard, just the handful of numbers an owner actually
+/// wants at a glance, all visible at once without any horizontal swipe.
 class _InsightsStrip extends ConsumerWidget {
   const _InsightsStrip({required this.vehicle});
   final Vehicle vehicle;
@@ -623,35 +621,49 @@ class _InsightsStrip extends ConsumerWidget {
     final lastMaintenance = (maintenance == null || maintenance.isEmpty) ? null : maintenance.first;
     final monthlyPace = mileageHistory == null ? null : estimateMonthlyPaceKm(mileageHistory);
 
-    return SizedBox(
-      height: 84,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Column(
         children: [
-          _StatCard(
-            label: 'Santé',
-            value: health == null ? '—' : '${health.score}',
-            sub: '/ 100',
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  label: 'Santé',
+                  value: health == null ? '—' : '${health.score}',
+                  sub: '/ 100',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _StatCard(
+                  label: 'Dépenses ${DateTime.now().year}',
+                  value: expenseStats.maybeWhen(
+                      data: (s) => formatAmount(s.thisYear), orElse: () => '—'),
+                  sub: currency,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          _StatCard(
-            label: 'Dépenses ${DateTime.now().year}',
-            value: expenseStats.maybeWhen(
-                data: (s) => formatAmount(s.thisYear), orElse: () => '—'),
-            sub: currency,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _StatCard(
-            label: 'Dernier entretien',
-            value: lastMaintenance == null ? 'Aucun' : _monthsAgo(lastMaintenance.date),
-            sub: lastMaintenance?.category ?? '',
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _StatCard(
-            label: 'Km / an estimé',
-            value: monthlyPace == null ? '—' : formatAmount(monthlyPace * 12),
-            sub: 'km',
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  label: 'Dernier entretien',
+                  value: lastMaintenance == null ? 'Aucun' : _monthsAgo(lastMaintenance.date),
+                  sub: lastMaintenance?.category ?? '',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _StatCard(
+                  label: 'Km / an estimé',
+                  value: monthlyPace == null ? '—' : formatAmount(monthlyPace * 12),
+                  sub: 'km',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -676,7 +688,6 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: 128,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
@@ -690,13 +701,19 @@ class _StatCard extends StatelessWidget {
           Text(label.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              softWrap: false,
               style: TextStyle(fontSize: 9.5, letterSpacing: 0.3, color: scheme.onSurfaceVariant)),
           const SizedBox(height: 4),
-          Text(value, style: AppTypography.mono(context, fontSize: 17, fontWeight: FontWeight.w600)),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: AppTypography.mono(context, fontSize: 17, fontWeight: FontWeight.w600)),
           if (sub.isNotEmpty)
             Text(sub,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
         ],
       ),

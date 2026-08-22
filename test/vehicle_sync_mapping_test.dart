@@ -32,8 +32,6 @@ void main() {
               fuelType: const Value('Essence'),
               transmission: const Value('Manuelle'),
               color: const Value('Bleu'),
-              acquisitionDate: Value(DateTime.utc(2020, 1, 10)),
-              purchasePrice: const Value(15000),
               condition: const Value(VehicleCondition.good),
               comments: const Value('RAS'),
               status: const Value(VehicleStatus.active),

@@ -18,8 +18,6 @@ void main() {
     String? fuelType,
     String? transmission,
     VehicleCondition? condition,
-    double? purchasePrice,
-    DateTime? acquisitionDate,
     int maintenanceEntryCount = 0,
   }) {
     return ValuationInput(
@@ -31,8 +29,6 @@ void main() {
       fuelType: fuelType,
       transmission: transmission,
       condition: condition,
-      purchasePrice: purchasePrice,
-      acquisitionDate: acquisitionDate,
       maintenanceEntryCount: maintenanceEntryCount,
     );
   }
@@ -109,15 +105,11 @@ void main() {
     expect(after.fairPrice, greaterThan(before.fairPrice));
   });
 
-  test('a real purchase price and acquisition date are prioritized over '
-      'the internal brand-tier fallback', () {
-    final fallbackOnly = engine.compute(baseInput());
-    final withPurchase = engine.compute(baseInput(
-      purchasePrice: 150000,
-      acquisitionDate: DateTime.now().subtract(const Duration(days: 200)),
-    ));
-    expect(withPurchase.breakdown.first.label, contains('prix d\'achat'));
-    expect(fallbackOnly.breakdown.first.label, contains('AutoCarnet'));
+  test('always starts from AutoCarnet\'s own reference price - there is no '
+      'real purchase price input (Acquisition was removed from the vehicle '
+      'sheet)', () {
+    final result = engine.compute(baseInput());
+    expect(result.breakdown.first.label, contains('AutoCarnet'));
   });
 
   test('the three tiers are always derived from the same central value', () {
