@@ -165,9 +165,16 @@ begin
   on conflict (vehicle_id, user_id)
   do update set role = excluded.role, last_activity_at = now();
 
-  update public.vehicle_members
+  -- Explicitly qualified (m.vehicle_id, m.user_id): this function returns
+  -- table (vehicle_id uuid, ...), so PL/pgSQL implicitly declares an OUT
+  -- variable named vehicle_id - a bare `vehicle_id` here would be
+  -- ambiguous with vehicle_members.vehicle_id (Postgres 42702). See
+  -- 0007_fix_ambiguous_vehicle_id.sql for the full incident writeup; this
+  -- copy is fixed too so re-running 0006 after 0007 (or a fresh deploy
+  -- applying every migration in order) can never silently reintroduce it.
+  update public.vehicle_members m
     set last_activity_at = now()
-    where vehicle_id = v_row.vehicle_id and user_id = auth.uid();
+    where m.vehicle_id = v_row.vehicle_id and m.user_id = auth.uid();
 
   return query
     select v.id, v.brand, v.model, v.plate, v_row.role
