@@ -15,8 +15,8 @@ Future<void> showHealthFactorsSheet(BuildContext context, VehicleHealthScore hea
     builder: (sheetContext) {
       final scheme = Theme.of(sheetContext).colorScheme;
       final color = switch (level) {
-        VehicleHealthLevel.good => Colors.green,
-        VehicleHealthLevel.attention => Colors.orange,
+        VehicleHealthLevel.good => scheme.tertiary,
+        VehicleHealthLevel.attention => scheme.secondary,
         VehicleHealthLevel.critical => scheme.error,
       };
       return Padding(
@@ -67,8 +67,8 @@ Future<void> showHealthFactorsSheet(BuildContext context, VehicleHealthScore hea
                       },
                       size: 18,
                       color: switch (factor.impact) {
-                        HealthImpact.positive => Colors.green,
-                        HealthImpact.negative => Colors.orange,
+                        HealthImpact.positive => scheme.tertiary,
+                        HealthImpact.negative => scheme.secondary,
                         HealthImpact.neutral => scheme.onSurfaceVariant,
                       },
                     ),

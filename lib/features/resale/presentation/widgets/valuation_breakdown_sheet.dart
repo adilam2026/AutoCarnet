@@ -15,6 +15,7 @@ Future<void> showValuationBreakdownSheet(BuildContext context, ValuationResult r
     useSafeArea: true,
     isScrollControlled: true,
     builder: (sheetContext) {
+      final scheme = Theme.of(sheetContext).colorScheme;
       return Padding(
         padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md,
             sheetSystemBottomInset(sheetContext) + AppSpacing.md),
@@ -39,10 +40,10 @@ Future<void> showValuationBreakdownSheet(BuildContext context, ValuationResult r
                       if (line.delta != null)
                         Text(
                           '${line.delta! >= 0 ? '+' : ''}${formatAmount(line.delta!)}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: line.delta! >= 0 ? Colors.green : Colors.red,
-                          ),
+                          style: AppTypography.mono(sheetContext,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: line.delta! >= 0 ? scheme.tertiary : scheme.error),
                         ),
                     ],
                   ),
@@ -58,10 +59,7 @@ Future<void> showValuationBreakdownSheet(BuildContext context, ValuationResult r
                           ?.copyWith(fontWeight: FontWeight.w700)),
                   Text(
                     formatAmount(result.fairPrice),
-                    style: Theme.of(sheetContext)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTypography.mono(sheetContext, fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
