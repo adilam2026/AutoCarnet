@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database.dart';
 import '../database/providers.dart';
 import '../utils/connectivity.dart';
+import 'conflict_repository.dart';
+import 'occ_sync.dart';
 import 'vehicle_sync_mapping.dart';
 
 /// Keeps the local `vehicles` table and the cloud `vehicles` table in sync
@@ -14,10 +16,17 @@ import 'vehicle_sync_mapping.dart';
 /// service only ever pushes/pulls opportunistically on top of that, and a
 /// failed pass is silently retried on the next trigger rather than
 /// surfacing as an error.
+///
+/// Conflicts are never resolved by whoever pushes last (see occ_sync.dart):
+/// a version mismatch is recorded via [ConflictRepository] and the local
+/// edit is left exactly as typed, `syncStatus` staying `pendingSync` so it
+/// is retried automatically once the owner resolves it (ConflictResolution
+/// screen) rather than needing a fresh edit.
 class VehicleSyncService {
-  VehicleSyncService(this._db, this._client);
+  VehicleSyncService(this._db, this._client, this._conflicts);
   final AppDatabase _db;
   final SupabaseClient _client;
+  final ConflictRepository _conflicts;
 
   bool _syncing = false;
 
@@ -37,13 +46,53 @@ class VehicleSyncService {
   }
 
   Future<void> _push() async {
+    final myUserId = _client.auth.currentUser!.id;
     final pending = await (_db.select(_db.vehicles)
           ..where((v) => v.syncStatus.equals('pendingSync')))
         .get();
+    if (pending.isEmpty) return;
+
+    final result = await pushWithOcc(
+      client: _client,
+      table: 'vehicles',
+      rows: [
+        for (final v in pending)
+          PendingOccRow(
+            id: v.id,
+            expectedVersion: v.version,
+            remoteRow: {
+              ...vehicleToRemoteRow(v),
+              'updated_by': myUserId,
+              if (v.version == 0) 'created_by': myUserId,
+            },
+          ),
+      ],
+    );
+
     for (final v in pending) {
-      await _client.from('vehicles').upsert(vehicleToRemoteRow(v));
-      await (_db.update(_db.vehicles)..where((t) => t.id.equals(v.id)))
-          .write(const VehiclesCompanion(syncStatus: Value('synced')));
+      final newVersion = result.newVersionByPushedId[v.id];
+      if (newVersion != null) {
+        await (_db.update(_db.vehicles)..where((t) => t.id.equals(v.id))).write(
+          VehiclesCompanion(
+            syncStatus: const Value('synced'),
+            version: Value(newVersion),
+            updatedBy: Value(myUserId),
+            createdBy: v.createdBy == null ? Value(myUserId) : const Value.absent(),
+          ),
+        );
+      } else if (result.conflictedIds.contains(v.id)) {
+        final remoteRows =
+            await _client.from('vehicles').select().eq('id', v.id).limit(1);
+        if (remoteRows.isEmpty) continue;
+        await _conflicts.record(
+          table: 'vehicles',
+          recordId: v.id,
+          vehicleId: v.id,
+          localSnapshot: vehicleToRemoteRow(v),
+          remoteSnapshot: remoteRows.first,
+          remoteUpdatedBy: remoteRows.first['updated_by'] as String?,
+        );
+      }
     }
   }
 
@@ -60,28 +109,38 @@ class VehicleSyncService {
       for (final m in membershipRows) m['vehicle_id'] as String: m['role'] as String,
     };
 
-    for (final row in rows) {
+    final conflictedIds = await _conflicts.unresolvedIdsFor('vehicles');
+    final localVersionById = {
+      for (final v in await _db.select(_db.vehicles).get()) v.id: v.version,
+    };
+    final newer = newerRemoteRows(
+      remoteRows: rows,
+      localVersionById: localVersionById,
+      skipIds: conflictedIds,
+    );
+
+    for (final row in newer) {
       final id = row['id'] as String;
       final ownerId = row['user_id'] as String?;
       final myRole = (ownerId != null && ownerId != myUserId) ? myRoleByVehicleId[id] : null;
-      final local =
-          await (_db.select(_db.vehicles)..where((v) => v.id.equals(id))).getSingleOrNull();
-      final remoteUpdatedAt = DateTime.parse(row['updated_at'] as String);
-      // Last-write-wins on updatedAt - a row edited locally (including one
-      // just pushed above, or one changed offline before this pull ran)
-      // must never be clobbered by a same-age-or-older remote copy.
-      if (local != null && !remoteUpdatedAt.isAfter(local.updatedAt.toUtc())) {
-        // A permission change alone doesn't bump updated_at, so it needs
-        // its own check even when the rest of the row is left untouched.
-        if (myRole != local.myRole) {
-          await (_db.update(_db.vehicles)..where((v) => v.id.equals(id)))
-              .write(VehiclesCompanion(myRole: Value(myRole)));
-        }
-        continue;
-      }
       var companion = vehicleFromRemoteRow(row);
       if (myRole != null) companion = companion.copyWith(myRole: Value(myRole));
       await _db.into(_db.vehicles).insertOnConflictUpdate(companion);
+    }
+
+    // A permission change alone doesn't bump `version`, so it needs its
+    // own check even for a vehicle whose row itself didn't just change.
+    for (final row in rows) {
+      final id = row['id'] as String;
+      final ownerId = row['user_id'] as String?;
+      if (ownerId == null || ownerId == myUserId) continue;
+      final myRole = myRoleByVehicleId[id];
+      final local =
+          await (_db.select(_db.vehicles)..where((v) => v.id.equals(id))).getSingleOrNull();
+      if (local != null && myRole != local.myRole) {
+        await (_db.update(_db.vehicles)..where((v) => v.id.equals(id)))
+            .write(VehiclesCompanion(myRole: Value(myRole)));
+      }
     }
 
     // Revocation: a vehicle shared with me whose membership row has
@@ -101,5 +160,9 @@ class VehicleSyncService {
 }
 
 final vehicleSyncServiceProvider = Provider<VehicleSyncService>((ref) {
-  return VehicleSyncService(ref.watch(appDatabaseProvider), Supabase.instance.client);
+  return VehicleSyncService(
+    ref.watch(appDatabaseProvider),
+    Supabase.instance.client,
+    ref.watch(conflictRepositoryProvider),
+  );
 });

@@ -9,10 +9,14 @@ import '../database/database.dart';
 /// meaningless on another device (real photo sync needs Supabase Storage,
 /// not built yet - see supabase/README.md).
 /// `user_id` (the owner) is deliberately never sent: it defaults to
-/// auth.uid() on a real insert, and on an upsert-as-update PostgREST leaves
-/// omitted columns untouched - so a collaborator's push can never
-/// accidentally reassign ownership, and the owner's own push never needs
-/// to re-assert it either.
+/// auth.uid() on a real insert, and PostgREST leaves omitted columns
+/// untouched on an update - so a collaborator's push can never accidentally
+/// reassign ownership, and the owner's own push never needs to re-assert it
+/// either. `version`/`created_by`/`updated_by` are deliberately not set
+/// here either - the sync service stamps those itself (see
+/// VehicleSyncService._push), since only it knows the signed-in account id
+/// and the row's expected version, and this function must stay usable
+/// without either.
 Map<String, dynamic> vehicleToRemoteRow(Vehicle v) {
   return {
     'id': v.id,
@@ -72,6 +76,9 @@ VehiclesCompanion vehicleFromRemoteRow(Map<String, dynamic> row) {
     // This row just came from the cloud - it's already in sync by
     // definition, never mark it pending again.
     syncStatus: const Value('synced'),
+    version: Value(row['version'] as int? ?? 0),
+    createdBy: Value(row['created_by'] as String?),
+    updatedBy: Value(row['updated_by'] as String?),
   );
 }
 
