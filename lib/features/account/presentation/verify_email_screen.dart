@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/auth_error_message.dart';
 import '../data/account_repository.dart';
 
 /// Second step of the account-first flow: enter the 6-digit code that was
@@ -79,8 +80,10 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       // interactive state in between.
       return;
     } on AuthException catch (e) {
-      if (mounted) setState(() { _error = e.message; _busy = false; });
-    } catch (_) {
+      debugPrint('VerifyEmailScreen._submit: $e');
+      if (mounted) setState(() { _error = authErrorMessage(e); _busy = false; });
+    } catch (e) {
+      debugPrint('VerifyEmailScreen._submit: $e');
       if (mounted) {
         setState(() { _error = 'Une erreur est survenue. Réessayez.'; _busy = false; });
       }
@@ -96,8 +99,10 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       await ref.read(accountRepositoryProvider).sendEmailCode(widget.email);
       _startCooldown();
     } on AuthException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } catch (_) {
+      debugPrint('VerifyEmailScreen._resend: $e');
+      if (mounted) setState(() => _error = authErrorMessage(e));
+    } catch (e) {
+      debugPrint('VerifyEmailScreen._resend: $e');
       if (mounted) setState(() => _error = 'Une erreur est survenue. Réessayez.');
     } finally {
       if (mounted) setState(() => _resending = false);

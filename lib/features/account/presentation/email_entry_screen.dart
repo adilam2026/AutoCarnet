@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/auth_error_message.dart';
 import '../data/account_repository.dart';
 
 /// First (and, per spec bloc 6, normally the *only*) screen a device with
@@ -70,8 +71,10 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
       await account.sendEmailCode(email);
       if (mounted) widget.onCodeSent(email);
     } on AuthException catch (e) {
-      if (mounted) setState(() { _error = e.message; _busy = false; });
-    } catch (_) {
+      debugPrint('EmailEntryScreen._submit: $e');
+      if (mounted) setState(() { _error = authErrorMessage(e); _busy = false; });
+    } catch (e) {
+      debugPrint('EmailEntryScreen._submit: $e');
       if (mounted) {
         setState(() { _error = 'Une erreur est survenue. Réessayez.'; _busy = false; });
       }
