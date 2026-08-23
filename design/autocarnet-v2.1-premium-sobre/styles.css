@@ -264,6 +264,7 @@ img { max-width: 100%; display: block; }
 .vehicle-card-stack { position: relative; }
 .vehicle-card {
   position: absolute; inset: 0;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border-hero-subtle);
   border-radius: var(--r-lg);
@@ -274,11 +275,8 @@ img { max-width: 100%; display: block; }
 }
 .vehicle-card::before {
   content: '';
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  height: 3px;
+  position: absolute; left: 0; right: 0; top: 0; height: 3px;
   background: var(--brand);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 .vehicle-card.is-dragging { transition: none; }
 .vehicle-card.is-current { position: relative; transform: translateX(0); opacity: 1; z-index: 3; }
