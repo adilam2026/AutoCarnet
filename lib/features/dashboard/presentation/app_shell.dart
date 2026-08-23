@@ -316,50 +316,50 @@ class _AppDrawer extends ConsumerWidget {
                 ],
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.directions_car_outlined),
-              title: const Text('Mes véhicules'),
+            _DrawerItem(
+              icon: Icons.directions_car_outlined,
+              label: 'Mes véhicules',
               onTap: () {
                 Navigator.of(context).pop();
                 onSelectTab(0);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.notifications_outlined),
-              title: const Text('Alertes'),
+            _DrawerItem(
+              icon: Icons.notifications_outlined,
+              label: 'Alertes',
               onTap: () {
                 Navigator.of(context).pop();
                 onSelectTab(1);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.sell_outlined),
-              title: const Text('Revendre'),
+            _DrawerItem(
+              icon: Icons.sell_outlined,
+              label: 'Revendre',
               onTap: () {
                 Navigator.of(context).pop();
                 onSelectTab(2);
               },
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.storefront_outlined),
-              title: const Text('Prestataires'),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            _DrawerItem(
+              icon: Icons.storefront_outlined,
+              label: 'Prestataires',
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/providers');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.manage_accounts_outlined),
-              title: const Text('Compte & sécurité'),
+            _DrawerItem(
+              icon: Icons.manage_accounts_outlined,
+              label: 'Compte & sécurité',
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/settings');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.fact_check_outlined),
-              title: const Text('Journal d\'audit'),
+            _DrawerItem(
+              icon: Icons.fact_check_outlined,
+              label: 'Journal d\'audit',
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/audit-log');
@@ -370,12 +370,11 @@ class _AppDrawer extends ConsumerWidget {
                 final conflictCount =
                     ref.watch(unresolvedConflictsProvider).value?.length ?? 0;
                 if (conflictCount == 0) return const SizedBox.shrink();
-                return ListTile(
-                  leading: Icon(
-                    Icons.sync_problem_outlined,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  title: const Text('Conflits de synchronisation'),
+                final errorColor = Theme.of(context).colorScheme.error;
+                return _DrawerItem(
+                  icon: Icons.sync_problem_outlined,
+                  label: 'Conflits de synchronisation',
+                  color: errorColor,
                   trailing: Badge(label: Text('$conflictCount')),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -388,17 +387,64 @@ class _AppDrawer extends ConsumerWidget {
                 );
               },
             ),
-            Divider(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-            ListTile(
-              leading: Icon(Icons.lock_outline, color: scheme.error),
-              title: Text('Verrouiller AutoCarnet',
-                  style: TextStyle(color: scheme.error, fontWeight: FontWeight.w600)),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            _DrawerItem(
+              icon: Icons.lock_outline,
+              label: 'Verrouiller AutoCarnet',
+              color: scheme.error,
+              fontWeight: FontWeight.w600,
               onTap: () {
                 Navigator.of(context).pop();
                 _onLockApp(context, ref);
               },
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact drawer navigation row matching the V2.1 mockup's `.drawer__item`
+/// spec (10px/8px padding, 19px icon, 14px/500 label) - deliberately not a
+/// stock [ListTile], whose default intrinsic height is noticeably taller.
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+    this.fontWeight = FontWeight.w500,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+  final FontWeight fontWeight;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = color ?? scheme.onSurface;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: fg),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 14, fontWeight: fontWeight, color: fg),
+              ),
+            ),
+            ?trailing,
           ],
         ),
       ),
