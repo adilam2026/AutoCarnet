@@ -36,11 +36,38 @@ class VehiclesListBody extends ConsumerStatefulWidget {
 
 class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
   int _selectedIndex = 0;
-  late final PageController _pageController = PageController(viewportFraction: 0.9);
+  PageController? _pageController;
+  int _pageControllerVehicleCount = 0;
+
+  /// Half-width of the virtual paging window either side of the real
+  /// index-0 vehicle (bloc 12-14: the carousel must loop circularly in
+  /// both directions with no dead end and no visible jump). A fixed,
+  /// generous virtual index range - not a literal infinite data structure
+  /// - is the standard, invisible-to-the-user way to get that: at 100 000
+  /// pages either side, even a garage of 2 vehicles allows 50 000 full
+  /// loops per direction in a single session, far past anything a real
+  /// swipe test could reach.
+  static const int _virtualHalfWindow = 100000;
+
+  /// Lazily (re)built only when the vehicle count actually changes (a
+  /// vehicle added/removed) - recreating it on every rebuild would reset
+  /// the user's current swipe position for no reason.
+  PageController _carouselController(int vehicleCount) {
+    if (_pageController == null || _pageControllerVehicleCount != vehicleCount) {
+      _pageController?.dispose();
+      final aligned = _virtualHalfWindow - (_virtualHalfWindow % vehicleCount);
+      _pageController = PageController(
+        viewportFraction: 0.9,
+        initialPage: aligned + _selectedIndex,
+      );
+      _pageControllerVehicleCount = vehicleCount;
+    }
+    return _pageController!;
+  }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageController?.dispose();
     super.dispose();
   }
 
@@ -58,7 +85,7 @@ class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
         return _Dashboard(
           vehicles: vehicles,
           selectedIndex: index,
-          pageController: _pageController,
+          pageController: _carouselController(vehicles.length),
           onVehicleChanged: (i) => setState(() => _selectedIndex = i),
         );
       },
@@ -319,28 +346,37 @@ class _VehicleCarousel extends StatelessWidget {
   final PageController controller;
   final ValueChanged<int> onChanged;
 
+  /// A large-but-finite virtual page count (see
+  /// _VehiclesListBodyState._virtualHalfWindow for why this is invisible
+  /// to the user) - real vehicles are addressed as `virtualIndex %
+  /// vehicles.length`, never by the virtual index itself.
+  static const int _virtualPageCount = 200000;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        // Sized to the V2.1 compact card's actual content height (icon row
-        // + facts line + padding), not the old two-row card's - a leftover
-        // fixed height here was stretching the new compact card with a
-        // large empty gap underneath it.
+        // Sized to Variant A's actual content height (identity band +
+        // facts line + "voir la fiche" row, each with their own padding) -
+        // a mismatch here either clips the card or leaves an empty gap
+        // under it.
         SizedBox(
-          height: 98,
+          height: 130,
           child: PageView.builder(
             controller: controller,
-            itemCount: vehicles.length,
-            onPageChanged: onChanged,
-            itemBuilder: (context, i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-              child: _VehicleCardWithReminders(
-                vehicle: vehicles[i],
-                onTap: () => context.push('/vehicles/${vehicles[i].id}'),
-              ),
-            ),
+            itemCount: _virtualPageCount,
+            onPageChanged: (virtualIndex) => onChanged(virtualIndex % vehicles.length),
+            itemBuilder: (context, virtualIndex) {
+              final vehicle = vehicles[virtualIndex % vehicles.length];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                child: _VehicleCardWithReminders(
+                  vehicle: vehicle,
+                  onTap: () => context.push('/vehicles/${vehicle.id}'),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: AppSpacing.sm),

@@ -5,19 +5,24 @@ import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_format.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
+import '../../../vehicles/domain/vehicle_card_color.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
-/// The vehicle as the home dashboard's HERO block ("Premium sobre" concept,
-/// 2026, V2 design-review pass, "accent supérieur" variant) - deliberately
-/// plain rather than colour-coded per vehicle: the earlier per-vehicle
-/// gradient palette had no functional justification and read as
-/// arbitrary/"fun" rather than premium. AutoCarnet's own brand colour
-/// (never a colour tied to a specific car) is the only accent here: a thin
-/// line on the card's top edge (never the left edge - that reads as an
-/// alert rail) plus a hair more elevation than ordinary cards, so this one
-/// card reads as "my vehicle", not just another row of information. Shows
-/// only what's already computed elsewhere (health score, reminders):
-/// nothing here invents new business logic.
+/// The vehicle as the home dashboard's real "carte identité du véhicule"
+/// (design-review pass, 2026, Variante A retenue) - the accueil's principal
+/// component, not just another card among the others. Hierarchy comes from
+/// colour, composition and depth rather than sheer size: a top band in the
+/// vehicle's own identity colour ([VehicleCardColor], auto-assigned at
+/// creation, personalisable from the fiche) carries the identity (icon,
+/// name, year, mileage); the lower zone stays on the app's ordinary white
+/// surface so the health/révision numbers read exactly like the rest of
+/// the accueil, with no contrast logic to special-case per colour - every
+/// palette entry is deliberately dark enough for white text to always
+/// work. A final low-key row ("Voir la fiche du véhicule") makes explicit
+/// what the whole card already does on tap (bloc 20 bis): it is never a
+/// second, competing tap target, only a visible affordance. Shows only
+/// what's already computed elsewhere (health score, reminders): nothing
+/// here invents new business logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
     super.key,
@@ -56,6 +61,10 @@ class VehicleHeroCard extends ConsumerWidget {
     final revision = _nearestMaintenance();
     final isOk = worst == ReminderUrgency.later || worst == ReminderUrgency.done;
     final statusColor = isOk ? scheme.secondary : scheme.tertiary;
+    final cardColor = VehicleCardColor.fromKey(vehicle.cardColorKey).color;
+    // A near-invisible tint of the vehicle's own colour, not a new one -
+    // just enough to separate the CTA row from the facts above it.
+    final ctaTint = Color.alphaBlend(cardColor.withValues(alpha: 0.05), scheme.surfaceContainerLowest);
 
     return Container(
       decoration: BoxDecoration(
@@ -74,72 +83,102 @@ class VehicleHeroCard extends ConsumerWidget {
               border: Border.all(color: AppElevation.heroBorder(scheme)),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(height: 3, color: scheme.primary),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(13, 12, 13, 11),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Level 1 - identity: the vehicle's own colour, clipped to
+                // the card's own rounded corners by the Material above (no
+                // bar ever "sits on top" of the card - it belongs to it).
+                Container(
+                  color: cardColor,
+                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: scheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: const Icon(Icons.directions_car_filled, size: 16, color: Colors.white),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${vehicle.brand} ${vehicle.model}',
+                              style: const TextStyle(
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
+                                  color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            child: Icon(Icons.directions_car_filled, size: 17, color: scheme.primary),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 1),
+                            Row(
                               children: [
-                                Text(
-                                  '${vehicle.brand} ${vehicle.model}',
-                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 1),
-                                Row(
-                                  children: [
-                                    if (vehicle.year != null) ...[
-                                      Text('${vehicle.year}',
-                                          style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
-                                      Text(' · ',
-                                          style: TextStyle(fontSize: 12.5, color: scheme.outline)),
-                                    ],
-                                    Flexible(
-                                      child: Text(
-                                        '${formatAmount(vehicle.currentMileage)} km',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.mono(context, fontSize: 13.5, fontWeight: FontWeight.w800),
-                                      ),
-                                    ),
-                                  ],
+                                if (vehicle.year != null) ...[
+                                  Text('${vehicle.year}',
+                                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.78))),
+                                  Text(' · ',
+                                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    '${formatAmount(vehicle.currentMileage)} km',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.mono(context,
+                                        fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          Icon(Icons.chevron_right, size: 14, color: scheme.onSurfaceVariant),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 7),
-                      _FactsRow(
-                        dotColor: statusColor,
-                        healthText: health == null
-                            ? '—'
-                            : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
-                        healthOk: isOk,
-                        revisionText:
-                            revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                      Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.85)),
+                    ],
+                  ),
+                ),
+                // Level 2 - état du véhicule: back on the ordinary white
+                // surface, so these numbers read exactly like the rest of
+                // the accueil.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
+                  child: _FactsRow(
+                    dotColor: statusColor,
+                    healthText: health == null
+                        ? '—'
+                        : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+                    healthOk: isOk,
+                    revisionText:
+                        revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                  ),
+                ),
+                Divider(height: 1, thickness: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
+                // Level 3 - action: an explicit affordance that the whole
+                // card opens the fiche véhicule (bloc 20 bis) - not a new
+                // tap target, it shares the InkWell above.
+                Container(
+                  color: ctaTint,
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Voir la fiche du véhicule',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cardColor),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      Icon(Icons.chevron_right, size: 14, color: cardColor),
                     ],
                   ),
                 ),

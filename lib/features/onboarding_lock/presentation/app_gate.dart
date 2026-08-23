@@ -87,6 +87,19 @@ class _AppGateState extends ConsumerState<AppGate> {
   /// discovered - never on every rebuild, and never raced against another
   /// listener deciding something else.
   Future<void> _evaluate() async {
+    // Transparent, idempotent migration for vehicles that predate
+    // per-vehicle dashboard card colours (schema v8) - fire-and-forget so a
+    // slow database can never delay the gate itself; see
+    // VehicleRepository.backfillMissingCardColors. Guarded with a plain
+    // try/catch (not just unawaited) because reading the provider itself
+    // can throw synchronously - vehicleRepositoryProvider also wires
+    // vehicleSyncServiceProvider, which reaches for Supabase.instance.client
+    // eagerly; a widget test that renders AppGate without a Supabase
+    // session (or without overriding the provider) must never have the
+    // gate itself get stuck on this best-effort migration.
+    try {
+      unawaited(ref.read(vehicleRepositoryProvider).backfillMissingCardColors());
+    } catch (_) {}
     final account = ref.read(accountRepositoryProvider);
     final deviceUserId = await account.deviceAuthorizedUserId();
     var authorized = deviceUserId != null &&

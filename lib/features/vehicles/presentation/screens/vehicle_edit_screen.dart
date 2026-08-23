@@ -8,6 +8,7 @@ import '../../../../core/utils/feedback.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../fuel/domain/fuel_types.dart';
 import '../../data/vehicle_repository.dart';
+import '../../domain/vehicle_card_color.dart';
 import '../../domain/vehicle_reference_data.dart';
 import '../widgets/brand_model_fields.dart';
 
@@ -34,6 +35,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   String? _transmission;
   DateTime? _firstRegistrationDate;
   VehicleCondition? _condition;
+  late VehicleCardColor _cardColor;
   bool _saving = false;
 
   @override
@@ -53,6 +55,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         transmissionTypes.contains(v.transmission) ? v.transmission : null;
     _firstRegistrationDate = v.firstRegistrationDate;
     _condition = v.condition;
+    _cardColor = VehicleCardColor.fromKey(v.cardColorKey);
   }
 
   @override
@@ -94,6 +97,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         fuelType: Value(_fuelType),
         transmission: Value(_transmission),
         color: Value(_color.text.trim().isEmpty ? null : _color.text.trim()),
+        cardColorKey: Value(_cardColor.storageKey),
         firstRegistrationDate: Value(_firstRegistrationDate),
         firstRegistrationDatePrecision: const Value(null),
         condition: Value(_condition),
@@ -143,6 +147,21 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
           TextField(
               controller: _trim,
               decoration: const InputDecoration(labelText: 'Version / finition')),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Couleur de la carte'),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'La couleur qui identifie ce véhicule sur l\'accueil - sans lien '
+            'avec sa couleur de carrosserie.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _CardColorPicker(
+            selected: _cardColor,
+            vehicleLabel: '${_brand.text.trim().isEmpty ? widget.vehicle.brand : _brand.text.trim()} '
+                '${_model.text.trim().isEmpty ? widget.vehicle.model : _model.text.trim()}',
+            onChanged: (c) => setState(() => _cardColor = c),
+          ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Première mise en circulation'),
           const SizedBox(height: AppSpacing.sm),
@@ -241,4 +260,117 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         VehicleCondition.average => 'Moyen',
         VehicleCondition.needsWork => 'À prévoir',
       };
+}
+
+/// A small, self-contained "couleur de la carte" picker (bloc 9/11): a live
+/// preview of the identity band in the currently-selected colour, then the
+/// AutoCarnet palette as tappable pastilles - deliberately not a full
+/// configurator, just enough to answer "à quoi ressemblera ma carte ?".
+class _CardColorPicker extends StatelessWidget {
+  const _CardColorPicker({
+    required this.selected,
+    required this.vehicleLabel,
+    required this.onChanged,
+  });
+
+  final VehicleCardColor selected;
+  final String vehicleLabel;
+  final ValueChanged<VehicleCardColor> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedContainer(
+          duration: AppMotion.fast,
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: selected.color,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.directions_car_filled, size: 14, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  vehicleLabel,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final c in VehicleCardColor.values)
+              _ColorSwatch(
+                color: c,
+                selected: c == selected,
+                onTap: () => onChanged(c),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          selected.label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _ColorSwatch extends StatelessWidget {
+  const _ColorSwatch({required this.color, required this.selected, required this.onTap});
+
+  final VehicleCardColor color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: color.label,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 34,
+          height: 34,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: selected
+                ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2)
+                : null,
+          ),
+          child: Container(
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color.color),
+            child: selected
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
 }

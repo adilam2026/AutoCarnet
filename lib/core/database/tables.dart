@@ -46,6 +46,12 @@ class Vehicles extends Table {
   TextColumn get fuelType => text().nullable()();
   TextColumn get transmission => text().nullable()();
   TextColumn get color => text().nullable()();
+  // The home dashboard's per-vehicle card-identity colour (a [VehicleCardColor]
+  // key) - deliberately a distinct column from [color] above (the vehicle's
+  // real paint colour, a free-text administrative field): the two must never
+  // be confused. Nullable so existing rows can be migrated in place; see
+  // VehicleRepository.backfillMissingCardColors.
+  TextColumn get cardColorKey => text().nullable()();
   TextColumn get photoPath => text().nullable()();
   TextColumn get condition => textEnum<VehicleCondition>().nullable()();
   TextColumn get comments => text().nullable()();

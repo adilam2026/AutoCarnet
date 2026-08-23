@@ -11,6 +11,7 @@ import '../../../core/utils/mileage_result.dart';
 import '../../account/data/account_repository.dart';
 import '../../audit/data/audit_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
+import '../domain/vehicle_card_color.dart';
 
 class VehicleRepository {
   VehicleRepository(this._db, this._audit, this._reminders, [this._sync]);
@@ -120,6 +121,7 @@ class VehicleRepository {
   }) async {
     final id = newId();
     final now = DateTime.now();
+    final cardColor = await _nextCardColor();
     await _db.into(_db.vehicles).insert(
           VehiclesCompanion.insert(
             id: id,
@@ -134,6 +136,7 @@ class VehicleRepository {
             fuelType: Value(fuelType),
             transmission: Value(transmission),
             color: Value(color),
+            cardColorKey: Value(cardColor.storageKey),
             photoPath: Value(photoPath),
             comments: Value(comments),
             createdAt: now,
@@ -160,6 +163,56 @@ class VehicleRepository {
     );
     _nudgeSync();
     return id;
+  }
+
+  /// Picks the next card colour for a vehicle being created right now:
+  /// least-used among every non-deleted vehicle already on this device, so
+  /// a growing garage stays visually distinct as long as the palette allows
+  /// it (spec: never a random draw, never re-picked later).
+  Future<VehicleCardColor> _nextCardColor() async {
+    final existing = await (_db.select(_db.vehicles)..where((v) => v.isDeleted.equals(false)))
+        .get();
+    return VehicleCardColor.nextFor(existing.map((v) => v.cardColorKey));
+  }
+
+  /// Manual personalisation from the fiche véhicule ("Couleur de la
+  /// carte") - unlike [_nextCardColor], this never tries to avoid a colour
+  /// already used by another vehicle: once the user picks one, it's
+  /// entirely their choice (spec: two vehicles may deliberately share a
+  /// colour).
+  Future<void> updateVehicleCardColor(String vehicleId, VehicleCardColor color) async {
+    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId))).write(
+      VehiclesCompanion(
+        cardColorKey: Value(color.storageKey),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ),
+    );
+    _nudgeSync();
+  }
+
+  /// One-time, idempotent migration for vehicles created before per-vehicle
+  /// card colours existed (schema v8): assigns each a colour transparently,
+  /// oldest first, using the same least-used-first logic as new vehicles -
+  /// touches only [cardColorKey], never re-creates a vehicle or changes any
+  /// other field. Safe to call on every app start (a no-op once every
+  /// vehicle already has one) - see AppGate._evaluate.
+  Future<void> backfillMissingCardColors() async {
+    final all =
+        await (_db.select(_db.vehicles)..where((v) => v.isDeleted.equals(false))).get();
+    final missing = all.where((v) => v.cardColorKey == null).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    if (missing.isEmpty) return;
+    final assignedKeys = [
+      for (final v in all)
+        if (v.cardColorKey != null) v.cardColorKey,
+    ];
+    for (final vehicle in missing) {
+      final color = VehicleCardColor.nextFor(assignedKeys);
+      assignedKeys.add(color.storageKey);
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id)))
+          .write(VehiclesCompanion(cardColorKey: Value(color.storageKey)));
+    }
   }
 
   Future<void> updateVehicle(Vehicle vehicle, {String? changeSummary}) async {

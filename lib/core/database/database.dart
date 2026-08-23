@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +110,13 @@ class AppDatabase extends _$AppDatabase {
             // again.
             await m.dropColumn(vehicles, 'acquisition_date');
             await m.dropColumn(vehicles, 'purchase_price');
+          }
+          if (from < 8) {
+            // Per-vehicle home-dashboard card colour ("carte identité du
+            // véhicule", design-review pass) - existing rows are backfilled
+            // transparently by VehicleRepository.backfillMissingCardColors,
+            // called once at app startup.
+            await m.addColumn(vehicles, vehicles.cardColorKey);
           }
         },
       );
