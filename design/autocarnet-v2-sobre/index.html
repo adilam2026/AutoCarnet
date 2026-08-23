@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="fr" data-accent="petrol-blue">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AutoCarnet — V2 Premium sobre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ DEMO CHROME (not part of the app itself) ============ -->
+<header class="demo-bar">
+  <div class="demo-bar__brand">
+    <i class="ic demo-bar__logo" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i>
+    <div>
+      <div class="demo-bar__title">AutoCarnet — V2 Premium sobre</div>
+      <div class="demo-bar__subtitle">Direction alternative · densité, sobriété, un seul accent</div>
+    </div>
+  </div>
+
+  <div class="demo-bar__controls">
+    <div class="accent-switch" role="tablist" aria-label="Couleur de marque">
+      <button class="accent-switch__btn is-active" data-accent-btn="petrol-blue" role="tab" aria-selected="true">Bleu pétrole</button>
+      <button class="accent-switch__btn" data-accent-btn="petrol-green" role="tab" aria-selected="false">Vert pétrole</button>
+    </div>
+    <div class="width-switch" role="tablist" aria-label="Largeur de test">
+      <button class="width-switch__btn" data-width="360">360px</button>
+      <button class="width-switch__btn is-active" data-width="390">390px</button>
+      <button class="width-switch__btn" data-width="430">430px</button>
+    </div>
+  </div>
+
+  <nav class="screen-tabs" aria-label="Écrans">
+    <button class="screen-tab is-active" data-screen-btn="home" data-vehicle="q5">1 · Accueil Audi Q5</button>
+    <button class="screen-tab" data-screen-btn="home" data-vehicle="astra">2 · Accueil Opel Astra</button>
+    <button class="screen-tab" data-screen-btn="fiche">3 · Fiche véhicule</button>
+    <button class="screen-tab" data-screen-btn="alertes">4 · Alertes</button>
+    <button class="screen-tab" data-screen-btn="revente">5 · Revente</button>
+    <button class="screen-tab" data-screen-btn="menu">6 · Menu latéral</button>
+  </nav>
+</header>
+
+<main class="stage">
+  <!-- ============ PHONE FRAME ============ -->
+  <div class="phone" id="phone" style="--phone-w: 390px">
+    <div class="phone__bezel">
+      <div class="phone__notch"></div>
+      <div class="phone__viewport" id="viewport">
+
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-bar__icons">●●●&nbsp; LTE&nbsp; 100%</span>
+        </div>
+
+        <!-- ================================================================
+             SCREEN: ACCUEIL
+             ================================================================ -->
+        <section class="screen screen--active" data-screen="home">
+          <div class="app-header">
+            <div>
+              <div class="app-header__hello">Bonjour Adil</div>
+              <div class="app-header__status">
+                <span class="status-dot" data-status-dot></span>
+                <span data-context-line>Tout est à jour</span>
+              </div>
+            </div>
+            <div class="app-header__icons">
+              <button class="icon-btn" data-nav="alertes" aria-label="Alertes">
+                <i class="ic" style="--src:url('assets/icons/bell.svg')" aria-hidden="true"></i>
+                <span class="icon-btn__dot" data-notif-dot></span>
+              </button>
+              <button class="icon-btn" data-open-drawer aria-label="Menu">
+                <i class="ic" style="--src:url('assets/icons/menu.svg')" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="vehicle-stage" data-vehicle-stage>
+            <div class="vehicle-card-stack" data-card-stack style="height:96px">
+
+              <article class="vehicle-card is-current" data-vehicle="q5" data-index="0" data-nav="fiche">
+                <div class="vehicle-card__row1">
+                  <div class="vehicle-card__icon"><i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i></div>
+                  <div class="vehicle-card__id">
+                    <div class="vehicle-card__name">Audi Q5</div>
+                    <div class="vehicle-card__sub">2021 · <b>86 750 km</b></div>
+                  </div>
+                  <i class="ic vehicle-card__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+                </div>
+                <div class="vehicle-card__strip">
+                  <div class="vehicle-card__strip-item">
+                    <span class="status-dot" data-strip-health-dot></span>
+                    <div>
+                      <div class="vehicle-card__strip-label">Santé</div>
+                      <div class="vehicle-card__strip-value vehicle-card__strip-value--ok" data-strip-health>100 · À jour</div>
+                    </div>
+                  </div>
+                  <div class="vehicle-card__strip-divider"></div>
+                  <div class="vehicle-card__strip-item">
+                    <div>
+                      <div class="vehicle-card__strip-label">Prochaine révision</div>
+                      <div class="vehicle-card__strip-value" data-strip-revision>95 450 km</div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="vehicle-card" data-vehicle="astra" data-index="1" data-nav="fiche">
+                <div class="vehicle-card__row1">
+                  <div class="vehicle-card__icon"><i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i></div>
+                  <div class="vehicle-card__id">
+                    <div class="vehicle-card__name">Opel Astra</div>
+                    <div class="vehicle-card__sub">2012 · <b>270 000 km</b></div>
+                  </div>
+                  <i class="ic vehicle-card__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+                </div>
+                <div class="vehicle-card__strip">
+                  <div class="vehicle-card__strip-item">
+                    <span class="status-dot status-dot--warn" data-strip-health-dot></span>
+                    <div>
+                      <div class="vehicle-card__strip-label">Santé</div>
+                      <div class="vehicle-card__strip-value" data-strip-health>90 · 1 à faire</div>
+                    </div>
+                  </div>
+                  <div class="vehicle-card__strip-divider"></div>
+                  <div class="vehicle-card__strip-item">
+                    <div>
+                      <div class="vehicle-card__strip-label">Prochaine révision</div>
+                      <div class="vehicle-card__strip-value" data-strip-revision>271 200 km</div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+            </div>
+            <div class="vehicle-dots">
+              <button class="vehicle-dots__dot is-active" data-dot="0" aria-label="Audi Q5"></button>
+              <button class="vehicle-dots__dot" data-dot="1" aria-label="Opel Astra"></button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">À faire prochainement</span></div>
+            <div data-todo-host></div>
+          </div>
+
+          <div class="section">
+            <div class="section__head">
+              <span class="section__label">Dernières opérations</span>
+              <button class="section__action">Voir tout</button>
+            </div>
+            <div class="list-surface" data-ops-list></div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Actions rapides</span></div>
+            <div class="quick-actions">
+              <button class="quick-action" data-open-sheet="entretien">
+                <div class="quick-action__icon"><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i></div>
+                <div class="quick-action__label">Entretien</div>
+              </button>
+              <button class="quick-action" data-open-sheet="km">
+                <div class="quick-action__icon"><i class="ic" style="--src:url('assets/icons/speed.svg')" aria-hidden="true"></i></div>
+                <div class="quick-action__label">Kilométrage</div>
+              </button>
+              <button class="quick-action" data-open-sheet="plein">
+                <div class="quick-action__icon"><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i></div>
+                <div class="quick-action__label">Plein</div>
+              </button>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================================================================
+             SCREEN: FICHE VÉHICULE
+             ================================================================ -->
+        <section class="screen" data-screen="fiche">
+          <div class="fiche-header">
+            <div class="fiche-header__top">
+              <button class="fiche-header__back" data-nav="home" aria-label="Retour">
+                <i class="ic" style="--src:url('assets/icons/chevron-left.svg')" aria-hidden="true"></i>
+              </button>
+              <div class="fiche-header__title" data-fiche-name>Audi Q5</div>
+              <button class="fiche-header__icon-btn" aria-label="Partager">
+                <i class="ic" style="--src:url('assets/icons/share.svg')" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="fiche-header__meta">
+              <span class="fiche-header__meta-item" data-fiche-km>86 750 km</span>
+              <span class="fiche-header__meta-sep">·</span>
+              <span class="fiche-header__meta-item"><span class="status-dot" data-fiche-health-dot></span><span data-fiche-health>Santé 100%</span></span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Aperçu</span></div>
+            <div class="fiche-tabs">
+              <button class="fiche-tab is-active">Entretien</button>
+              <button class="fiche-tab">Dépenses</button>
+              <button class="fiche-tab">Consommation</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Administratif</span></div>
+            <div class="list-surface">
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/shield.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Assurance</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value">Valide · 28j</div></div>
+                <i class="ic list-row__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/calendar.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Visite technique</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value">Valide · 96j</div></div>
+                <i class="ic list-row__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Vignette</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--warning">31 janv.</div></div>
+                <i class="ic list-row__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Permis de conduire</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--muted">2030</div></div>
+                <i class="ic list-row__chevron" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Modules</span></div>
+            <div class="module-grid">
+              <button class="module-tile"><div class="module-tile__icon"><i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i></div><div class="module-tile__label">Documents</div></button>
+              <button class="module-tile"><div class="module-tile__icon"><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i></div><div class="module-tile__label">Entretiens</div></button>
+              <button class="module-tile"><div class="module-tile__icon"><i class="ic" style="--src:url('assets/icons/chart.svg')" aria-hidden="true"></i></div><div class="module-tile__label">Dépenses</div></button>
+              <button class="module-tile"><div class="module-tile__icon"><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i></div><div class="module-tile__label">Carburant</div></button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             SCREEN: ALERTES
+             ================================================================ -->
+        <section class="screen" data-screen="alertes">
+          <div class="app-header">
+            <div>
+              <div class="app-header__hello">Alertes</div>
+              <div class="app-header__status"><span data-alerts-sub>Audi Q5 · Opel Astra</span></div>
+            </div>
+            <div class="app-header__icons">
+              <button class="icon-btn" data-nav="home" aria-label="Fermer">
+                <i class="ic" style="--src:url('assets/icons/close.svg')" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">En retard</span></div>
+            <div class="list-surface">
+              <div class="list-row">
+                <div class="list-row__icon list-row__icon--danger"><i class="ic" style="--src:url('assets/icons/alert.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Vidange</div><div class="list-row__meta">Opel Astra</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--danger">1 200 km</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Bientôt</span></div>
+            <div class="list-surface">
+              <div class="list-row">
+                <div class="list-row__icon list-row__icon--warning"><i class="ic" style="--src:url('assets/icons/shield.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Assurance</div><div class="list-row__meta">Audi Q5</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--warning">28 jours</div></div>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon list-row__icon--warning"><i class="ic" style="--src:url('assets/icons/shield.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Assurance</div><div class="list-row__meta">Opel Astra</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--warning">41 jours</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Plus tard</span></div>
+            <div class="list-surface">
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/calendar.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Contrôle technique</div><div class="list-row__meta">Audi Q5</div></div>
+                <div class="list-row__trail"><div class="list-row__trail-value list-row__trail-value--muted">96 jours</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             SCREEN: REVENTE
+             ================================================================ -->
+        <section class="screen" data-screen="revente">
+          <div class="resale-header">
+            <button class="fiche-header__back" data-nav="fiche" aria-label="Retour">
+              <i class="ic" style="--src:url('assets/icons/chevron-left.svg')" aria-hidden="true"></i>
+            </button>
+            <div class="resale-header__title">Revendre — Audi Q5</div>
+          </div>
+
+          <div class="price-card">
+            <div class="price-card__tag">
+              <i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i>
+              Prix conseillé AutoCarnet
+            </div>
+            <div class="price-card__value">328 400<span>DH</span></div>
+            <div class="price-card__range">Fourchette réaliste : 305 000 – 352 000 DH</div>
+            <div class="price-card__badge"><span class="status-dot"></span>Confiance élevée</div>
+
+            <div class="tier-row">
+              <div class="tier-tile">
+                <div class="tier-tile__label">Vente rapide</div>
+                <div class="tier-tile__value">305 000 DH</div>
+              </div>
+              <div class="tier-tile">
+                <div class="tier-tile__label">Prix haut</div>
+                <div class="tier-tile__value">352 000 DH</div>
+              </div>
+            </div>
+
+            <button class="resale-link">Voir le détail du calcul</button>
+          </div>
+
+          <div class="section">
+            <div class="section__head"><span class="section__label">Facteurs pris en compte</span></div>
+            <div class="list-surface">
+              <div class="list-row">
+                <div class="list-row__icon list-row__icon--success"><i class="ic" style="--src:url('assets/icons/check.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Entretien à jour</div></div>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon list-row__icon--success"><i class="ic" style="--src:url('assets/icons/check.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Historique complet</div></div>
+              </div>
+              <div class="list-row">
+                <div class="list-row__icon"><i class="ic" style="--src:url('assets/icons/speed.svg')" aria-hidden="true"></i></div>
+                <div class="list-row__body"><div class="list-row__title">Kilométrage cohérent avec l'âge</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             SCREEN: MENU (mounted permanently as an overlay, any active screen)
+             ================================================================ -->
+        <div class="drawer-overlay" data-drawer-overlay data-close-drawer></div>
+        <div class="drawer" data-drawer>
+          <div class="drawer__header">
+            <div class="drawer__avatar">AD</div>
+            <div>
+              <div class="drawer__name">Adil</div>
+              <div class="drawer__email">adil.taha@gmail.com</div>
+            </div>
+          </div>
+          <div class="drawer__list">
+            <button class="drawer__item" data-nav="home" data-close-drawer><i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i>Mes véhicules</button>
+            <button class="drawer__item" data-nav="alertes" data-close-drawer><i class="ic" style="--src:url('assets/icons/bell.svg')" aria-hidden="true"></i>Alertes</button>
+            <button class="drawer__item" data-nav="revente" data-close-drawer><i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i>Revendre</button>
+            <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/user.svg')" aria-hidden="true"></i>Prestataires</button>
+            <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/shield.svg')" aria-hidden="true"></i>Compte &amp; sécurité</button>
+            <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/chart.svg')" aria-hidden="true"></i>Journal d'audit</button>
+          </div>
+          <div class="drawer__footer">
+            <button class="drawer__lock"><i class="ic" style="--src:url('assets/icons/lock.svg')" aria-hidden="true"></i>Verrouiller AutoCarnet</button>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             Sheet: Ajouter (opened by FAB)
+             ================================================================ -->
+        <div class="sheet-overlay" data-sheet-overlay data-close-sheet></div>
+        <div class="sheet" data-sheet>
+          <div class="sheet__handle"></div>
+          <div class="sheet__title">Ajouter</div>
+          <button class="sheet__option" data-close-sheet><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i>Entretien</button>
+          <button class="sheet__option" data-close-sheet><i class="ic" style="--src:url('assets/icons/speed.svg')" aria-hidden="true"></i>Kilométrage</button>
+          <button class="sheet__option" data-close-sheet><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i>Plein</button>
+          <button class="sheet__option" data-close-sheet><i class="ic" style="--src:url('assets/icons/chart.svg')" aria-hidden="true"></i>Dépense</button>
+          <button class="sheet__option" data-close-sheet><i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i>Document</button>
+        </div>
+
+        <!-- ================================================================
+             Floating "+" — lives outside any scrolling screen so it never
+             scrolls with content; shown only while the home screen is active.
+             ================================================================ -->
+        <button class="fab" data-fab data-open-sheet="all" aria-label="Ajouter">
+          <i class="ic" style="--src:url('assets/icons/plus.svg')" aria-hidden="true"></i>
+        </button>
+
+        <!-- ================================================================
+             Bottom navigation
+             ================================================================ -->
+        <nav class="bottom-nav" data-bottom-nav>
+          <button class="nav-item is-active" data-nav="home">
+            <i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i>
+            <span class="nav-item__label">Véhicules</span>
+            <span class="nav-item__dot"></span>
+          </button>
+          <button class="nav-item" data-nav="alertes">
+            <i class="ic" style="--src:url('assets/icons/bell.svg')" aria-hidden="true"></i>
+            <span class="nav-item__label">Alertes</span>
+            <span class="nav-item__dot"></span>
+          </button>
+          <button class="nav-item" data-nav="revente">
+            <i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i>
+            <span class="nav-item__label">Revendre</span>
+            <span class="nav-item__dot"></span>
+          </button>
+          <button class="nav-item" data-open-drawer>
+            <i class="ic" style="--src:url('assets/icons/menu.svg')" aria-hidden="true"></i>
+            <span class="nav-item__label">Menu</span>
+            <span class="nav-item__dot"></span>
+          </button>
+        </nav>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
