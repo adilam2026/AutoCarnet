@@ -44,11 +44,15 @@ class VehicleHeroCard extends ConsumerWidget {
   final VoidCallback onTap;
 
   Reminder? _nearestMaintenance() {
-    final candidates = reminders.where((r) => r.sourceType == 'maintenance').toList();
+    final candidates = reminders
+        .where((r) => r.sourceType == 'maintenance')
+        .toList();
     if (candidates.isEmpty) return null;
     double keyOf(Reminder r) {
       final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
-      final byKm = r.dueMileage != null ? r.dueMileage! - vehicle.currentMileage : null;
+      final byKm = r.dueMileage != null
+          ? r.dueMileage! - vehicle.currentMileage
+          : null;
       if (byDays != null && byKm != null) return byDays < byKm ? byDays : byKm;
       return byDays ?? byKm ?? double.infinity;
     }
@@ -63,7 +67,8 @@ class VehicleHeroCard extends ConsumerWidget {
     final health = ref.watch(vehicleHealthScoreProvider(vehicle));
     final worst = _worstUrgency();
     final revision = _nearestMaintenance();
-    final isOk = worst == ReminderUrgency.later || worst == ReminderUrgency.done;
+    final isOk =
+        worst == ReminderUrgency.later || worst == ReminderUrgency.done;
     final statusColor = isOk ? scheme.secondary : scheme.tertiary;
     final vehicleColor = VehicleCardColor.fromKey(vehicle.cardColorKey);
     final cardColor = vehicleColor.color;
@@ -73,13 +78,32 @@ class VehicleHeroCard extends ConsumerWidget {
     final onColor = vehicleColor.onColor;
     // A near-invisible tint of the vehicle's own colour, not a new one -
     // just enough to separate the CTA row from the facts above it.
-    final ctaTint = Color.alphaBlend(cardColor.withValues(alpha: 0.05), scheme.surfaceContainerLowest);
+    final ctaTint = Color.alphaBlend(
+      cardColor.withValues(alpha: 0.05),
+      scheme.surfaceContainerLowest,
+    );
     // The card's own identity colour as its single outer contour (mission
     // point 1-3): it must read as ONE unified block, not three stacked
     // pieces - the coloured band above already IS this colour, so the
     // border only becomes visible where it meets the white/tinted zones
     // below, tying the whole card together without a heavy fill.
     final contourColor = vehicleColor.onLightSurface;
+    // A Container with both a `border` and a `borderRadius` automatically
+    // insets its child by the border's own width (Flutter's
+    // BoxDecoration.padding) - but that inset content (the Column of
+    // zones below) still has SQUARE corners of its own. Near the card's
+    // corners the outer border's rounded arc curves inward by up to
+    // AppRadius.lg, far more than the thin uniform inset, so the flat
+    // top-band rectangle's square corner pokes past that curve and gets
+    // clipped by the ancestor Material - leaving a tiny white gap (this
+    // card's own surfaceContainerLowest background showing through) right
+    // at the corner: the "coupure" reported on recette. The fix is a
+    // second, CONCENTRIC clip sized to the border's own inset
+    // (radius - borderWidth) around the inner content, so its rounded
+    // corners land exactly flush against the inside of the border with no
+    // gap and no overlap - the same border/borderRadius pair still owns
+    // the one, unbroken outer stroke.
+    const contourWidth = 1.3;
 
     return Container(
       decoration: BoxDecoration(
@@ -96,117 +120,153 @@ class VehicleHeroCard extends ConsumerWidget {
             key: ValueKey('vehicleHeroCardContour-${vehicle.id}'),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLowest,
-              // The border must carry its OWN matching borderRadius, not
-              // just rely on the ancestor Material's rounded clip to hide
-              // the corners - a border painted on an un-rounded
-              // BoxDecoration is a sharp rectangle first and only gets
-              // clipped afterwards, which left tiny slivers of the
-              // straight vertical edges visible just past the bottom
-              // corners (finition bug, cohérence pass follow-up).
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: contourColor, width: 1.3),
+              border: Border.all(color: contourColor, width: contourWidth),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Level 1 - identity: the vehicle's own colour, clipped to
-                // the card's own rounded corners by the Material above (no
-                // bar ever "sits on top" of the card - it belongs to it).
-                Container(
-                  color: cardColor,
-                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: onColor.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.lg - contourWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Level 1 - identity: the vehicle's own colour, clipped
+                  // to the card's own rounded corners by the ClipRRect
+                  // above (no bar ever "sits on top" of the card - it
+                  // belongs to it).
+                  Container(
+                    color: cardColor,
+                    padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: onColor.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Icon(
+                            Icons.directions_car_filled,
+                            size: 16,
+                            color: onColor,
+                          ),
                         ),
-                        child: Icon(Icons.directions_car_filled, size: 16, color: onColor),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${vehicle.brand} ${vehicle.model}',
-                              style: TextStyle(
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${vehicle.brand} ${vehicle.model}',
+                                style: TextStyle(
                                   fontSize: 16.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.3,
-                                  color: onColor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 1),
-                            Row(
-                              children: [
-                                if (vehicle.year != null) ...[
-                                  Text('${vehicle.year}',
-                                      style: TextStyle(fontSize: 12, color: onColor.withValues(alpha: 0.78))),
-                                  Text(' · ',
-                                      style: TextStyle(fontSize: 12, color: onColor.withValues(alpha: 0.55))),
-                                ],
-                                Flexible(
-                                  child: Text(
-                                    '${formatAmount(vehicle.currentMileage)} km',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.mono(context,
-                                        fontSize: 13, fontWeight: FontWeight.w800, color: onColor),
-                                  ),
+                                  color: onColor,
                                 ),
-                              ],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 1),
+                              Row(
+                                children: [
+                                  if (vehicle.year != null) ...[
+                                    Text(
+                                      '${vehicle.year}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: onColor.withValues(alpha: 0.78),
+                                      ),
+                                    ),
+                                    Text(
+                                      ' · ',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: onColor.withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      '${formatAmount(vehicle.currentMileage)} km',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.mono(
+                                        context,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: onColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 14,
+                          color: onColor.withValues(alpha: 0.85),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Level 2 - état du véhicule: back on the ordinary white
+                  // surface, so these numbers read exactly like the rest of
+                  // the accueil.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
+                    child: _FactsRow(
+                      dotColor: statusColor,
+                      healthText: health == null
+                          ? '—'
+                          : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+                      healthOk: isOk,
+                      revisionText: revision == null
+                          ? 'Aucune prévue'
+                          : formatReminderAbsoluteDue(revision),
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  // Level 3 - action: an explicit affordance that the whole
+                  // card opens the fiche véhicule (bloc 20 bis) - not a new
+                  // tap target, it shares the InkWell above.
+                  Container(
+                    color: ctaTint,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 7,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Voir la fiche du véhicule',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: contourColor,
                             ),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      Icon(Icons.chevron_right, size: 14, color: onColor.withValues(alpha: 0.85)),
-                    ],
-                  ),
-                ),
-                // Level 2 - état du véhicule: back on the ordinary white
-                // surface, so these numbers read exactly like the rest of
-                // the accueil.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
-                  child: _FactsRow(
-                    dotColor: statusColor,
-                    healthText: health == null
-                        ? '—'
-                        : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
-                    healthOk: isOk,
-                    revisionText:
-                        revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
-                  ),
-                ),
-                Divider(height: 1, thickness: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
-                // Level 3 - action: an explicit affordance that the whole
-                // card opens the fiche véhicule (bloc 20 bis) - not a new
-                // tap target, it shares the InkWell above.
-                Container(
-                  color: ctaTint,
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Voir la fiche du véhicule',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: contourColor),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Icon(
+                          Icons.chevron_right,
+                          size: 14,
+                          color: contourColor,
                         ),
-                      ),
-                      Icon(Icons.chevron_right, size: 14, color: contourColor),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -224,11 +284,11 @@ class VehicleHeroCard extends ConsumerWidget {
   }
 
   int _rank(ReminderUrgency u) => switch (u) {
-        ReminderUrgency.urgent => 0,
-        ReminderUrgency.upcoming => 1,
-        ReminderUrgency.later => 2,
-        ReminderUrgency.done => 3,
-      };
+    ReminderUrgency.urgent => 0,
+    ReminderUrgency.upcoming => 1,
+    ReminderUrgency.later => 2,
+    ReminderUrgency.done => 3,
+  };
 }
 
 /// "dans 8 000 km" / "dans 32 jours" / "12/05/2027" - the same compact
@@ -261,7 +321,8 @@ String formatReminderAbsoluteDue(Reminder r) {
   if (r.dueDate != null) {
     final d = r.dueDate!;
     parts.add(
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}');
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}',
+    );
   }
   if (r.dueMileage != null) {
     parts.add('${formatAmount(r.dueMileage!)} km');
@@ -291,9 +352,10 @@ class _FactsRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final factStyle = TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant);
     final boldStyle = TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w700,
-        color: healthOk ? scheme.secondary : scheme.onSurface);
+      fontSize: 11.5,
+      fontWeight: FontWeight.w700,
+      color: healthOk ? scheme.secondary : scheme.onSurface,
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -307,7 +369,10 @@ class _FactsRow extends StatelessWidget {
         Text.rich(
           TextSpan(
             style: factStyle,
-            children: [const TextSpan(text: 'Santé '), TextSpan(text: healthText, style: boldStyle)],
+            children: [
+              const TextSpan(text: 'Santé '),
+              TextSpan(text: healthText, style: boldStyle),
+            ],
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -320,8 +385,13 @@ class _FactsRow extends StatelessWidget {
               children: [
                 const TextSpan(text: 'Prochaine révision '),
                 TextSpan(
-                    text: revisionText,
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+                  text: revisionText,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
               ],
             ),
             maxLines: 1,

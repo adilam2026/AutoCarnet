@@ -73,6 +73,31 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
   List<String> get _availableTypes =>
       isDriverDocument ? driverDocumentTypes : vehicleDocumentTypes;
 
+  /// The type is only ever picked in the generic "Documents -> Ajouter"
+  /// entry point. A contextual entry point ("Administratif -> Ajouter
+  /// Assurance") already knows the type - it must never ask a second time
+  /// (mission point 1/2), and a renewal always keeps the document's own
+  /// existing type.
+  bool get _typeIsFixed => isRenewal || widget.initialType != null;
+
+  /// Per-type field relevance (mission point 3) - the underlying data model
+  /// (documentNumber/issueDate/expiryDate/cost/providerId/comments) is
+  /// never extended, only which of those already-existing fields are shown
+  /// varies: a "Carte grise" has no expiry or cost, a "Permis de conduire"
+  /// has no provider/cost, a "Vignette" has no provider (it's a state tax,
+  /// not tied to a prestataire). Any type not explicitly listed here (the
+  /// generic-mode types like "Autre", "Facture d'achat"...) keeps every
+  /// field, since there's no single right answer for what's irrelevant.
+  bool get _showProviderField => switch (_type) {
+        'Carte grise' || 'Vignette' || 'Permis de conduire' || 'Pièce d\'identité' => false,
+        _ => true,
+      };
+  bool get _showCostField => switch (_type) {
+        'Carte grise' || 'Visite technique' || 'Permis de conduire' || 'Pièce d\'identité' => false,
+        _ => true,
+      };
+  bool get _showExpiryField => _type != 'Carte grise';
+
   @override
   void initState() {
     super.initState();
@@ -202,11 +227,15 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
           children: [
             const SheetHandle(),
             Text(
-              isRenewal ? 'Renouveler le document' : 'Nouveau document',
+              isRenewal
+                  ? 'Renouveler le document'
+                  : widget.initialType != null
+                      ? 'Ajouter · $_type'
+                      : 'Nouveau document',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: AppSpacing.md),
-            if (!isRenewal)
+            if (!_typeIsFixed)
               DropdownButtonFormField<String>(
                 initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type *'),
@@ -218,7 +247,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
                   _applyDefaultExpirySuggestion();
                 }),
               ),
-            const SizedBox(height: AppSpacing.md),
+            if (!_typeIsFixed) const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _numberCtrl,
               decoration: const InputDecoration(labelText: 'Numéro'),
@@ -257,18 +286,20 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
                           : 'Délivré : ${_fmt(_issueDate!)}'),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickDate(isExpiry: true),
-                      child: Text(_expiryDate == null
-                          ? 'Date d\'expiration'
-                          : 'Expire : ${_fmt(_expiryDate!)}'),
+                  if (_showExpiryField) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _pickDate(isExpiry: true),
+                        child: Text(_expiryDate == null
+                            ? 'Date d\'expiration'
+                            : 'Expire : ${_fmt(_expiryDate!)}'),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
-              if (!_expiryUserEdited && defaultRenewalMonths(_type) != null)
+              if (_showExpiryField && !_expiryUserEdited && defaultRenewalMonths(_type) != null)
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.xs),
                   child: Text(
@@ -278,20 +309,28 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
                   ),
                 ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            ProviderPickerField(
-              label: _type == 'Assurance' ? 'Compagnie d\'assurance' : 'Organisme / prestataire',
-              onSelected: (p) => _selectedProvider = p,
-              onTextChanged: (text) => _providerText = text,
-              category: _type == 'Assurance' ? ServiceProviderCategory.assurance : null,
-              presetSuggestions: _type == 'Assurance' ? moroccanAutoInsurers : const [],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextFormField(
-              controller: _costCtrl,
-              decoration: const InputDecoration(labelText: 'Coût'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
+            if (_showProviderField) ...[
+              const SizedBox(height: AppSpacing.md),
+              ProviderPickerField(
+                label: switch (_type) {
+                  'Assurance' => 'Compagnie d\'assurance',
+                  'Visite technique' => 'Centre de contrôle',
+                  _ => 'Organisme / prestataire',
+                },
+                onSelected: (p) => _selectedProvider = p,
+                onTextChanged: (text) => _providerText = text,
+                category: _type == 'Assurance' ? ServiceProviderCategory.assurance : null,
+                presetSuggestions: _type == 'Assurance' ? moroccanAutoInsurers : const [],
+              ),
+            ],
+            if (_showCostField) ...[
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _costCtrl,
+                decoration: const InputDecoration(labelText: 'Coût'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _commentsCtrl,

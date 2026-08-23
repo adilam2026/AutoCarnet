@@ -71,14 +71,20 @@ class StatTileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < tiles.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppSpacing.sm),
-          Expanded(child: tiles[i]),
+    // IntrinsicHeight gives the Row a bounded height to stretch into - a
+    // bare Row(crossAxisAlignment: stretch) crashes as soon as it sits in a
+    // Column (its normal habitat here), which always offers an unbounded
+    // height to a non-flexible child on the first layout pass.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.sm),
+            Expanded(child: tiles[i]),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
