@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="fr" data-theme="a">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AutoCarnet — Concept Premium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ DEMO CHROME (not part of the app itself) ============ -->
+<header class="demo-bar">
+  <div class="demo-bar__brand">
+    <i class="ic demo-bar__logo" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i>
+    <div>
+      <div class="demo-bar__title">AutoCarnet — Maquette premium</div>
+      <div class="demo-bar__subtitle">Direction visuelle · à valider avant toute intégration Flutter</div>
+    </div>
+  </div>
+
+  <div class="demo-bar__controls">
+    <div class="theme-switch" role="tablist" aria-label="Choix du concept">
+      <button class="theme-switch__btn is-active" data-theme-btn="a" role="tab" aria-selected="true">
+        Concept A · Clair
+      </button>
+      <button class="theme-switch__btn" data-theme-btn="b" role="tab" aria-selected="false">
+        Concept B · Contrasté
+      </button>
+    </div>
+
+    <div class="width-switch" role="tablist" aria-label="Largeur de test">
+      <button class="width-switch__btn" data-width="360">360px</button>
+      <button class="width-switch__btn is-active" data-width="390">390px</button>
+      <button class="width-switch__btn" data-width="430">430px</button>
+    </div>
+  </div>
+
+  <nav class="screen-tabs" aria-label="Écrans">
+    <button class="screen-tab is-active" data-screen-btn="home-single">1 · Accueil (véhicule actif)</button>
+    <button class="screen-tab" data-screen-btn="home-multi">2 · Accueil multi-véhicule</button>
+    <button class="screen-tab" data-screen-btn="revente">3 · Revente</button>
+    <button class="screen-tab" data-screen-btn="fiche">4 · Fiche véhicule</button>
+    <button class="screen-tab" data-screen-btn="login">5 · Authentification</button>
+    <button class="screen-tab" data-screen-btn="menu">6 · Menu latéral</button>
+  </nav>
+</header>
+
+<main class="stage">
+  <!-- ============ PHONE FRAME ============ -->
+  <div class="phone" id="phone" style="--phone-w: 390px">
+    <div class="phone__bezel">
+      <div class="phone__notch"></div>
+      <div class="phone__viewport" id="viewport">
+
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-bar__icons">●●●&nbsp; LTE&nbsp; 100%</span>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SCREEN 1+2: ACCUEIL (single-vehicle mode toggled via body class) -->
+        <!-- ============================================================ -->
+        <section class="screen screen--active" data-screen="home-single" data-screen-group="home">
+          <div class="app-header">
+            <div class="app-header__greet">
+              <div class="app-header__hello">Bonjour Adil</div>
+              <div class="app-header__sub" data-context-line>Votre Audi Q5 est à jour.</div>
+            </div>
+            <div class="app-header__icons">
+              <button class="icon-btn" data-notif-btn aria-label="Notifications">
+                <i class="ic" style="--src:url('assets/icons/bell.svg')" aria-hidden="true"></i>
+                <span class="icon-btn__dot"></span>
+              </button>
+              <button class="avatar" data-open-drawer aria-label="Menu">AD</button>
+            </div>
+          </div>
+
+          <div class="vehicle-stage" data-vehicle-stage>
+            <div class="vehicle-card-stack" data-card-stack>
+
+              <!-- Audi Q5 -->
+              <article class="vehicle-card vehicle-card--q5 is-current" data-vehicle="q5" data-index="0">
+                <img class="vehicle-card__silhouette" src="assets/icons/car.svg" alt="" />
+                <div class="vehicle-card__top">
+                  <div class="vehicle-card__id">
+                    <div class="vehicle-card__name">Audi Q5</div>
+                    <div class="vehicle-card__plate">2021 · 50128-A-06</div>
+                  </div>
+                  <span class="badge badge--ok">À jour</span>
+                </div>
+
+                <div class="vehicle-card__ring-wrap">
+                  <svg class="vehicle-card__ring" viewBox="0 0 64 64">
+                    <circle class="ring-track" cx="32" cy="32" r="27"/>
+                    <circle class="ring-value" cx="32" cy="32" r="27" style="--pct:100"/>
+                  </svg>
+                  <div class="vehicle-card__ring-label">
+                    <strong>100</strong>
+                    <span>santé</span>
+                  </div>
+                </div>
+
+                <div class="vehicle-card__bottom">
+                  <div class="vehicle-card__stat">
+                    <span class="vehicle-card__stat-label">Kilométrage</span>
+                    <span class="vehicle-card__stat-value">86 750 <em>km</em></span>
+                  </div>
+                  <div class="vehicle-card__stat vehicle-card__stat--right">
+                    <span class="vehicle-card__stat-label">Prochaine révision</span>
+                    <span class="vehicle-card__stat-value">95 450 <em>km</em></span>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Opel Astra -->
+              <article class="vehicle-card vehicle-card--astra" data-vehicle="astra" data-index="1">
+                <img class="vehicle-card__silhouette" src="assets/icons/car.svg" alt="" />
+                <div class="vehicle-card__top">
+                  <div class="vehicle-card__id">
+                    <div class="vehicle-card__name">Opel Astra</div>
+                    <div class="vehicle-card__plate">2012 · 8541-B-20</div>
+                  </div>
+                  <span class="badge badge--warn">À surveiller</span>
+                </div>
+
+                <div class="vehicle-card__ring-wrap">
+                  <svg class="vehicle-card__ring" viewBox="0 0 64 64">
+                    <circle class="ring-track" cx="32" cy="32" r="27"/>
+                    <circle class="ring-value" cx="32" cy="32" r="27" style="--pct:90"/>
+                  </svg>
+                  <div class="vehicle-card__ring-label">
+                    <strong>90</strong>
+                    <span>santé</span>
+                  </div>
+                </div>
+
+                <div class="vehicle-card__bottom">
+                  <div class="vehicle-card__stat">
+                    <span class="vehicle-card__stat-label">Kilométrage</span>
+                    <span class="vehicle-card__stat-value">270 000 <em>km</em></span>
+                  </div>
+                  <div class="vehicle-card__stat vehicle-card__stat--right">
+                    <span class="vehicle-card__stat-label">Prochaine révision</span>
+                    <span class="vehicle-card__stat-value">272 000 <em>km</em></span>
+                  </div>
+                </div>
+              </article>
+
+            </div>
+
+            <div class="dots" data-dots>
+              <button class="dot is-active" data-dot="0" aria-label="Audi Q5"></button>
+              <button class="dot" data-dot="1" aria-label="Opel Astra"></button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head">
+              <h2 class="section__title">À faire prochainement</h2>
+            </div>
+            <div class="todo-list" data-todo-list>
+              <!-- populated per-vehicle by app.js, markup below is the q5 default -->
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head">
+              <h2 class="section__title">Actions rapides</h2>
+            </div>
+            <div class="actions">
+              <button class="action-primary">
+                <i class="ic" style="--src:url('assets/icons/plus.svg')" aria-hidden="true"></i>
+                <span>Ajouter une opération</span>
+              </button>
+              <div class="actions__row">
+                <button class="action-secondary">
+                  <i class="ic" style="--src:url('assets/icons/speed.svg')" aria-hidden="true"></i>
+                  <span>Kilométrage</span>
+                </button>
+                <button class="action-secondary">
+                  <i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i>
+                  <span>Plein</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head">
+              <h2 class="section__title">Dernières opérations</h2>
+              <button class="section__link">Voir tout</button>
+            </div>
+            <div class="timeline">
+              <div class="timeline-item">
+                <div class="timeline-item__rail">
+                  <div class="timeline-item__icon"><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i></div>
+                  <div class="timeline-item__line"></div>
+                </div>
+                <div class="timeline-item__content">
+                  <div class="timeline-item__title">Vidange + filtres</div>
+                  <div class="timeline-item__meta">09 août 2026 · 88 700 km</div>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-item__rail">
+                  <div class="timeline-item__icon"><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i></div>
+                  <div class="timeline-item__line"></div>
+                </div>
+                <div class="timeline-item__content">
+                  <div class="timeline-item__title">Révision</div>
+                  <div class="timeline-item__meta">16 oct. 2025 · 78 900 km</div>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-item__rail">
+                  <div class="timeline-item__icon"><i class="ic" style="--src:url('assets/icons/tire.svg')" aria-hidden="true"></i></div>
+                </div>
+                <div class="timeline-item__content">
+                  <div class="timeline-item__title">Pneus remplacés</div>
+                  <div class="timeline-item__meta">02 mars 2025 · 65 400 km</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section section--last">
+            <div class="section__head">
+              <h2 class="section__title">Votre carnet</h2>
+            </div>
+            <div class="carnet-grid">
+              <div class="carnet-hero">
+                <svg class="health-ring" viewBox="0 0 120 120">
+                  <circle class="ring-track" cx="60" cy="60" r="50"/>
+                  <circle class="ring-value" cx="60" cy="60" r="50" style="--pct:100"/>
+                </svg>
+                <div class="carnet-hero__label">
+                  <strong>100</strong>
+                  <span>Santé du carnet</span>
+                </div>
+              </div>
+              <div class="carnet-side">
+                <div class="stat-card stat-card--expense">
+                  <span class="stat-card__label">Dépenses 2026</span>
+                  <span class="stat-card__value" data-stat="expense">18 450 <em>DH</em></span>
+                </div>
+                <div class="stat-card stat-card--entretien">
+                  <i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i>
+                  <div>
+                    <span class="stat-card__label">Dernier entretien</span>
+                    <span class="stat-card__value stat-card__value--sm" data-stat="last-maint">Il y a 2 mois</span>
+                    <span class="stat-card__sub" data-stat="last-maint-what">Vidange</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card stat-card--wide">
+                <span class="stat-card__label">Kilométrage annuel estimé</span>
+                <div class="bar-chart">
+                  <div class="bar" style="--h:38%"><span>2023</span></div>
+                  <div class="bar" style="--h:55%"><span>2024</span></div>
+                  <div class="bar" style="--h:70%"><span>2025</span></div>
+                  <div class="bar bar--active" style="--h:86%"><span>2026</span></div>
+                </div>
+                <span class="stat-card__value stat-card__value--sm" data-stat="km-year">13 200 km/an</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SCREEN: REVENTE -->
+        <!-- ============================================================ -->
+        <section class="screen" data-screen="revente">
+          <div class="app-header app-header--simple">
+            <button class="icon-btn icon-btn--ghost" data-nav="home-single"><i class="ic" style="--src:url('assets/icons/chevron-left.svg')" aria-hidden="true"></i></button>
+            <div class="app-header__hello">Revendre</div>
+            <button class="icon-btn"><i class="ic" style="--src:url('assets/icons/share.svg')" aria-hidden="true"></i></button>
+          </div>
+
+          <div class="mini-vehicle">
+            <i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i>
+            <div>
+              <div class="mini-vehicle__name">Audi Q5 · 2021</div>
+              <div class="mini-vehicle__meta">86 750 km · Diesel · Quattro</div>
+            </div>
+          </div>
+
+          <div class="revente-hero">
+            <span class="revente-hero__label">Prix conseillé</span>
+            <div class="revente-hero__price">423 000<span>DH</span></div>
+            <span class="badge badge--confidence">Confiance : bonne</span>
+          </div>
+
+          <div class="revente-flanks">
+            <div class="revente-flank">
+              <span class="revente-flank__label">Vente rapide</span>
+              <span class="revente-flank__value">389 000 <em>DH</em></span>
+            </div>
+            <div class="revente-flank revente-flank--high">
+              <span class="revente-flank__label">Prix haut</span>
+              <span class="revente-flank__value">457 000 <em>DH</em></span>
+            </div>
+          </div>
+
+          <button class="link-row">
+            <span>Voir le détail du calcul</span>
+            <i class="ic" style="--src:url('assets/icons/chevron-right.svg')" aria-hidden="true"></i>
+          </button>
+
+          <div class="section">
+            <div class="section__head"><h2 class="section__title">Recommandations</h2></div>
+            <div class="todo-list">
+              <div class="todo-item todo-item--upcoming todo-item--note">
+                <div class="todo-item__icon"><i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i></div>
+                <div class="todo-item__body">
+                  <div class="todo-item__title">Ajouter le carnet d'entretien complet</div>
+                  <div class="todo-item__due todo-item__due--muted">Améliore la confiance de l'estimation</div>
+                </div>
+              </div>
+              <div class="todo-item todo-item--ok todo-item--note">
+                <div class="todo-item__icon"><i class="ic" style="--src:url('assets/icons/check.svg')" aria-hidden="true"></i></div>
+                <div class="todo-item__body">
+                  <div class="todo-item__title">État général renseigné</div>
+                  <div class="todo-item__due todo-item__due--muted">Très bon état</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="action-primary action-primary--static">
+            <i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i>
+            <span>Générer le rapport</span>
+          </button>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SCREEN: FICHE VÉHICULE -->
+        <!-- ============================================================ -->
+        <section class="screen" data-screen="fiche">
+          <div class="fiche-header">
+            <button class="icon-btn icon-btn--ghost icon-btn--onimg" data-nav="home-single"><i class="ic" style="--src:url('assets/icons/chevron-left.svg')" aria-hidden="true"></i></button>
+            <button class="icon-btn icon-btn--onimg"><i class="ic" style="--src:url('assets/icons/settings.svg')" aria-hidden="true"></i></button>
+            <img class="fiche-header__silhouette" src="assets/icons/car.svg" alt="" />
+            <div class="fiche-header__info">
+              <div class="fiche-header__name">Audi Q5</div>
+              <div class="fiche-header__plate">50128-A-06 · 2021</div>
+            </div>
+          </div>
+
+          <div class="fiche-tabs">
+            <button class="fiche-tab is-active">Entretien</button>
+            <button class="fiche-tab">Carburant</button>
+            <button class="fiche-tab">Dépenses</button>
+            <button class="fiche-tab">Documents</button>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-cell">
+              <span class="info-cell__label">Kilométrage</span>
+              <span class="info-cell__value">86 750 km</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell__label">Motorisation</span>
+              <span class="info-cell__value">Diesel</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell__label">Transmission</span>
+              <span class="info-cell__value">Automatique</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell__label">Couleur</span>
+              <span class="info-cell__value">Bleu Ascari</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section__head">
+              <h2 class="section__title">Dernières opérations</h2>
+              <button class="section__link">Voir tout</button>
+            </div>
+            <div class="timeline">
+              <div class="timeline-item">
+                <div class="timeline-item__rail">
+                  <div class="timeline-item__icon"><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i></div>
+                  <div class="timeline-item__line"></div>
+                </div>
+                <div class="timeline-item__content">
+                  <div class="timeline-item__title">Vidange + filtres</div>
+                  <div class="timeline-item__meta">09 août 2026 · 88 700 km</div>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-item__rail">
+                  <div class="timeline-item__icon"><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i></div>
+                </div>
+                <div class="timeline-item__content">
+                  <div class="timeline-item__title">Révision</div>
+                  <div class="timeline-item__meta">16 oct. 2025 · 78 900 km</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="action-primary action-primary--static">
+            <i class="ic" style="--src:url('assets/icons/plus.svg')" aria-hidden="true"></i>
+            <span>Ajouter une opération</span>
+          </button>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SCREEN: AUTHENTIFICATION -->
+        <!-- ============================================================ -->
+        <section class="screen" data-screen="login">
+          <div class="login">
+            <div class="login__hero">
+              <div class="login__logo"><img class="login__logo-img" src="assets/icons/car.svg" alt="" /></div>
+              <div class="login__brand">AutoCarnet</div>
+              <div class="login__tagline">Connexion simple et sécurisée</div>
+            </div>
+            <div class="login__card">
+              <h1 class="login__card-title">Créer votre accès</h1>
+              <p class="login__card-sub">Saisissez votre nom, votre email, puis vérifiez votre adresse.</p>
+
+              <label class="field">
+                <span>Nom et prénom</span>
+                <input type="text" placeholder="Ex : Adil B." />
+              </label>
+              <label class="field">
+                <span>Adresse mail</span>
+                <input type="email" placeholder="exemple@mail.com" />
+              </label>
+
+              <button class="btn-primary-lg">Envoyer le code</button>
+              <p class="login__reassurance">Votre email est vérifié par code. Le PIN reste local sur ce téléphone.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SCREEN: MENU (kept as an always-mounted overlay, opened via drawer) -->
+        <!-- ============================================================ -->
+        <section class="screen" data-screen="menu">
+          <div class="app-header app-header--simple">
+            <button class="icon-btn icon-btn--ghost" data-nav="home-single"><i class="ic" style="--src:url('assets/icons/chevron-left.svg')" aria-hidden="true"></i></button>
+            <div class="app-header__hello">Aperçu du menu latéral</div>
+            <span></span>
+          </div>
+          <p class="menu-preview-hint">Ouvert automatiquement ci-contre — il s'agit du même tiroir accessible depuis l'avatar sur l'accueil.</p>
+        </section>
+
+        <!-- BOTTOM NAV (shared by home / revente / fiche) -->
+        <nav class="bottom-nav" data-bottom-nav>
+          <button class="bottom-nav__item is-active" data-nav="home-single">
+            <span class="bottom-nav__pill"><i class="ic" style="--src:url('assets/icons/home.svg')" aria-hidden="true"></i></span>
+            <span>Accueil</span>
+          </button>
+          <button class="bottom-nav__item" data-nav="alerts">
+            <span class="bottom-nav__pill"><i class="ic" style="--src:url('assets/icons/alert.svg')" aria-hidden="true"></i></span>
+            <span>Alertes</span>
+          </button>
+          <button class="bottom-nav__item" data-nav="revente">
+            <span class="bottom-nav__pill"><i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i></span>
+            <span>Revendre</span>
+          </button>
+          <button class="bottom-nav__item" data-open-drawer>
+            <span class="bottom-nav__pill"><i class="ic" style="--src:url('assets/icons/menu.svg')" aria-hidden="true"></i></span>
+            <span>Menu</span>
+          </button>
+        </nav>
+
+        <!-- SIDE DRAWER -->
+        <div class="drawer" data-drawer>
+          <div class="drawer__backdrop" data-close-drawer></div>
+          <aside class="drawer__panel">
+            <div class="drawer__profile">
+              <span class="avatar avatar--lg">AD</span>
+              <div>
+                <div class="drawer__name">Adil</div>
+                <div class="drawer__email">adil@example.com</div>
+              </div>
+              <button class="icon-btn" data-close-drawer><i class="ic" style="--src:url('assets/icons/close.svg')" aria-hidden="true"></i></button>
+            </div>
+            <nav class="drawer__nav">
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/car.svg')" aria-hidden="true"></i><span>Mes véhicules</span></button>
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/alert.svg')" aria-hidden="true"></i><span>Alertes</span></button>
+              <button class="drawer__item" data-nav="revente"><i class="ic" style="--src:url('assets/icons/tag.svg')" aria-hidden="true"></i><span>Revendre</span></button>
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/document.svg')" aria-hidden="true"></i><span>Documents</span></button>
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/share.svg')" aria-hidden="true"></i><span>Partage &amp; accès</span></button>
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/shield.svg')" aria-hidden="true"></i><span>Compte &amp; sécurité</span></button>
+              <button class="drawer__item"><i class="ic" style="--src:url('assets/icons/settings.svg')" aria-hidden="true"></i><span>Paramètres</span></button>
+            </nav>
+            <button class="drawer__logout">
+              <i class="ic" style="--src:url('assets/icons/lock.svg')" aria-hidden="true"></i>
+              <span>Verrouiller AutoCarnet</span>
+              <i class="ic drawer__logout-exit" style="--src:url('assets/icons/logout.svg')" aria-hidden="true"></i>
+            </button>
+          </aside>
+        </div>
+
+        <!-- BOTTOM SHEET (Ajouter une opération) -->
+        <div class="sheet" data-sheet>
+          <div class="sheet__backdrop" data-close-sheet></div>
+          <div class="sheet__panel">
+            <div class="sheet__handle"></div>
+            <h3 class="sheet__title">Ajouter</h3>
+            <button class="sheet__option">
+              <span class="sheet__option-icon"><i class="ic" style="--src:url('assets/icons/wrench.svg')" aria-hidden="true"></i></span>
+              <span>Opération d'entretien</span>
+            </button>
+            <button class="sheet__option">
+              <span class="sheet__option-icon"><i class="ic" style="--src:url('assets/icons/speed.svg')" aria-hidden="true"></i></span>
+              <span>Kilométrage</span>
+            </button>
+            <button class="sheet__option">
+              <span class="sheet__option-icon"><i class="ic" style="--src:url('assets/icons/fuel.svg')" aria-hidden="true"></i></span>
+              <span>Plein de carburant</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="phone__home-indicator"></div>
+  </div>
+
+  <p class="stage__hint">Astuce : glissez la carte véhicule vers la gauche/droite pour changer de véhicule actif — tout le tableau de bord suit.</p>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
