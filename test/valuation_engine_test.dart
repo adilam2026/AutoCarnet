@@ -230,13 +230,13 @@ void main() {
       final astra = engine.compute(astraInput(
         currentMileage: 270000,
         firstRegistrationDate: mecJune2012,
-        condition: VehicleCondition.average,
       ));
       // Order of magnitude only, never a hardcoded target for this one
-      // vehicle (RG: le calcul doit rester générique) - just a sanity band
-      // around the real sourced reference price after 14 years and very
-      // high mileage.
-      expect(astra.fairPrice, greaterThan(50000));
+      // vehicle (RG: le calcul doit rester générique) - a sanity band
+      // around the real, observed Moroccan resale range for this exact
+      // configuration (14 years old, very high mileage) after calibrating
+      // the generic depreciation curve against it.
+      expect(astra.fairPrice, greaterThan(70000));
       expect(astra.fairPrice, lessThan(90000));
       expect(astra.quickSale, lessThan(astra.fairPrice));
       expect(astra.highPrice, greaterThan(astra.fairPrice));
