@@ -203,4 +203,93 @@ void main() {
       expect(a.fairPrice, greaterThan(d.fairPrice));
     });
   });
+
+  group('Revente - référentiel sourcé (cas Opel Astra 2012, contrôle du moteur générique)', () {
+    ValuationInput astraInput({
+      required double currentMileage,
+      required DateTime firstRegistrationDate,
+      VehicleCondition? condition,
+    }) {
+      return ValuationInput(
+        brand: 'Opel',
+        model: 'Astra',
+        year: firstRegistrationDate.year,
+        firstRegistrationDate: firstRegistrationDate,
+        currentMileage: currentMileage,
+        condition: condition,
+        maintenanceEntryCount: 3,
+      );
+    }
+
+    final mecJune2012 = DateTime(2012, 6, 15);
+
+    test(
+        'A. a high-mileage 2012 compact anchored on a real, sourced 2012-era new price '
+        'lands well above what the old, unsourced generic estimate produced - never at '
+        '45 000 DH for a car that still has real resale value', () {
+      final astra = engine.compute(astraInput(
+        currentMileage: 270000,
+        firstRegistrationDate: mecJune2012,
+        condition: VehicleCondition.average,
+      ));
+      // Order of magnitude only, never a hardcoded target for this one
+      // vehicle (RG: le calcul doit rester générique) - just a sanity band
+      // around the real sourced reference price after 14 years and very
+      // high mileage.
+      expect(astra.fairPrice, greaterThan(50000));
+      expect(astra.fairPrice, lessThan(90000));
+      expect(astra.quickSale, lessThan(astra.fairPrice));
+      expect(astra.highPrice, greaterThan(astra.fairPrice));
+    });
+
+    test('B. the base reference line is explicitly marked as a sourced price, not a '
+        'generic approximation, for a vehicle/year covered by the sourced table', () {
+      final astra = engine.compute(astraInput(
+        currentMileage: 270000,
+        firstRegistrationDate: mecJune2012,
+      ));
+      expect(astra.breakdown.first.label, contains('sourcé'));
+      final sourcedFactor = astra.confidenceFactors
+          .firstWhere((f) => f.label == 'Prix neuf de référence tracé à une source réelle');
+      expect(sourcedFactor.satisfied, isTrue);
+    });
+
+    test('C. more mileage never scores a better resale value, all else equal - the '
+        'generic mileage rule still applies untouched on top of the sourced base price', () {
+      final lower = engine.compute(astraInput(currentMileage: 150000, firstRegistrationDate: mecJune2012));
+      final higher = engine.compute(astraInput(currentMileage: 270000, firstRegistrationDate: mecJune2012));
+      expect(higher.fairPrice, lessThan(lower.fairPrice));
+    });
+
+    test(
+        'D. a brand/model/year the sourced table does NOT cover falls back to the generic '
+        'estimate and is never claimed as sourced', () {
+      final unsourced = engine.compute(astraInput(
+        currentMileage: 90000,
+        firstRegistrationDate: DateTime(2018, 6, 15),
+      ));
+      expect(unsourced.breakdown.first.label, contains('approximatif'));
+      final sourcedFactor = unsourced.confidenceFactors
+          .firstWhere((f) => f.label == 'Prix neuf de référence tracé à une source réelle');
+      expect(sourcedFactor.satisfied, isFalse);
+    });
+
+    test(
+        'E. a vehicle resting on the generic (unsourced) reference price never reaches '
+        '"bonne confiance", no matter how complete the rest of its data is', () {
+      final result = engine.compute(ValuationInput(
+        brand: 'Opel',
+        model: 'Astra',
+        year: 2018,
+        trim: 'Cosmo',
+        firstRegistrationDate: DateTime(2018, 6, 15),
+        currentMileage: 90000,
+        fuelType: 'Diesel',
+        transmission: 'Automatique',
+        condition: VehicleCondition.excellent,
+        maintenanceEntryCount: 8,
+      ));
+      expect(result.confidence, isNot(ConfidenceLevel.good));
+    });
+  });
 }

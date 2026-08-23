@@ -7,7 +7,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/loading_error_views.dart';
-import '../../documents/presentation/document_form_sheet.dart';
 import '../../expenses/data/expense_repository.dart';
 import '../../fuel/presentation/fuel_form_sheet.dart';
 import '../../maintenance/data/maintenance_repository.dart';
@@ -77,42 +76,30 @@ String _greetingLine(WidgetRef ref) {
 }
 
 /// "Votre Audi Q5 est à jour." / "2 actions sont à prévoir prochainement."
-/// - a single, always-true-to-the-data status line, never both patterns of
-/// wording contradicting each other for the same state.
+/// - always scoped to the single active vehicle (the one currently shown
+/// in the carousel/card above), never an aggregate across the garage: a
+/// swipe to another vehicle must change this line too.
 class _StatusLine extends ConsumerWidget {
-  const _StatusLine({required this.vehicles});
-  final List<Vehicle> vehicles;
+  const _StatusLine({required this.vehicle});
+  final Vehicle vehicle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final remindersAsync = ref.watch(allActiveRemindersProvider);
+    final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
     final actionable = remindersAsync.maybeWhen(
-      data: (all) {
-        final mileageById = {for (final v in vehicles) v.id: v.currentMileage};
-        return all.where((r) {
-          final u = reminderUrgency(r, currentMileage: mileageById[r.vehicleId]);
-          return u == ReminderUrgency.urgent || u == ReminderUrgency.upcoming;
-        }).length;
-      },
+      data: (all) => all.where((r) {
+        final u = reminderUrgency(r, currentMileage: vehicle.currentMileage);
+        return u == ReminderUrgency.urgent || u == ReminderUrgency.upcoming;
+      }).length,
       orElse: () => 0,
     );
 
-    final String text;
-    if (vehicles.length == 1) {
-      final v = vehicles.first;
-      text = actionable == 0
-          ? 'Votre ${v.brand} ${v.model} est à jour.'
-          : actionable == 1
-              ? '1 action est à prévoir prochainement.'
-              : '$actionable actions sont à prévoir prochainement.';
-    } else {
-      text = actionable == 0
-          ? 'Vos ${vehicles.length} véhicules sont à jour.'
-          : actionable == 1
-              ? '1 action est à prévoir sur vos véhicules.'
-              : '$actionable actions sont à prévoir sur vos véhicules.';
-    }
+    final text = actionable == 0
+        ? 'Votre ${vehicle.brand} ${vehicle.model} est à jour.'
+        : actionable == 1
+            ? '1 action est à prévoir prochainement.'
+            : '$actionable actions sont à prévoir prochainement.';
 
     return Row(
       children: [
@@ -220,7 +207,7 @@ class _Dashboard extends ConsumerWidget {
             children: [
               Text(_greetingLine(ref), style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 6),
-              _StatusLine(vehicles: vehicles),
+              _StatusLine(vehicle: selected),
             ],
           ),
         ),
@@ -245,7 +232,17 @@ class _Dashboard extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: _TodoSection(vehicles: vehicles),
+          child: _TodoSection(vehicle: selected),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionLabel(
+          'Dernières opérations',
+          trailing: _RecentOperationsSeeAllButton(vehicleId: selected.id),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _RecentOperationsSection(vehicle: selected),
         ),
         const SizedBox(height: AppSpacing.lg),
         _SectionLabel('Actions rapides'),
@@ -265,23 +262,30 @@ class _Dashboard extends ConsumerWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
+  const _SectionLabel(this.label, {this.trailing});
   final String label;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Text(
+      label.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
-        ),
-      ),
+      child: trailing == null
+          ? text
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [text, trailing!],
+            ),
     );
   }
 }
@@ -355,26 +359,27 @@ class _VehicleCarousel extends StatelessWidget {
   }
 }
 
-/// Up to 3 reminders across every vehicle that are actually close (overdue,
-/// due within 60 days, or within 1 500 km - see [isReminderDueSoon]),
-/// nearest first - or a positive "tout est à jour" state when there are
-/// none (spec: the section disappears/turns positive, it never just shows
-/// an empty list, and never a distant reminder just to fill up to 3).
+/// Up to 3 reminders for the active vehicle only that are actually close
+/// (overdue, due within 60 days, or within 1 500 km - see
+/// [isReminderDueSoon]), nearest first - or a positive "tout est à jour"
+/// state when there are none (spec: the section disappears/turns positive,
+/// it never just shows an empty list, and never a distant reminder just to
+/// fill up to 3). Scoped to a single [vehicle]: swiping to another vehicle
+/// must never leave a stale reminder from the previous one on screen, and
+/// a vehicle with zero due-soon reminders must show "Tout est à jour" even
+/// while another vehicle in the garage has several.
 class _TodoSection extends ConsumerWidget {
-  const _TodoSection({required this.vehicles});
-  final List<Vehicle> vehicles;
+  const _TodoSection({required this.vehicle});
+  final Vehicle vehicle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final remindersAsync = ref.watch(allActiveRemindersProvider);
+    final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
     return remindersAsync.when(
       loading: () => const SizedBox(
           height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       error: (_, _) => const SizedBox.shrink(),
-      data: (all) {
-        final mileageById = {for (final v in vehicles) v.id: v.currentMileage};
-        final vehicleById = {for (final v in vehicles) v.id: v};
-
+      data: (reminders) {
         // A single ascending scalar (days or km remaining, whichever is
         // known) is enough on its own: negative values (overdue) sort
         // first automatically, then the soonest/closest next - exactly the
@@ -382,15 +387,13 @@ class _TodoSection extends ConsumerWidget {
         // order the spec asks for, without a separate urgency-rank key.
         double proximity(Reminder r) {
           final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
-          final mileage = mileageById[r.vehicleId];
-          final byKm =
-              (r.dueMileage != null && mileage != null) ? r.dueMileage! - mileage : null;
+          final byKm = r.dueMileage != null ? r.dueMileage! - vehicle.currentMileage : null;
           if (byDays != null && byKm != null) return byDays < byKm ? byDays : byKm;
           return byDays ?? byKm ?? double.infinity;
         }
 
-        final top = all
-            .where((r) => isReminderDueSoon(r, currentMileage: mileageById[r.vehicleId]))
+        final top = reminders
+            .where((r) => isReminderDueSoon(r, currentMileage: vehicle.currentMileage))
             .toList()
           ..sort((a, b) => proximity(a).compareTo(proximity(b)));
 
@@ -402,8 +405,8 @@ class _TodoSection extends ConsumerWidget {
               if (i > 0) const SizedBox(height: AppSpacing.xs),
               _TodoTile(
                 reminder: top[i],
-                vehicle: vehicleById[top[i].vehicleId],
-                urgency: reminderUrgency(top[i], currentMileage: mileageById[top[i].vehicleId]),
+                vehicle: vehicle,
+                urgency: reminderUrgency(top[i], currentMileage: vehicle.currentMileage),
               ),
             ],
           ],
@@ -449,7 +452,7 @@ class _AllGoodCard extends StatelessWidget {
 class _TodoTile extends StatelessWidget {
   const _TodoTile({required this.reminder, required this.vehicle, required this.urgency});
   final Reminder reminder;
-  final Vehicle? vehicle;
+  final Vehicle vehicle;
   final ReminderUrgency urgency;
 
   @override
@@ -460,7 +463,7 @@ class _TodoTile extends StatelessWidget {
       ReminderUrgency.upcoming => scheme.secondary,
       ReminderUrgency.later || ReminderUrgency.done => scheme.onSurfaceVariant,
     };
-    final due = vehicle != null ? formatReminderDue(reminder, vehicle!.currentMileage) : '—';
+    final due = formatReminderDue(reminder, vehicle.currentMileage);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.md),
@@ -480,18 +483,10 @@ class _TodoTile extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(reminder.title,
-                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            if (vehicle != null)
-                              Text('${vehicle!.brand} ${vehicle!.model}',
-                                  style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant)),
-                          ],
-                        ),
+                        child: Text(reminder.title,
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
                       Text(due,
                           maxLines: 1,
@@ -511,9 +506,146 @@ class _TodoTile extends StatelessWidget {
   }
 }
 
-/// Direct-tap tiles for the four most frequent logging actions - each opens
-/// its target form immediately (no intermediate sheet), unlike the rarer
-/// "add/join a vehicle" action which stays behind the tab's FAB.
+/// "Voir tout" always follows whichever vehicle is currently active - it
+/// never opens a fixed vehicle's history regardless of what's selected.
+class _RecentOperationsSeeAllButton extends ConsumerWidget {
+  const _RecentOperationsSeeAllButton({required this.vehicleId});
+  final String vehicleId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasEntries =
+        (ref.watch(vehicleMaintenanceProvider(vehicleId)).value ?? const []).isNotEmpty;
+    if (!hasEntries) return const SizedBox.shrink();
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: () => context.push('/vehicles/$vehicleId/timeline'),
+      child: const Text('Voir tout', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// The 3 most recent real business interventions for the active vehicle -
+/// a fiche edit, a plain mileage correction, a sync pass or an audit entry
+/// never appear here, since they simply aren't maintenance operations
+/// (RG-TIME-002 / bloc "Journal d'audit" already keeps them out of this
+/// data source entirely).
+class _RecentOperationsSection extends ConsumerWidget {
+  const _RecentOperationsSection({required this.vehicle});
+  final Vehicle vehicle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(vehicleMaintenanceProvider(vehicle.id));
+    return entriesAsync.when(
+      loading: () => const SizedBox(
+          height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (entries) {
+        if (entries.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            child: Text(
+              'Aucune opération enregistrée pour l\'instant.',
+              style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          );
+        }
+        final top = entries.take(3).toList();
+        return Column(
+          children: [
+            for (var i = 0; i < top.length; i++) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.xs),
+              _RecentOperationTile(
+                entry: top[i],
+                onTap: () => showMaintenanceFormSheet(context,
+                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage, editing: top[i]),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecentOperationTile extends StatelessWidget {
+  const _RecentOperationTile({required this.entry, required this.onTap});
+  final MaintenanceEntry entry;
+  final VoidCallback onTap;
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Material(
+        color: scheme.surfaceContainerLowest,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.build_outlined, size: 17, color: scheme.primary),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      Text(
+                        '${_fmtDate(entry.date)} · ${formatAmount(entry.mileage)} km',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Direct-tap tiles for the three most frequent logging actions - each
+/// opens its target form immediately (no intermediate sheet), unlike the
+/// rarer "add/join a vehicle" action which stays behind the tab's FAB.
+/// Document was dropped: it's a rarer action than the other three and
+/// didn't earn a permanent slot on the home screen just to fill a 2x2 grid.
 class _QuickActionsRow extends ConsumerWidget {
   const _QuickActionsRow({required this.vehicle});
   final Vehicle vehicle;
@@ -545,14 +677,6 @@ class _QuickActionsRow extends ConsumerWidget {
             label: 'Plein',
             onTap: () => showFuelFormSheet(context,
                 vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.description_outlined,
-            label: 'Document',
-            onTap: () => showDocumentFormSheet(context, vehicleId: vehicle.id),
           ),
         ),
       ],

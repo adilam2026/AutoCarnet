@@ -28,9 +28,14 @@ class InternalValuationProvider implements ValuationEngine {
   ValuationResult compute(ValuationInput input) {
     final breakdown = <ValuationBreakdownLine>[];
 
-    final base = VehicleValuationReference.estimatedNewPrice(input.brand, input.model);
+    final year = input.year ?? input.firstRegistrationDate?.year;
+    final priceEstimate =
+        VehicleValuationReference.newPriceFor(input.brand, input.model, year: year);
+    final base = priceEstimate.priceMad;
     breakdown.add(ValuationBreakdownLine(
-      label: 'Valeur de référence estimée par AutoCarnet (prix neuf approximatif)',
+      label: priceEstimate.sourced
+          ? 'Valeur de référence AutoCarnet (prix neuf sourcé pour ce modèle/génération)'
+          : 'Valeur de référence estimée par AutoCarnet (prix neuf approximatif par gamme)',
       runningTotal: base,
     ));
     var running = base;
@@ -110,13 +115,23 @@ class InternalValuationProvider implements ValuationEngine {
         label: 'Historique d\'entretien disponible',
         satisfied: input.maintenanceEntryCount > 0,
       ),
+      ConfidenceFactor(
+        label: 'Prix neuf de référence tracé à une source réelle',
+        satisfied: priceEstimate.sourced,
+      ),
       const ConfidenceFactor(label: 'Aucune donnée de marché externe', satisfied: false),
     ];
     final scored = factors.where((f) => f.label != 'Aucune donnée de marché externe').toList();
     final ratio = scored.where((f) => f.satisfied).length / scored.length;
-    final confidence = ratio >= 0.7
-        ? ConfidenceLevel.good
-        : (ratio >= 0.4 ? ConfidenceLevel.medium : ConfidenceLevel.low);
+    // Never "bonne confiance" when the whole estimate is anchored on an
+    // unsourced, generic brand-tier guess: the base price is the single
+    // most consequential number in the calculation, so an unverified one
+    // caps confidence regardless of how complete the rest of the data is.
+    final confidence = !priceEstimate.sourced
+        ? (ratio >= 0.4 ? ConfidenceLevel.medium : ConfidenceLevel.low)
+        : (ratio >= 0.7
+            ? ConfidenceLevel.good
+            : (ratio >= 0.4 ? ConfidenceLevel.medium : ConfidenceLevel.low));
 
     return ValuationResult(
       quickSale: central * 0.92,
