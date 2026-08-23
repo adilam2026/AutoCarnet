@@ -70,10 +70,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final reminderCount = ref.watch(globalReminderCountProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_index]),
+        title: Text(_titles[_index],
+            style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800)),
         actions: const [_NotificationBellButton(), _AccountAvatarButton()],
       ),
       drawer: _AppDrawer(onSelectTab: _goToTab),

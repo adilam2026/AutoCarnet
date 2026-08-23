@@ -401,13 +401,18 @@ void main() {
       await pumpDashboard(tester);
       await tester.pump();
 
-      expect(find.text('Vidange Astra'), findsOneWidget);
+      // Scoped to the ops list specifically: a maintenance category can
+      // legitimately also appear a second time as "Votre carnet"'s own
+      // "Dernier entretien" sub-line - see the equivalent note above.
+      Finder inOpsList(String text) =>
+          find.descendant(of: find.byType(ListSurface), matching: find.text(text));
+      expect(inOpsList('Vidange Astra'), findsOneWidget);
       expect(find.text('Révision Q5'), findsNothing);
 
       await tester.drag(find.byType(PageView), const Offset(-400, 0));
       await tester.pumpAndSettle();
 
-      expect(find.text('Révision Q5'), findsOneWidget);
+      expect(inOpsList('Révision Q5'), findsOneWidget);
       expect(find.text('Vidange Astra'), findsNothing);
     });
   });

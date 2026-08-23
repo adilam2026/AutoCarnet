@@ -213,7 +213,7 @@ class _Dashboard extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 14),
         if (vehicles.length == 1)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -229,33 +229,33 @@ class _Dashboard extends ConsumerWidget {
             controller: pageController,
             onChanged: onVehicleChanged,
           ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         _SectionLabel('À faire prochainement'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: _TodoSection(vehicle: selected),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         _SectionLabel(
           'Dernières opérations',
           trailing: _RecentOperationsSeeAllButton(vehicleId: selected.id),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: _RecentOperationsSection(vehicle: selected),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         _SectionLabel('Actions rapides'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: _QuickActionsRow(vehicle: selected),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         _SectionLabel('Votre carnet'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         _InsightsStrip(vehicle: selected),
         const SizedBox(height: AppSpacing.md),
       ],
@@ -324,8 +324,12 @@ class _VehicleCarousel extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
+        // Sized to the V2.1 compact card's actual content height (icon row
+        // + facts line + padding), not the old two-row card's - a leftover
+        // fixed height here was stretching the new compact card with a
+        // large empty gap underneath it.
         SizedBox(
-          height: 208,
+          height: 98,
           child: PageView.builder(
             controller: controller,
             itemCount: vehicles.length,
@@ -435,11 +439,15 @@ class _TodoSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // errorContainer/tertiaryContainer already equal the mockup's own
+    // --danger-soft/--warning-soft tones - used at full strength, not
+    // diluted, so the section reads with the same visible weight as the
+    // validated reference.
     final tint = isDanger ? scheme.errorContainer : scheme.tertiaryContainer;
     final accent = isDanger ? scheme.error : scheme.tertiary;
     return Container(
       decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.55),
+        color: tint,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: accent.withValues(alpha: 0.22)),
         boxShadow: AppElevation.card(scheme),
