@@ -24,6 +24,7 @@ import '../../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../../reminders/data/reminder_repository.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
 import '../../data/vehicle_repository.dart';
+import '../../domain/vehicle_card_color.dart';
 import '../../domain/vehicle_compliance_rules.dart';
 import '../../domain/vehicle_health.dart';
 import '../../domain/vehicle_ownership.dart';
@@ -168,7 +169,6 @@ class _VehicleHomeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     ref.watch(authStateChangesProvider);
     final currentUserId = ref.read(accountRepositoryProvider).currentUser?.id;
     final isOwner = isVehicleOwnedByCurrentUser(vehicle, currentUserId);
@@ -208,29 +208,11 @@ class _VehicleHomeBody extends ConsumerWidget {
     final lastMileageEntry = mileageHistory.isEmpty
         ? null
         : ([...mileageHistory]..sort((a, b) => b.recordedAt.compareTo(a.recordedAt))).first;
+    final cardColor = VehicleCardColor.fromKey(vehicle.cardColorKey);
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Hero(
-              tag: 'vehicle-avatar-${vehicle.id}',
-              child: CircleAvatar(
-                radius: 14,
-                backgroundColor: scheme.primaryContainer,
-                child: Icon(Icons.directions_car, size: 16, color: scheme.primary),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                '${vehicle.brand} ${vehicle.model}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
+        title: _VehicleIdentityChip(vehicle: vehicle, cardColor: cardColor),
         actions: [
           if (canEdit)
             PopupMenuButton<VehicleStatus>(
@@ -303,6 +285,7 @@ class _VehicleHomeBody extends ConsumerWidget {
         children: [
           _VehicleSummaryCard(
             vehicle: vehicle,
+            cardColor: cardColor,
             health: health,
             completeness: completeness,
             lastUpdate: lastMileageEntry?.recordedAt,
@@ -348,6 +331,7 @@ class _VehicleHomeBody extends ConsumerWidget {
             maintenanceEntries: maintenanceEntries,
             expenseThisYear: expenseStats.maybeWhen(data: (s) => s.thisYear, orElse: () => null),
             fuelStats: fuelStats.maybeWhen(data: (s) => s, orElse: () => null),
+            estimatedKmPerYear: monthlyPace == null ? null : monthlyPace * 12,
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Administratif'),
@@ -464,12 +448,71 @@ class _VehicleHomeBody extends ConsumerWidget {
   }
 }
 
+/// Compact reminder of "which vehicle am I in" (mission point 6-9): reuses
+/// the exact same identity colour as the accueil's carte véhicule, without
+/// recreating that whole card here - a pill just large enough for the icon
+/// and name, never a full-width coloured bandeau competing with the header's
+/// actions (modifier/partager/supprimer). The vehicle name always gets an
+/// explicit [ColorScheme.onSurface] here rather than relying on any
+/// ambient/AppBar text styling, so it can never again render as
+/// unreadable white-on-white regardless of what the surrounding AppBar
+/// theme resolves to.
+class _VehicleIdentityChip extends StatelessWidget {
+  const _VehicleIdentityChip({required this.vehicle, required this.cardColor});
+  final Vehicle vehicle;
+  final VehicleCardColor cardColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = cardColor.onLightSurface;
+    return Container(
+      key: const Key('vehicleIdentityChip'),
+      padding: const EdgeInsets.fromLTRB(5, 4, 11, 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(accent.withValues(alpha: 0.07), scheme.surfaceContainerLowest),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: accent.withValues(alpha: 0.65), width: 1.2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Hero(
+            tag: 'vehicle-avatar-${vehicle.id}',
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(color: cardColor.color, shape: BoxShape.circle),
+              child: Icon(Icons.directions_car, size: 13, color: cardColor.onColor),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              '${vehicle.brand} ${vehicle.model}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The vehicle as a real "instrument cluster" hero, matching the home
 /// dashboard's VehicleHeroCard language (mono odometer, health ring) -
 /// merges the old separate header/mileage cards into one premium summary.
 class _VehicleSummaryCard extends StatelessWidget {
   const _VehicleSummaryCard({
     required this.vehicle,
+    required this.cardColor,
     required this.health,
     required this.completeness,
     required this.lastUpdate,
@@ -478,6 +521,7 @@ class _VehicleSummaryCard extends StatelessWidget {
     required this.onTapHealth,
   });
   final Vehicle vehicle;
+  final VehicleCardColor cardColor;
   final VehicleHealthScore health;
   final double completeness;
   final DateTime? lastUpdate;
@@ -495,11 +539,16 @@ class _VehicleSummaryCard extends StatelessWidget {
     ];
 
     return Container(
+      key: const Key('vehicleSummaryCardContour'),
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        // A thin accent, never a filled background (mission point 11: this
+        // card carries a lot of information and must stay very readable) -
+        // the same continuity colour as the accueil card and the fiche
+        // header's identity chip.
+        border: Border.all(color: cardColor.onLightSurface, width: 1.2),
         boxShadow: AppElevation.card(scheme),
       ),
       child: Column(
@@ -881,55 +930,82 @@ class _RecentOperationsCard extends ConsumerWidget {
 }
 
 /// Santé lives as the ring badge on [_VehicleSummaryCard] now - never
-/// duplicated here too.
+/// duplicated here too. A 2x2 grid (mission point 17-D: the accueil's
+/// "Votre carnet" strip was removed, not deleted - "Km / an estimé" was
+/// only ever shown there, so it joins this existing "Aperçu" section as a
+/// 4th tile rather than becoming a brand-new section of its own).
 class _OverviewGrid extends StatelessWidget {
   const _OverviewGrid({
     required this.maintenanceEntries,
     required this.expenseThisYear,
     required this.fuelStats,
+    required this.estimatedKmPerYear,
   });
   final List<MaintenanceEntry> maintenanceEntries;
   final double? expenseThisYear;
   final FuelStats? fuelStats;
+  final double? estimatedKmPerYear;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _OverviewTile(
-              icon: Icons.build_outlined,
-              label: 'Entretien',
-              value: maintenanceEntries.isEmpty
-                  ? null
-                  : '${([...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date))).first.mileage.toStringAsFixed(0)} km',
-              emptyMessage: 'Aucun entretien',
-            ),
+    return Column(
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _OverviewTile(
+                  icon: Icons.build_outlined,
+                  label: 'Entretien',
+                  value: maintenanceEntries.isEmpty
+                      ? null
+                      : '${([...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date))).first.mileage.toStringAsFixed(0)} km',
+                  emptyMessage: 'Aucun entretien',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _OverviewTile(
+                  icon: Icons.payments_outlined,
+                  label: 'Dépenses ${DateTime.now().year}',
+                  value: expenseThisYear == null ? null : formatAmount(expenseThisYear!),
+                  emptyMessage: 'Pas de données',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _OverviewTile(
-              icon: Icons.payments_outlined,
-              label: 'Dépenses ${DateTime.now().year}',
-              value: expenseThisYear == null ? null : formatAmount(expenseThisYear!),
-              emptyMessage: 'Pas de données',
-            ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _OverviewTile(
+                  icon: Icons.speed_outlined,
+                  label: 'Consommation',
+                  value: fuelStats?.averageConsumption != null
+                      ? '${fuelStats!.averageConsumption!.toStringAsFixed(1)} L/100'
+                      : null,
+                  emptyMessage: 'Pas assez de pleins',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _OverviewTile(
+                  icon: Icons.trending_up_outlined,
+                  label: 'Km / an estimé',
+                  value: estimatedKmPerYear == null
+                      ? null
+                      : '${formatAmount(estimatedKmPerYear!)} km',
+                  emptyMessage: 'Pas assez de données',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _OverviewTile(
-              icon: Icons.speed_outlined,
-              label: 'Consommation',
-              value: fuelStats?.averageConsumption != null
-                  ? '${fuelStats!.averageConsumption!.toStringAsFixed(1)} L/100'
-                  : null,
-              emptyMessage: 'Pas assez de pleins',
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

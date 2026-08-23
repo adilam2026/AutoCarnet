@@ -16,13 +16,17 @@ import '../../../vehicles/domain/vehicle_health.dart';
 /// creation, personalisable from the fiche) carries the identity (icon,
 /// name, year, mileage); the lower zone stays on the app's ordinary white
 /// surface so the health/révision numbers read exactly like the rest of
-/// the accueil, with no contrast logic to special-case per colour - every
-/// palette entry is deliberately dark enough for white text to always
-/// work. A final low-key row ("Voir la fiche du véhicule") makes explicit
-/// what the whole card already does on tap (bloc 20 bis): it is never a
-/// second, competing tap target, only a visible affordance. Shows only
-/// what's already computed elsewhere (health score, reminders): nothing
-/// here invents new business logic.
+/// the accueil. Cohérence pass: the vehicle's colour is also the card's
+/// single outer contour (never just the top band's fill), so the three
+/// zones read as one unified component instead of stacked pieces - text
+/// and icons on the coloured band go through [VehicleCardColor.onColor]
+/// (real luminance contrast, not an assumed white) and the contour/CTA
+/// accent goes through [VehicleCardColor.onLightSurface]. A final low-key
+/// row ("Voir la fiche du véhicule") makes explicit what the whole card
+/// already does on tap (bloc 20 bis): it is never a second, competing tap
+/// target, only a visible affordance. Shows only what's already computed
+/// elsewhere (health score, reminders): nothing here invents new business
+/// logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
     super.key,
@@ -61,10 +65,21 @@ class VehicleHeroCard extends ConsumerWidget {
     final revision = _nearestMaintenance();
     final isOk = worst == ReminderUrgency.later || worst == ReminderUrgency.done;
     final statusColor = isOk ? scheme.secondary : scheme.tertiary;
-    final cardColor = VehicleCardColor.fromKey(vehicle.cardColorKey).color;
+    final vehicleColor = VehicleCardColor.fromKey(vehicle.cardColorKey);
+    final cardColor = vehicleColor.color;
+    // Text/icons painted directly on the coloured band: luminance-based,
+    // never assumed white (mission point 4) - every current palette entry
+    // resolves to white, but this stays correct if that ever changes.
+    final onColor = vehicleColor.onColor;
     // A near-invisible tint of the vehicle's own colour, not a new one -
     // just enough to separate the CTA row from the facts above it.
     final ctaTint = Color.alphaBlend(cardColor.withValues(alpha: 0.05), scheme.surfaceContainerLowest);
+    // The card's own identity colour as its single outer contour (mission
+    // point 1-3): it must read as ONE unified block, not three stacked
+    // pieces - the coloured band above already IS this colour, so the
+    // border only becomes visible where it meets the white/tinted zones
+    // below, tying the whole card together without a heavy fill.
+    final contourColor = vehicleColor.onLightSurface;
 
     return Container(
       decoration: BoxDecoration(
@@ -78,9 +93,10 @@ class VehicleHeroCard extends ConsumerWidget {
         child: InkWell(
           onTap: onTap,
           child: Container(
+            key: ValueKey('vehicleHeroCardContour-${vehicle.id}'),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLowest,
-              border: Border.all(color: AppElevation.heroBorder(scheme)),
+              border: Border.all(color: contourColor, width: 1.3),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -98,10 +114,10 @@ class VehicleHeroCard extends ConsumerWidget {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
+                          color: onColor.withValues(alpha: 0.16),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
-                        child: const Icon(Icons.directions_car_filled, size: 16, color: Colors.white),
+                        child: Icon(Icons.directions_car_filled, size: 16, color: onColor),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -111,11 +127,11 @@ class VehicleHeroCard extends ConsumerWidget {
                           children: [
                             Text(
                               '${vehicle.brand} ${vehicle.model}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 16.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.3,
-                                  color: Colors.white),
+                                  color: onColor),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -124,9 +140,9 @@ class VehicleHeroCard extends ConsumerWidget {
                               children: [
                                 if (vehicle.year != null) ...[
                                   Text('${vehicle.year}',
-                                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.78))),
+                                      style: TextStyle(fontSize: 12, color: onColor.withValues(alpha: 0.78))),
                                   Text(' · ',
-                                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+                                      style: TextStyle(fontSize: 12, color: onColor.withValues(alpha: 0.55))),
                                 ],
                                 Flexible(
                                   child: Text(
@@ -134,7 +150,7 @@ class VehicleHeroCard extends ConsumerWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: AppTypography.mono(context,
-                                        fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+                                        fontSize: 13, fontWeight: FontWeight.w800, color: onColor),
                                   ),
                                 ),
                               ],
@@ -142,7 +158,7 @@ class VehicleHeroCard extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.85)),
+                      Icon(Icons.chevron_right, size: 14, color: onColor.withValues(alpha: 0.85)),
                     ],
                   ),
                 ),
@@ -173,12 +189,12 @@ class VehicleHeroCard extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Voir la fiche du véhicule',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cardColor),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: contourColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Icon(Icons.chevron_right, size: 14, color: cardColor),
+                      Icon(Icons.chevron_right, size: 14, color: contourColor),
                     ],
                   ),
                 ),

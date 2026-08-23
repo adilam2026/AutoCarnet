@@ -31,6 +31,21 @@ enum VehicleCardColor {
         VehicleCardColor.grisGraphite => const Color(0xFF3B4048),
       };
 
+  /// Content painted directly ON [color] (icons, labels in a filled band):
+  /// real luminance-based contrast, not an assumption that white always
+  /// works - every entry above happens to be dark enough that this
+  /// resolves to white today, but an edited/added palette entry stays
+  /// protected automatically (mission point 4/14: "ne jamais supposer que
+  /// le blanc sera lisible sur toutes les couleurs disponibles").
+  Color get onColor => contrastingOnColor(color);
+
+  /// [color] itself, used AS a foreground/border/accent on the app's white
+  /// or near-white surfaces (a card's contour, an identity chip's border
+  /// and icon chip) - darkened just enough to stay readable if a future
+  /// palette entry were ever light, otherwise identical to [color]. Every
+  /// current entry is already dark enough that this is a no-op.
+  Color get onLightSurface => safeAccentOnLightSurface(color);
+
   String get label => switch (this) {
         VehicleCardColor.bluePetrole => 'Bleu pétrole',
         VehicleCardColor.blueNuit => 'Bleu nuit',
@@ -85,4 +100,21 @@ enum VehicleCardColor {
     }
     return best;
   }
+}
+
+/// Real luminance-based contrast for content painted ON [background] - a
+/// free function (not just [VehicleCardColor.onColor]) so the branching
+/// itself is directly unit-testable against arbitrary colours, not only
+/// today's already-dark palette.
+Color contrastingOnColor(Color background) =>
+    background.computeLuminance() > 0.42 ? const Color(0xFF14171A) : Colors.white;
+
+/// [color] made safe to use AS a foreground/border/accent on the app's
+/// white/near-white surfaces - itself unless too light to read well there,
+/// in which case it's darkened just enough. See
+/// [VehicleCardColor.onLightSurface].
+Color safeAccentOnLightSurface(Color color) {
+  if (color.computeLuminance() <= 0.5) return color;
+  final hsl = HSLColor.fromColor(color);
+  return hsl.withLightness((hsl.lightness - 0.28).clamp(0.0, 1.0)).toColor();
 }

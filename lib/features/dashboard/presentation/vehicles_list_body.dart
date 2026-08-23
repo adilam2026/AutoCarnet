@@ -8,25 +8,27 @@ import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/loading_error_views.dart';
-import '../../expenses/data/expense_repository.dart';
 import '../../fuel/presentation/fuel_form_sheet.dart';
 import '../../maintenance/data/maintenance_repository.dart';
-import '../../maintenance/domain/revision_estimation.dart';
 import '../../maintenance/presentation/maintenance_form_sheet.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../reminders/domain/reminder_urgency.dart';
 import '../../vehicles/data/vehicle_repository.dart';
-import '../../vehicles/domain/vehicle_health.dart';
 import '../../vehicles/presentation/widgets/mileage_update_sheet.dart';
 import 'widgets/vehicle_hero_card.dart';
 
-/// AutoCarnet's home base ("Premium clair" concept, 2026) - a real personal
-/// dashboard, not a bare vehicle list: a greeting, the vehicle(s) as the
-/// central element, what needs attention, one-tap logging, and a compact
-/// read on the carnet as a whole. Every number shown here already exists
-/// somewhere in the app (health score, reminders, expenses, mileage
-/// history) - nothing is invented for this screen.
+/// AutoCarnet's home base ("Premium clair" concept, 2026; cohérence pass:
+/// accueil trimmed to a short synthesis) - a real personal dashboard, not a
+/// bare vehicle list: a greeting, the vehicle(s) as the central element,
+/// what needs attention, one-tap logging. Deliberately NOT an analytics
+/// dashboard: "Votre carnet" (santé/dépenses/dernier entretien/km-an) was
+/// removed from this screen so it fits with minimal scroll on a real
+/// phone - none of that data was deleted, it's a display-only trim (santé
+/// stays on the vehicle card, the rest live in the fiche véhicule's
+/// "Aperçu" section). Every number shown here already exists somewhere in
+/// the app (health score, reminders) - nothing is invented for this
+/// screen.
 class VehiclesListBody extends ConsumerStatefulWidget {
   const VehiclesListBody({super.key});
 
@@ -280,10 +282,6 @@ class _Dashboard extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: _QuickActionsRow(vehicle: selected),
         ),
-        const SizedBox(height: AppSpacing.md),
-        _SectionLabel('Votre carnet'),
-        const SizedBox(height: AppSpacing.xs),
-        _InsightsStrip(vehicle: selected),
         const SizedBox(height: AppSpacing.md),
       ],
     );
@@ -834,150 +832,3 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-/// A compact 2-column grid read on the carnet as a whole - never an
-/// analytics dashboard, just the handful of numbers an owner actually
-/// wants at a glance, all visible at once without any horizontal swipe.
-class _InsightsStrip extends ConsumerWidget {
-  const _InsightsStrip({required this.vehicle});
-  final Vehicle vehicle;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final health = ref.watch(vehicleHealthScoreProvider(vehicle));
-    final expenseStats = ref.watch(vehicleExpenseStatsProvider(vehicle.id));
-    final maintenance = ref.watch(vehicleMaintenanceProvider(vehicle.id)).value;
-    final mileageHistory = ref.watch(vehicleMileageHistoryProvider(vehicle.id)).value;
-    final currency = ref.watch(defaultCurrencyProvider);
-
-    final lastMaintenance = (maintenance == null || maintenance.isEmpty) ? null : maintenance.first;
-    final monthlyPace = mileageHistory == null ? null : estimateMonthlyPaceKm(mileageHistory);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.shield_outlined,
-                  accent: true,
-                  label: 'Santé',
-                  value: health == null ? '—' : '${health.score}',
-                  sub: '/ 100',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Dépenses ${DateTime.now().year}',
-                  value: expenseStats.maybeWhen(
-                      data: (s) => formatAmount(s.thisYear), orElse: () => '—'),
-                  sub: currency,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.build_outlined,
-                  label: 'Dernier entretien',
-                  value: lastMaintenance == null ? 'Aucun' : _monthsAgo(lastMaintenance.date),
-                  sub: lastMaintenance?.category ?? '',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.speed_outlined,
-                  accent: true,
-                  label: 'Km / an estimé',
-                  value: monthlyPace == null ? '—' : formatAmount(monthlyPace * 12),
-                  sub: 'km',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _monthsAgo(DateTime date) {
-    final days = DateTime.now().difference(date).inDays;
-    if (days < 31) return 'Il y a ${days}j';
-    final months = (days / 30.4).round();
-    return 'Il y a ${months}mois';
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.sub,
-    this.accent = false,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final String sub;
-
-  /// V2.1 pass: never four visually-identical white rectangles - the two
-  /// structural/positive metrics (Santé, Km/an) get a petrol icon chip,
-  /// the other two stay neutral, so the grid isn't perfectly uniform.
-  final bool accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        boxShadow: AppElevation.card(scheme),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            margin: const EdgeInsets.only(bottom: 6),
-            decoration: BoxDecoration(
-              color: accent ? AppElevation.surfaceAccent(scheme) : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, size: 13, color: accent ? scheme.primary : scheme.onSurfaceVariant),
-          ),
-          Text(label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: TextStyle(fontSize: 9.5, letterSpacing: 0.3, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 2),
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: AppTypography.mono(context,
-                  fontSize: 17, fontWeight: FontWeight.w800, color: accent ? scheme.primary : null)),
-          if (sub.isNotEmpty)
-            Text(sub,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
-}

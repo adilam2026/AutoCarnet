@@ -348,11 +348,9 @@ void main() {
       await pumpDashboard(tester);
       await tester.pump();
 
-      // Scoped to the "Dernières opérations" list surface specifically:
-      // "Vidange + filtres" is also the most recent entry's category, which
-      // legitimately shows a second time as "Votre carnet"'s own "Dernier
-      // entretien" sub-line - a real, expected duplication of the same
-      // underlying data across two distinct sections, not a bug.
+      // Scoped to the "Dernières opérations" list surface specifically,
+      // in case the same category text ever appears elsewhere on the
+      // dashboard.
       final opsList = find.byType(ListSurface);
       expect(find.descendant(of: opsList, matching: find.text('Vidange + filtres')), findsOneWidget);
       expect(find.descendant(of: opsList, matching: find.text('Révision')), findsOneWidget);
@@ -401,9 +399,7 @@ void main() {
       await pumpDashboard(tester);
       await tester.pump();
 
-      // Scoped to the ops list specifically: a maintenance category can
-      // legitimately also appear a second time as "Votre carnet"'s own
-      // "Dernier entretien" sub-line - see the equivalent note above.
+      // Scoped to the ops list specifically - see the equivalent note above.
       Finder inOpsList(String text) =>
           find.descendant(of: find.byType(ListSurface), matching: find.text(text));
       expect(inOpsList('Vidange Astra'), findsOneWidget);

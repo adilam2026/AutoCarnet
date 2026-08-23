@@ -7,6 +7,7 @@ import 'package:autocarnet/features/vehicles/data/vehicle_repository.dart';
 import 'package:autocarnet/features/vehicles/domain/vehicle_card_color.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -323,6 +324,40 @@ void main() {
       final newerVehicle = await repo.getOne(newerId);
       expect(olderVehicle.cardColorKey, VehicleCardColor.bluePetrole.storageKey);
       expect(newerVehicle.cardColorKey, VehicleCardColor.blueNuit.storageKey);
+    });
+  });
+
+  group('VehicleCardColor contrast (pure)', () {
+    test('every palette entry\'s onColor contrasts clearly with its own background', () {
+      for (final c in VehicleCardColor.values) {
+        final bgLuminance = c.color.computeLuminance();
+        final fgLuminance = c.onColor.computeLuminance();
+        expect((bgLuminance - fgLuminance).abs(), greaterThan(0.3),
+            reason: '${c.name}: onColor must contrast clearly with its own background');
+      }
+    });
+
+    test('contrastingOnColor picks dark ink on a light background, white on a dark one', () {
+      expect(contrastingOnColor(Colors.white), isNot(Colors.white));
+      expect(contrastingOnColor(Colors.white).computeLuminance(), lessThan(0.1));
+      expect(contrastingOnColor(const Color(0xFF0B0B0B)), Colors.white);
+    });
+
+    test('safeAccentOnLightSurface darkens a colour too light to read on a white card, '
+        'leaves an already-dark one untouched', () {
+      final darkened = safeAccentOnLightSurface(Colors.white);
+      expect(darkened, isNot(Colors.white));
+      expect(darkened.computeLuminance(), lessThan(0.5));
+
+      const dark = Color(0xFF123B54);
+      expect(safeAccentOnLightSurface(dark), dark);
+    });
+
+    test('every current palette entry already reads fine on a light surface (no-op today)', () {
+      for (final c in VehicleCardColor.values) {
+        expect(c.onLightSurface, c.color,
+            reason: '${c.name} should not need darkening with the current palette');
+      }
     });
   });
 }
