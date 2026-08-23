@@ -27,8 +27,9 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  static const _titles = ['AutoCarnet', 'Alertes', 'Revendre', 'Plus'];
+  static const _titles = ['AutoCarnet', 'Alertes', 'Revendre'];
 
   void _goToTab(int index) => setState(() => _index = index);
 
@@ -73,6 +74,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text(_titles[_index],
             style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800)),
@@ -85,7 +87,6 @@ class _AppShellState extends ConsumerState<AppShell> {
           VehiclesListBody(),
           AlertsBody(),
           ResaleBody(),
-          _MoreMenuBody(),
         ],
       ),
       floatingActionButton: _index == 0
@@ -97,7 +98,17 @@ class _AppShellState extends ConsumerState<AppShell> {
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        // The 4th destination never becomes the selected tab (matching the
+        // validated mockup's nav: Véhicules / Alertes / Revendre / Menu) -
+        // it opens the same drawer the hamburger icon does, instead of a
+        // separate "Plus" screen that duplicated the drawer's own items.
+        onDestinationSelected: (i) {
+          if (i == 3) {
+            _scaffoldKey.currentState?.openDrawer();
+            return;
+          }
+          setState(() => _index = i);
+        },
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.directions_car_outlined),
@@ -120,9 +131,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: 'Revendre',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.more_horiz_outlined),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: 'Plus',
+            icon: Icon(Icons.menu_outlined),
+            selectedIcon: Icon(Icons.menu),
+            label: 'Menu',
           ),
         ],
       ),
@@ -264,23 +275,22 @@ class _AppDrawer extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            // V2.1 pass: a compact, flat header (no decorative gradient
+            // block eating drawer height) - matches the mockup's plain
+            // avatar/name/email row with a hairline border underneath.
             Container(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xl, AppSpacing.md, AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [scheme.primary, scheme.secondary],
-                ),
+                border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6))),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    radius: 19,
+                    backgroundColor: scheme.primaryContainer,
                     child: Text(
                       _initialsFromName(displayName ?? email),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                      style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -293,13 +303,13 @@ class _AppDrawer extends ConsumerWidget {
                           displayName?.isNotEmpty == true ? displayName! : 'AutoCarnet',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         if (email != null && email.isNotEmpty)
                           Text(email,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5)),
+                              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -378,25 +388,15 @@ class _AppDrawer extends ConsumerWidget {
                 );
               },
             ),
-            const Divider(),
-            const SizedBox(height: AppSpacing.xs),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              child: Material(
-                color: scheme.errorContainer.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                child: ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-                  leading: Icon(Icons.lock_outline, color: scheme.error),
-                  title: Text('Verrouiller AutoCarnet',
-                      style: TextStyle(color: scheme.onErrorContainer, fontWeight: FontWeight.w600)),
-                  trailing: Icon(Icons.exit_to_app, size: 18, color: scheme.error),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _onLockApp(context, ref);
-                  },
-                ),
-              ),
+            Divider(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            ListTile(
+              leading: Icon(Icons.lock_outline, color: scheme.error),
+              title: Text('Verrouiller AutoCarnet',
+                  style: TextStyle(color: scheme.error, fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.of(context).pop();
+                _onLockApp(context, ref);
+              },
             ),
             const SizedBox(height: AppSpacing.sm),
           ],
@@ -406,57 +406,3 @@ class _AppDrawer extends ConsumerWidget {
   }
 }
 
-class _MoreMenuBody extends StatelessWidget {
-  const _MoreMenuBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      children: [
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.storefront_outlined),
-            title: const Text('Prestataires'),
-            subtitle: const Text(
-              'Garages, stations, organismes réutilisés partout',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/providers'),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.manage_accounts_outlined),
-            title: const Text('Compte & sécurité'),
-            subtitle: const Text('Profil, devise, code PIN, biométrie'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings'),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.fact_check_outlined),
-            title: const Text('Journal d\'audit'),
-            subtitle: const Text(
-              'Trace technique des modifications, séparée du carnet',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/audit-log'),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        Center(
-          child: Text(
-            'AutoCarnet fonctionne entièrement hors connexion.\n'
-            'Vos données restent stockées sur cet appareil.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      ],
-    );
-  }
-}

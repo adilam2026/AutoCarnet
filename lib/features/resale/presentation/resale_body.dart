@@ -158,25 +158,28 @@ class _ResaleSummary extends ConsumerWidget {
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
+          AppSpacing.md, AppSpacing.sm, AppSpacing.md, fabSafeBottomPadding(context)),
       children: [
-        _VehicleHeaderCard(vehicle: vehicle),
-        const SizedBox(height: AppSpacing.lg),
-        const SectionHeader('Estimation de revente'),
+        // V2.1 pass: the price is the priority of this screen (mockup's own
+        // structure) - a slim title instead of a separate vehicle card
+        // ahead of it, and the price card's own "PRIX CONSEILLÉ" tag
+        // already labels it, so no redundant section header above it.
+        Text('Revendre — ${vehicle.brand} ${vehicle.model}',
+            style: Theme.of(context).textTheme.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: AppSpacing.sm),
         _EstimationCard(
           result: valuation,
           onExplain: () => showValuationBreakdownSheet(context, valuation),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         SectionHeader('Santé du carnet — ${health.score}/100'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         _HealthCard(health: health),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         const SectionHeader('Préparation à la vente'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         _ReadinessCard(readiness: readiness, recommendations: recommendations),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         FilledButton.icon(
           onPressed: () => _generatePdf(
             context,
@@ -228,51 +231,6 @@ class _ResaleSummary extends ConsumerWidget {
             icon: Icons.error_outline);
       }
     }
-  }
-}
-
-class _VehicleHeaderCard extends StatelessWidget {
-  const _VehicleHeaderCard({required this.vehicle});
-  final Vehicle vehicle;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: scheme.primaryContainer,
-              child: Icon(Icons.directions_car, color: scheme.onPrimaryContainer),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${vehicle.brand} ${vehicle.model}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium),
-                  Row(
-                    children: [
-                      Text(vehicle.currentMileage.toStringAsFixed(0),
-                          style: AppTypography.mono(context,
-                              fontSize: 12.5, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant)),
-                      Text(' km${vehicle.year != null ? ' · ${vehicle.year}' : ''}',
-                          style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
