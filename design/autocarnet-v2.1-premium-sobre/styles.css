@@ -1,0 +1,768 @@
+/* ==========================================================================
+   AutoCarnet — V2.1 "Premium sobre — densité & contraste" design system
+   V2.1 pass (2026, design-review): V2 read as "too white" on a real phone —
+   background, cards and accent blocks all blurred together. This keeps V2's
+   direction (petrol accent, low radius, restraint) but makes THREE surface
+   levels genuinely perceptible: a present-but-still-very-light cool-gray
+   app background, white cards, and a sparingly-used very-light petrol tint
+   for secondary accents — plus darker, more legible secondary/tertiary text.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root[data-accent="petrol-blue"] {
+  --brand: #123B54;
+  --brand-strong: #0D2E42;
+  --brand-soft: #E7EEF1;
+  --brand-soft-strong: #D6E3E8;
+  --surface-accent: #EAF1F3;
+  --surface-accent-strong: #DCEBEC;
+  --border-hero: #A6C2CB;
+  --border-hero-subtle: #D6E4E7;
+  --bg-hero-b: #F0F5F6;
+}
+:root[data-accent="petrol-green"] {
+  --brand: #0E4D3F;
+  --brand-strong: #0A3A30;
+  --brand-soft: #E5EFEC;
+  --brand-soft-strong: #D3E4DE;
+  --surface-accent: #E8F2EE;
+  --surface-accent-strong: #D9EBE3;
+  --border-hero: #A0C4B7;
+  --border-hero-subtle: #D5E6DF;
+  --bg-hero-b: #EFF6F3;
+}
+
+:root {
+  /* ---- Palette ---- */
+  /* Level 1 - app background: a present, cool gray (not near-white anymore) */
+  --bg: #F1F3F5;
+  /* Level 2 - cards: white is now reserved mainly for cards */
+  --surface: #FFFFFF;
+  --surface-sunken: #F5F7F8;
+  /* Level 3 (--surface-accent, --surface-accent-strong above) - sparing
+     very-light petrol for icon chips, selection, targeted secondary info */
+  --border: #DEE3E6;
+  --border-strong: #CDD4D8;
+  --overlay: rgba(15, 18, 21, 0.44);
+
+  --text-primary: #14171A;
+  --text-secondary: #545C68;
+  --text-section: #454E5C;
+  --text-tertiary: #838B96;
+  --text-on-brand: #FFFFFF;
+
+  --success: #2E8F63;
+  --success-soft: #E4F2EA;
+  --warning: #C07A1F;
+  --warning-soft: #F7ECDA;
+  --danger: #C7442F;
+  --danger-soft: #F8E7E3;
+
+  /* ---- Radius scale ---- */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 12px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* ---- Shadow scale (short and soft, not absent) ---- */
+  --shadow-card: 0 1px 3px rgba(20, 35, 45, 0.07);
+  --shadow-cta: 0 6px 14px rgba(18, 59, 84, 0.20);
+  --shadow-elevated: 0 16px 32px rgba(15, 18, 21, 0.14);
+  --shadow-hero: 0 8px 18px rgba(18, 59, 84, 0.14), 0 2px 5px rgba(18, 59, 84, 0.07);
+  --shadow-hero-soft: 0 6px 16px rgba(18, 59, 84, 0.08);
+  --shadow-hero-strong: 0 10px 22px rgba(18, 59, 84, 0.16), 0 3px 7px rgba(18, 59, 84, 0.08);
+
+  /* ---- Type scale ---- */
+  --fs-display: 26px;
+  --fs-title: 19px;
+  --fs-body: 15px;
+  --fs-meta: 13px;
+  --fs-label: 11px;
+  --fs-number: 30px;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --phone-w: 390px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  background: #E7E9EC;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+img { max-width: 100%; display: block; }
+
+/* ==========================================================================
+   Icon technique — <i class="ic"> masked with currentColor so the same SVG
+   can be tinted per context without baking colors into the file.
+   ========================================================================== */
+.ic {
+  display: inline-block;
+  width: 20px; height: 20px;
+  background-color: currentColor;
+  -webkit-mask-image: var(--src);
+  mask-image: var(--src);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Demo chrome (outside the simulated phone — not part of the app)
+   ========================================================================== */
+.demo-bar {
+  position: sticky; top: 0; z-index: 50;
+  background: #14171A; color: #EDEFF1;
+  padding: 14px 20px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.demo-bar__brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.demo-bar__logo { width: 22px; height: 22px; color: #EDEFF1; }
+.demo-bar__title { font-weight: 700; font-size: 14px; }
+.demo-bar__subtitle { font-size: 12px; color: #9AA1AC; }
+.demo-bar__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.accent-switch, .width-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: var(--r-sm); padding: 3px; gap: 2px; }
+.accent-switch__btn, .width-switch__btn {
+  border: none; background: transparent; color: #C6CBD1;
+  font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+.accent-switch__btn.is-active, .width-switch__btn.is-active { background: #fff; color: #14171A; }
+
+.screen-tabs { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.screen-tab {
+  border: 1px solid rgba(255,255,255,0.14); background: transparent; color: #C6CBD1;
+  font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: var(--r-pill); cursor: pointer;
+}
+.screen-tab.is-active { background: #fff; color: #14171A; border-color: #fff; }
+
+.stage {
+  min-height: calc(100vh - 96px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 20px 60px;
+}
+
+/* ==========================================================================
+   Phone frame
+   ========================================================================== */
+.phone { width: var(--phone-w); transition: width .25s ease; }
+.phone__bezel {
+  background: #0B0C0E;
+  border-radius: 40px;
+  padding: 10px;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+}
+.phone__notch {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+  width: 120px; height: 22px; background: #0B0C0E; border-radius: 0 0 16px 16px; z-index: 20;
+}
+.phone__viewport {
+  position: relative;
+  height: 844px;
+  background: var(--bg);
+  border-radius: 30px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.status-bar {
+  flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 22px 4px;
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.status-bar__icons { font-size: 11px; letter-spacing: 1px; color: var(--text-secondary); }
+/* The login hero is a full-bleed petrol block right at the top of the
+   screen - without this, the status bar's own light background sits above
+   it as a visible seam. Toggled by JS to match whichever screen is active. */
+.status-bar.is-on-brand { background: var(--brand); color: #fff; }
+.status-bar.is-on-brand .status-bar__icons { color: rgba(255, 255, 255, 0.72); }
+
+/* ==========================================================================
+   Screens
+   ========================================================================== */
+.screen {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  padding-bottom: 24px;
+}
+.screen--active { display: block; }
+.screen::-webkit-scrollbar { display: none; }
+
+.section {
+  padding: 0 16px;
+  margin-top: 16px;
+}
+.section:first-of-type { margin-top: 12px; }
+.section__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.section__label {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-section);
+}
+.section__action {
+  font-size: 13px; font-weight: 600; color: var(--brand);
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+
+/* ==========================================================================
+   Home header
+   ========================================================================== */
+.app-header {
+  padding: 4px 16px 0;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+}
+.app-header__hello { font-size: var(--fs-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.app-header__status {
+  margin-top: 4px; display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-meta); color: var(--text-secondary);
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+.status-dot--warn { background: var(--warning); }
+.app-header__icons { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.icon-btn {
+  position: relative;
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-primary); cursor: pointer;
+}
+.icon-btn .ic { width: 17px; height: 17px; }
+.icon-btn__dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--danger); border: 1.5px solid var(--surface);
+}
+
+/* ==========================================================================
+   Vehicle card — compact hero identity (V2.1: the validated "accent
+   supérieur" treatment, but with the earlier two-row status strip
+   collapsed into one slim facts line - about half the height of V2's
+   card for the same information, no information dropped).
+   ========================================================================== */
+.vehicle-stage { padding: 0 16px; margin-top: 10px; position: relative; }
+.vehicle-card-stack { position: relative; }
+.vehicle-card {
+  position: absolute; inset: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-hero-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-hero-strong);
+  padding: 12px 13px 11px;
+  cursor: pointer;
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .32s ease;
+}
+.vehicle-card::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 3px;
+  background: var(--brand);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.vehicle-card.is-dragging { transition: none; }
+.vehicle-card.is-current { position: relative; transform: translateX(0); opacity: 1; z-index: 3; }
+.vehicle-card.is-next { transform: translateX(18px) scale(0.98); opacity: 0; z-index: 1; pointer-events: none; }
+.vehicle-card.is-prev { transform: translateX(-18px) scale(0.98); opacity: 0; z-index: 1; pointer-events: none; }
+
+.vehicle-card__row1 { display: flex; align-items: center; gap: 10px; }
+.vehicle-card__icon {
+  width: 34px; height: 34px; border-radius: var(--r-sm); flex-shrink: 0;
+  background: var(--brand-soft); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+}
+.vehicle-card__icon .ic { width: 17px; height: 17px; }
+.vehicle-card__id { flex: 1; min-width: 0; }
+.vehicle-card__name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vehicle-card__sub { font-size: 12.5px; white-space: nowrap; margin-top: 1px; }
+.vehicle-card__year { color: var(--text-secondary); }
+.vehicle-card__sep { color: var(--text-tertiary); margin: 0 5px; }
+.vehicle-card__km { font-size: 13.5px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.vehicle-card__chevron { color: var(--text-tertiary); width: 14px; height: 14px; flex-shrink: 0; }
+
+.vehicle-card__facts {
+  display: flex; align-items: baseline; margin-top: 7px;
+  font-size: 11.5px;
+}
+.vehicle-card__fact {
+  display: flex; align-items: center; gap: 3px; min-width: 0;
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+}
+/* The first fact (Santé) only ever needs its own content width; the
+   second (Prochaine révision, the longer label) gets whatever is left -
+   an equal 50/50 split left it ellipsizing needlessly at 360-390px. */
+.vehicle-card__fact:first-child { flex: 0 1 auto; }
+/* text-overflow only ellipsizes a block/inline box's own single-line text -
+   it does not work on the flex container itself, so the ellipsis lives on
+   this inner text-only wrapper, not on .vehicle-card__fact. */
+.vehicle-card__fact-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vehicle-card__fact b { color: var(--text-primary); font-weight: 700; }
+.vehicle-card__fact--ok b { color: var(--success); }
+.vehicle-card__fact-sep { color: var(--border-strong); margin: 0 4px; flex-shrink: 0; }
+
+.vehicle-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.vehicle-dots__dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong); border: none; padding: 0; cursor: pointer; }
+.vehicle-dots__dot.is-active { background: var(--brand); width: 14px; border-radius: var(--r-pill); }
+.vehicle-stage.mode-single .vehicle-dots { display: none; }
+.vehicle-stage.mode-single .vehicle-card { position: relative; }
+
+/* ==========================================================================
+   Compact list surfaces — todos, ops, admin, alerts
+   ========================================================================== */
+.list-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.list-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--border);
+}
+.list-row:first-child { border-top: none; }
+.list-row__icon {
+  width: 28px; height: 28px; border-radius: var(--r-xs); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-sunken); color: var(--text-secondary);
+}
+.list-row__icon .ic { width: 14px; height: 14px; }
+.list-row__icon--danger { background: var(--danger-soft); color: var(--danger); }
+.list-row__icon--warning { background: var(--warning-soft); color: var(--warning); }
+.list-row__icon--success { background: var(--success-soft); color: var(--success); }
+.list-row__body { flex: 1; min-width: 0; }
+.list-row__title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-row__meta { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-row__trail { flex-shrink: 0; text-align: right; }
+.list-row__trail-value { font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.list-row__trail-value--danger { color: var(--danger); }
+.list-row__trail-value--warning { color: var(--warning); }
+.list-row__trail-value--muted { color: var(--text-tertiary); font-weight: 500; }
+.list-row__chevron { color: var(--text-tertiary); width: 13px; height: 13px; flex-shrink: 0; }
+
+/* "Tout est à jour" - compact, discreet, pale green (never plain white:
+   even the positive state carries a semantic tint, V2.1 pass). */
+.all-good-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success) 22%, var(--success-soft));
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.all-good-row__icon {
+  width: 26px; height: 26px; border-radius: var(--r-xs); flex-shrink: 0;
+  background: var(--surface); color: var(--success);
+  display: flex; align-items: center; justify-content: center;
+}
+.all-good-row__icon .ic { width: 13px; height: 13px; }
+.all-good-row__title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.all-good-row__sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; }
+
+/* When one or more actions are due, the section carries real visual
+   weight instead of being another plain white card: a tinted surface
+   (severity-matched), a top accent bar, bolder titles, and a bigger,
+   colour-matched due value. */
+.todo-surface {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+.todo-surface::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 3px;
+}
+.todo-surface--danger { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 20%, var(--danger-soft)); }
+.todo-surface--danger::before { background: var(--danger); }
+.todo-surface--warning { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 20%, var(--warning-soft)); }
+.todo-surface--warning::before { background: var(--warning); }
+.todo-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px 11px 14px;
+}
+.todo-row + .todo-row { border-top: 1px solid rgba(20, 23, 26, 0.06); }
+.todo-row__icon {
+  width: 28px; height: 28px; border-radius: var(--r-xs); flex-shrink: 0;
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+}
+.todo-row__icon .ic { width: 14px; height: 14px; }
+.todo-row--danger .todo-row__icon { color: var(--danger); }
+.todo-row--warning .todo-row__icon { color: var(--warning); }
+.todo-row__title { flex: 1; font-size: 14.5px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.todo-row__due { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.todo-row--danger .todo-row__due { color: var(--danger); }
+.todo-row--warning .todo-row__due { color: var(--warning); }
+
+/* ==========================================================================
+   Quick actions — compact horizontal pills (icon + label inline), never
+   competing with the vehicle card for visual weight.
+   ========================================================================== */
+.quick-actions { display: flex; gap: 8px; }
+.quick-action {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.quick-action__icon {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: var(--surface-accent); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+}
+.quick-action__icon .ic { width: 12px; height: 12px; }
+.quick-action__label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.fab {
+  position: absolute; right: 16px; bottom: 76px; z-index: 25;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  display: none; align-items: center; justify-content: center;
+  border: none; box-shadow: var(--shadow-cta); cursor: pointer;
+}
+.fab.is-visible { display: flex; }
+.fab .ic { width: 20px; height: 20px; }
+
+/* ==========================================================================
+   Bottom navigation — refined, no capsule
+   ========================================================================== */
+.bottom-nav.is-hidden { display: none; }
+.bottom-nav {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 7px 6px calc(7px + env(safe-area-inset-bottom, 0px));
+}
+.nav-item {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; padding: 4px 0 2px; cursor: pointer;
+  color: var(--text-tertiary);
+}
+.nav-item .ic { width: 21px; height: 21px; color: var(--text-tertiary); }
+.nav-item__label { font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); }
+.nav-item__dot { width: 3px; height: 3px; border-radius: 50%; background: transparent; margin-top: 1px; }
+.nav-item.is-active .ic,
+.nav-item.is-active .nav-item__label { color: var(--brand); }
+.nav-item.is-active .nav-item__dot { background: var(--brand); }
+
+/* ==========================================================================
+   Fiche véhicule
+   ========================================================================== */
+.fiche-header {
+  padding: 4px 16px 14px;
+  background: var(--brand-soft);
+  border-bottom: 1px solid var(--border);
+}
+.fiche-header__top { display: flex; align-items: center; gap: 10px; }
+.fiche-header__back {
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; color: var(--text-primary); cursor: pointer;
+}
+.fiche-header__back .ic { width: 14px; height: 14px; }
+.fiche-header__title { font-size: var(--fs-title); font-weight: 700; flex: 1; letter-spacing: -0.01em; }
+.fiche-header__icon-btn {
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; color: var(--text-primary); cursor: pointer;
+}
+.fiche-header__icon-btn .ic { width: 14px; height: 14px; }
+.fiche-header__meta { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-left: 42px; }
+.fiche-header__meta-item { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.fiche-header__meta-item .status-dot { width: 6px; height: 6px; }
+.fiche-header__meta-sep { color: var(--border-strong); }
+
+/* A recessed track (level-3-ish neutral, not petrol) groups the segmented
+   control as its own zone, differentiating "Aperçu" from plain rows. */
+.fiche-tabs {
+  display: flex; gap: 4px;
+  padding: 4px;
+  background: var(--surface-sunken);
+  border-radius: var(--r-md);
+}
+.fiche-tab {
+  flex: 1;
+  padding: 8px 4px; text-align: center;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer;
+}
+.fiche-tab.is-active { background: var(--brand); color: #fff; box-shadow: var(--shadow-card); }
+
+.module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.module-tile {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  cursor: pointer;
+}
+.module-tile__icon {
+  width: 28px; height: 28px; border-radius: var(--r-xs); flex-shrink: 0;
+  background: var(--surface-accent); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+}
+.module-tile__icon .ic { width: 14px; height: 14px; }
+.module-tile__label { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ==========================================================================
+   Revente
+   ========================================================================== */
+.resale-header { padding: 4px 16px 0; display: flex; align-items: center; gap: 10px; }
+.resale-header__title { font-size: var(--fs-title); font-weight: 700; }
+
+.price-card {
+  margin: 14px 16px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 18px 16px 16px;
+}
+.price-card__tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--fs-label); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--brand);
+}
+.price-card__tag .ic { width: 11px; height: 11px; }
+.price-card__value {
+  font-size: 36px; font-weight: 800; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.price-card__value span { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 4px; }
+.price-card__range { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+.price-card__badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 10px; padding: 5px 10px;
+  background: var(--success-soft); color: var(--success);
+  border-radius: var(--r-pill); font-size: 12px; font-weight: 700;
+}
+.price-card__badge .status-dot { background: var(--success); }
+
+.tier-row { display: flex; gap: 8px; margin-top: 14px; }
+.tier-tile {
+  flex: 1; padding: 9px 10px;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+.tier-tile__label { font-size: var(--fs-label); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.tier-tile__value { font-size: 15px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.resale-link {
+  display: block; text-align: left; width: 100%;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  background: none; border-left: none; border-right: none; border-bottom: none;
+  font-size: 13px; font-weight: 600; color: var(--brand); cursor: pointer;
+}
+
+/* ==========================================================================
+   Drawer
+   ========================================================================== */
+.drawer-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  background: var(--overlay);
+  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+}
+.drawer-overlay.is-open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: absolute; top: 0; bottom: 0; left: 0; z-index: 41;
+  width: 78%; max-width: 300px;
+  background: var(--surface);
+  transform: translateX(-100%);
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-elevated);
+}
+.drawer.is-open { transform: translateX(0); }
+.drawer__header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer__avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: var(--brand-soft); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.drawer__name { font-size: 14px; font-weight: 700; }
+.drawer__email { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+.drawer__list { flex: 1; padding: 6px 8px; overflow-y: auto; }
+.drawer__item {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 10px 8px; border-radius: var(--r-sm);
+  background: none; border: none; text-align: left; cursor: pointer;
+  color: var(--text-primary); font-size: 14px; font-weight: 500;
+}
+.drawer__item .ic { width: 17px; height: 17px; color: var(--text-secondary); }
+.drawer__item:hover { background: var(--surface-sunken); }
+.drawer__footer { padding: 10px 8px 16px; border-top: 1px solid var(--border); }
+.drawer__lock {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 10px 8px; border-radius: var(--r-sm);
+  background: none; border: none; text-align: left; cursor: pointer;
+  color: var(--danger); font-size: 14px; font-weight: 600;
+}
+.drawer__lock .ic { width: 17px; height: 17px; color: var(--danger); }
+
+/* ==========================================================================
+   Sheet (Ajouter)
+   ========================================================================== */
+.sheet-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  background: var(--overlay);
+  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+}
+.sheet-overlay.is-open { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 41;
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
+  box-shadow: var(--shadow-elevated);
+}
+.sheet.is-open { transform: translateY(0); }
+.sheet__handle { width: 34px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); margin: 0 auto 14px; }
+.sheet__title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.sheet__option {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 11px 6px; background: none; border: none; border-top: 1px solid var(--border);
+  text-align: left; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 500;
+}
+.sheet__option:first-child { border-top: none; }
+.sheet__option .ic { width: 17px; height: 17px; color: var(--brand); }
+
+/* ==========================================================================
+   "Votre carnet" stat grid — never 4 identical white rectangles: the two
+   structural/positive metrics get a petrol icon chip (level-3 surface),
+   the other two stay neutral, so the grid isn't perfectly uniform.
+   ========================================================================== */
+.carnet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.carnet-tile {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+}
+.carnet-tile__icon {
+  width: 24px; height: 24px; border-radius: var(--r-xs); margin-bottom: 6px;
+  background: var(--surface-sunken); color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+}
+.carnet-tile__icon .ic { width: 13px; height: 13px; }
+.carnet-tile--accent .carnet-tile__icon { background: var(--surface-accent); color: var(--brand); }
+.carnet-tile__label { font-size: var(--fs-label); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.carnet-tile__value { font-size: 17px; font-weight: 800; color: var(--text-primary); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.carnet-tile--accent .carnet-tile__value { color: var(--brand); }
+.carnet-tile__sub { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+
+/* ==========================================================================
+   Login — completely rebuilt (V2.1 pass): the old screen was an oversized
+   flat colour block + an oversized flat white block with no automotive
+   identity. This one gives the brand real presence (a compact hero with an
+   abstract automotive mark, not an emoji or a cartoon car) and treats the
+   form as a genuinely secondary, compact, floating card - never a full
+   screen taking over.
+   ========================================================================== */
+.screen[data-screen="login"] { background: var(--bg); }
+.login-hero {
+  background: var(--brand);
+  padding: 30px 28px 52px;
+  text-align: center;
+}
+.login-hero__badge {
+  width: 52px; height: 52px; margin: 0 auto 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+}
+.login-hero__badge .ic { width: 24px; height: 24px; }
+.login-hero__brand { color: rgba(255, 255, 255, 0.78); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.login-hero__title { color: #fff; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; margin-top: 12px; }
+.login-hero__subtitle { color: rgba(255, 255, 255, 0.76); font-size: 13px; line-height: 1.4; margin-top: 8px; max-width: 280px; margin-left: auto; margin-right: auto; }
+
+.login-body { padding: 0 20px 24px; }
+.login-card {
+  margin-top: -32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-elevated);
+  padding: 20px;
+}
+.login-card__title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.login-field { display: block; margin-top: 16px; }
+.login-field__label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+.login-field input {
+  width: 100%; box-sizing: border-box;
+  font: inherit; font-size: 14.5px; color: var(--text-primary);
+  padding: 11px 12px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.login-field input::placeholder { color: var(--text-tertiary); }
+.login-cta {
+  width: 100%; margin-top: 14px;
+  padding: 13px;
+  background: var(--brand); color: #fff;
+  border: none; border-radius: var(--r-md);
+  font-size: 14.5px; font-weight: 700;
+  box-shadow: var(--shadow-cta);
+  cursor: pointer;
+}
+.login-card__hint { font-size: 11.5px; color: var(--text-tertiary); text-align: center; margin-top: 12px; }
+
+.login-reassurance { margin-top: 20px; text-align: center; }
+.login-reassurance__line { font-size: 12px; color: var(--text-secondary); }
+.login-reassurance__badges { display: flex; justify-content: center; gap: 18px; margin-top: 10px; }
+.login-reassurance__badge { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-tertiary); }
+.login-reassurance__badge .ic { width: 15px; height: 15px; }
+.login-reassurance__badge span { font-size: 10.5px; font-weight: 600; }
+
+/* ==========================================================================
+   Alerts screen
+   ========================================================================== */
+.alerts-header { padding: 4px 16px 0; }
+.alerts-header__title { font-size: var(--fs-display); font-weight: 700; }
+.alerts-header__sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Responsive: shrink phone chrome gracefully at 360px */
+@media (max-width: 400px) {
+  .demo-bar__subtitle { display: none; }
+}
