@@ -60,6 +60,17 @@
     });
   });
 
+  /* ---------------- Vehicle-card variant switch (demo only) ---------------- */
+  document.querySelectorAll('[data-vc-variant-btn]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      root.dataset.vcVariant = btn.dataset.vcVariantBtn;
+      document.querySelectorAll('[data-vc-variant-btn]').forEach((b) => {
+        b.classList.toggle('is-active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+    });
+  });
+
   /* ---------------- Width switch (demo only) ---------------- */
   document.querySelectorAll('[data-width]').forEach((btn) => {
     btn.addEventListener('click', () => {

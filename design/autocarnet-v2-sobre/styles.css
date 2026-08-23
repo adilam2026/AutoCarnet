@@ -113,12 +113,12 @@ img { max-width: 100%; display: block; }
 .demo-bar__subtitle { font-size: 12px; color: #9AA1AC; }
 .demo-bar__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.accent-switch, .width-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: var(--r-sm); padding: 3px; gap: 2px; }
-.accent-switch__btn, .width-switch__btn {
+.accent-switch, .width-switch, .vc-variant-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: var(--r-sm); padding: 3px; gap: 2px; }
+.accent-switch__btn, .width-switch__btn, .vc-variant-switch__btn {
   border: none; background: transparent; color: #C6CBD1;
   font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer;
 }
-.accent-switch__btn.is-active, .width-switch__btn.is-active { background: #fff; color: #14171A; }
+.accent-switch__btn.is-active, .width-switch__btn.is-active, .vc-variant-switch__btn.is-active { background: #fff; color: #14171A; }
 
 .screen-tabs { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .screen-tab {
@@ -248,6 +248,25 @@ img { max-width: 100%; display: block; }
 .vehicle-card.is-current { position: relative; transform: translateX(0); opacity: 1; z-index: 3; }
 .vehicle-card.is-next { transform: translateX(18px) scale(0.98); opacity: 0; z-index: 1; pointer-events: none; }
 .vehicle-card.is-prev { transform: translateX(-18px) scale(0.98); opacity: 0; z-index: 1; pointer-events: none; }
+
+/* Vehicle-card variants (A/B/C) — comparison-only switch requested by the
+   design review to decide how much this one card should stand out from
+   ordinary surfaces. Everything else on the screen stays on variant A's
+   plain border/shadow regardless of which is picked here. */
+:root[data-vc-variant="b"] .vehicle-card,
+:root[data-vc-variant="c"] .vehicle-card {
+  border-color: #C9D8DD;
+  border-width: 1.5px;
+  box-shadow: 0 3px 10px rgba(18, 59, 84, 0.09);
+}
+:root[data-vc-variant="c"] .vehicle-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--brand);
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
 
 .vehicle-card__row1 { display: flex; align-items: center; gap: 10px; }
 .vehicle-card__icon {
