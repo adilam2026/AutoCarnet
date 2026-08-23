@@ -7,13 +7,16 @@ import '../../../../core/utils/currency_format.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
-/// The vehicle as a compact identity strip on the home dashboard ("Premium
-/// sobre" concept, 2026, V2 design-review pass) - deliberately plain rather
-/// than colour-coded per vehicle: the earlier per-vehicle gradient palette
-/// had no functional justification and read as arbitrary/"fun" rather than
-/// premium. AutoCarnet's own brand colour (never a colour tied to a
-/// specific car) is the only accent here, used sparingly on the icon tile.
-/// Shows only what's already computed elsewhere (health score, reminders):
+/// The vehicle as the home dashboard's HERO block ("Premium sobre" concept,
+/// 2026, V2 design-review pass, "accent supérieur" variant) - deliberately
+/// plain rather than colour-coded per vehicle: the earlier per-vehicle
+/// gradient palette had no functional justification and read as
+/// arbitrary/"fun" rather than premium. AutoCarnet's own brand colour
+/// (never a colour tied to a specific car) is the only accent here: a thin
+/// line on the card's top edge (never the left edge - that reads as an
+/// alert rail) plus a hair more elevation than ordinary cards, so this one
+/// card reads as "my vehicle", not just another row of information. Shows
+/// only what's already computed elsewhere (health score, reminders):
 /// nothing here invents new business logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
@@ -54,97 +57,119 @@ class VehicleHeroCard extends ConsumerWidget {
     final isOk = worst == ReminderUrgency.later || worst == ReminderUrgency.done;
     final statusColor = isOk ? scheme.secondary : scheme.tertiary;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-            boxShadow: AppElevation.card(scheme),
-          ),
-          padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Icon(Icons.directions_car_filled, size: 18, color: scheme.primary),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${vehicle.brand} ${vehicle.model}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          [
-                            if (vehicle.year != null) '${vehicle.year}',
-                            '${formatAmount(vehicle.currentMileage)} km',
-                          ].join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, size: 16, color: scheme.onSurfaceVariant),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
-                        ),
-                        Expanded(
-                          child: _StripColumn(
-                            label: 'Santé',
-                            value: health == null
-                                ? '—'
-                                : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
-                            valueColor: isOk ? scheme.secondary : null,
+        boxShadow: AppElevation.hero(scheme),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLowest,
+              border: Border.all(color: AppElevation.heroBorder(scheme)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 3, color: scheme.primary),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: scheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Icon(Icons.directions_car_filled, size: 19, color: scheme.primary),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${vehicle.brand} ${vehicle.model}',
+                                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    if (vehicle.year != null) ...[
+                                      Text('${vehicle.year}',
+                                          style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+                                      Text(' · ',
+                                          style: TextStyle(fontSize: 13, color: scheme.outline)),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        '${formatAmount(vehicle.currentMileage)} km',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.mono(context, fontSize: 15, fontWeight: FontWeight.w800),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, size: 16, color: scheme.onSurfaceVariant),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
+                                ),
+                                Expanded(
+                                  child: _StripColumn(
+                                    label: 'Santé',
+                                    value: health == null
+                                        ? '—'
+                                        : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+                                    valueColor: isOk ? scheme.secondary : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 10), color: scheme.outlineVariant.withValues(alpha: 0.6)),
+                          Expanded(
+                            child: _StripColumn(
+                              label: 'Prochaine révision',
+                              value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 10), color: scheme.outlineVariant.withValues(alpha: 0.6)),
-                  Expanded(
-                    child: _StripColumn(
-                      label: 'Prochaine révision',
-                      value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

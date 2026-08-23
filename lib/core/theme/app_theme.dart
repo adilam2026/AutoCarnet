@@ -444,6 +444,22 @@ class AppElevation {
   static List<BoxShadow> cta(Color color) => [
         BoxShadow(color: color.withValues(alpha: 0.24), blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -6),
       ];
+
+  /// The single card on a screen that should read as its hero block (the
+  /// home dashboard's vehicle card) - genuinely more perceptible than
+  /// [card], but still diffuse/colour-tinted rather than a heavy neutral
+  /// drop shadow (design-review pass: "ombre premium diffuse", never "grosse
+  /// ombre").
+  static List<BoxShadow> hero(ColorScheme scheme) => [
+        BoxShadow(color: scheme.primary.withValues(alpha: 0.10), blurRadius: 22, offset: const Offset(0, 8), spreadRadius: -6),
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.05), blurRadius: 3, offset: const Offset(0, 1)),
+      ];
+
+  /// A subtle brand-tinted border for that same hero card - a hair more
+  /// present than [scheme.outlineVariant] so the card reads as premium
+  /// without becoming a coloured block.
+  static Color heroBorder(ColorScheme scheme) =>
+      Color.alphaBlend(scheme.primary.withValues(alpha: 0.16), scheme.surfaceContainerLowest);
 }
 
 /// Shared motion durations/curves so animations feel consistent.
