@@ -8,9 +8,13 @@ import '../../../reminders/domain/reminder_urgency.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
 /// The vehicle as the central, "instrument cluster" element of the home
-/// dashboard ("Premium clair" concept, 2026) - not a plain list row. Shows
-/// only what's already computed elsewhere (health score, reminders):
-/// nothing here invents new business logic.
+/// dashboard ("Auto Premium Clair" concept, 2026, design-review pass) - a
+/// colour-identified, elevated card rather than a plain bordered rectangle:
+/// every vehicle gets its own deterministic gradient (stable across app
+/// opens, distinct across a multi-vehicle garage) so the fleet doesn't read
+/// as a stack of identical rows. Shows only what's already computed
+/// elsewhere (health score, reminders): nothing here invents new business
+/// logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
     super.key,
@@ -47,93 +51,114 @@ class VehicleHeroCard extends ConsumerWidget {
     final health = ref.watch(vehicleHealthScoreProvider(vehicle));
     final worst = _worstUrgency();
     final revision = _nearestMaintenance();
+    final gradient = vehicleCardGradient(vehicle.id);
 
     return Material(
-      color: scheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.xl),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         onTap: onTap,
-        child: Container(
+        child: Ink(
           padding: const EdgeInsets.fromLTRB(
               AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
+            boxShadow: AppElevation.raised(scheme),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Row(
+              Positioned(
+                right: -14,
+                bottom: -18,
+                child: Icon(Icons.directions_car_filled,
+                    size: 128, color: Colors.white.withValues(alpha: 0.14)),
+              ),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${vehicle.brand} ${vehicle.model}',
-                          style: Theme.of(context).textTheme.titleLarge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${vehicle.brand} ${vehicle.model}',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              [
+                                if (vehicle.year != null) '${vehicle.year}',
+                                if (vehicle.plate != null) vehicle.plate!,
+                              ].join(' · '),
+                              style: AppTypography.mono(context,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.78)),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          [
-                            if (vehicle.year != null) '${vehicle.year}',
-                            if (vehicle.plate != null) vehicle.plate!,
-                          ].join(' · '),
-                          style: AppTypography.mono(context,
-                              fontSize: 12, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
+                      ),
+                      _StatusBadge(urgency: worst),
+                    ],
                   ),
-                  if (health != null) _HealthRing(score: health.score),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            formatAmount(vehicle.currentMileage),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.mono(context,
-                                fontSize: 30, fontWeight: FontWeight.w600),
-                          ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                formatAmount(vehicle.currentMileage),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.mono(context,
+                                    fontSize: 30, fontWeight: FontWeight.w700, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text('km',
+                                style: AppTypography.mono(context,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white.withValues(alpha: 0.78))),
+                          ],
                         ),
-                        const SizedBox(width: 6),
-                        Text('km',
-                            style: AppTypography.mono(context,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: scheme.onSurfaceVariant)),
-                      ],
-                    ),
+                      ),
+                      if (health != null) _HealthRing(score: health.score),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  _StatusPill(urgency: worst),
+                  const SizedBox(height: AppSpacing.sm),
+                  Divider(height: 1, color: Colors.white.withValues(alpha: 0.22)),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Deliberately neutral: no reminder title here (never
+                  // "Vidange + filtres à prévoir") - this card is the
+                  // summary, the nature of the operation belongs to the
+                  // entretien tab. "Prochaine échéance" (document-based)
+                  // was removed entirely rather than duplicated with "À
+                  // faire prochainement" below.
+                  _MetaColumn(
+                    label: 'Prochaine révision',
+                    value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                  ),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.sm),
-              // Deliberately neutral: no reminder title here (never
-              // "Vidange + filtres à prévoir") - this card is the summary,
-              // the nature of the operation belongs to the entretien tab.
-              // "Prochaine échéance" (document-based) was removed entirely
-              // rather than duplicated with "À faire prochainement" below.
-              _MetaColumn(
-                label: 'Prochaine révision',
-                value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
               ),
             ],
           ),
@@ -157,6 +182,24 @@ class VehicleHeroCard extends ConsumerWidget {
         ReminderUrgency.later => 2,
         ReminderUrgency.done => 3,
       };
+}
+
+/// A small, fixed set of premium gradients (all colour-harmonious with the
+/// brand's blue/turquoise identity) picked deterministically from the
+/// vehicle's id - the same vehicle always renders the same colour across
+/// app opens, and a multi-vehicle garage reads as genuinely distinct cars
+/// rather than identical rows (bloc design-review 2026, "couleur liée au
+/// véhicule"). Never derived from the free-text "couleur" field the owner
+/// can type in the vehicle sheet - that's an arbitrary string, not reliably
+/// mappable to a real colour.
+List<Color> vehicleCardGradient(String vehicleId) {
+  const palette = [
+    [Color(0xFF0E1B3E), Color(0xFF1652F0), Color(0xFF3E8BFF)],
+    [Color(0xFF2B2420), Color(0xFF7A4A22), Color(0xFFFF9A3D)],
+    [Color(0xFF0B2E28), Color(0xFF0EA37A), Color(0xFF3FD9AC)],
+    [Color(0xFF2E1230), Color(0xFF8C2F6B), Color(0xFFE6598F)],
+  ];
+  return palette[vehicleId.hashCode.abs() % palette.length];
 }
 
 /// "dans 8 000 km" / "dans 32 jours" / "12/05/2027" - the same compact
@@ -203,10 +246,9 @@ class _HealthRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 40,
-      height: 40,
+      width: 42,
+      height: 42,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -214,33 +256,39 @@ class _HealthRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: score / 100,
               strokeWidth: 3.5,
-              backgroundColor: scheme.outlineVariant,
-              valueColor: AlwaysStoppedAnimation(scheme.primary),
+              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              valueColor: const AlwaysStoppedAnimation(Colors.white),
+              strokeCap: StrokeCap.round,
             ),
           ),
-          Text('$score', style: AppTypography.mono(context, fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('$score',
+              style: AppTypography.mono(context,
+                  fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
         ],
       ),
     );
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.urgency});
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.urgency});
   final ReminderUrgency urgency;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (label, bg, fg) = switch (urgency) {
-      ReminderUrgency.urgent => ('À surveiller', scheme.errorContainer, scheme.onErrorContainer),
-      ReminderUrgency.upcoming => ('À surveiller', scheme.secondaryContainer, scheme.onSecondaryContainer),
-      ReminderUrgency.later || ReminderUrgency.done => ('À jour', scheme.tertiaryContainer, scheme.onTertiaryContainer),
+    final label = switch (urgency) {
+      ReminderUrgency.urgent => 'À surveiller',
+      ReminderUrgency.upcoming => 'À surveiller',
+      ReminderUrgency.later || ReminderUrgency.done => 'À jour',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label,
+          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -252,7 +300,6 @@ class _MetaColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -260,11 +307,11 @@ class _MetaColumn extends StatelessWidget {
             style: TextStyle(
                 fontSize: 10.5,
                 letterSpacing: 0.4,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant)),
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.72))),
         const SizedBox(height: 2),
         Text(value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
       ],

@@ -425,9 +425,10 @@ class _AllGoodCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+        color: scheme.tertiaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        boxShadow: AppElevation.card(scheme),
       ),
       child: Row(
         children: [
@@ -465,40 +466,46 @@ class _TodoTile extends StatelessWidget {
     };
     final due = formatReminderDue(reminder, vehicle.currentMileage);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLowest,
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(width: 3, color: railColor),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(reminder.title,
-                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: AppElevation.card(scheme),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 3, color: railColor),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(reminder.title,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        Text(due,
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      Text(due,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: false,
-                          style: AppTypography.mono(context,
-                              fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
-                    ],
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: AppTypography.mono(context,
+                                fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -554,6 +561,7 @@ class _RecentOperationsSection extends ConsumerWidget {
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              boxShadow: AppElevation.card(Theme.of(context).colorScheme),
             ),
             child: Text(
               'Aucune opération enregistrée pour l\'instant.',
@@ -590,14 +598,20 @@ class _RecentOperationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.md),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: AppElevation.card(scheme),
+      ),
       child: Material(
         color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.md),
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
             ),
             padding:
@@ -641,43 +655,73 @@ class _RecentOperationTile extends StatelessWidget {
   }
 }
 
-/// Direct-tap tiles for the three most frequent logging actions - each
-/// opens its target form immediately (no intermediate sheet), unlike the
-/// rarer "add/join a vehicle" action which stays behind the tab's FAB.
-/// Document was dropped: it's a rarer action than the other three and
-/// didn't earn a permanent slot on the home screen just to fill a 2x2 grid.
+/// Direct-tap actions - each opens its target form immediately (no
+/// intermediate sheet), unlike the rarer "add/join a vehicle" action which
+/// stays behind the tab's FAB. Document was dropped: it's a rarer action
+/// than the other three and didn't earn a permanent slot on the home screen
+/// just to fill a 2x2 grid. "Opération" is the most common of the three, so
+/// it gets a real primary CTA (bloc design-review 2026: "un bouton
+/// principal plus important") - Kilométrage/Plein stay direct-tap too, just
+/// visually secondary.
 class _QuickActionsRow extends ConsumerWidget {
   const _QuickActionsRow({required this.vehicle});
   final Vehicle vehicle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
       children: [
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.build_outlined,
-            label: 'Opération',
+        Material(
+          color: scheme.primary,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             onTap: () => showMaintenanceFormSheet(context,
                 vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                boxShadow: AppElevation.cta(scheme.primary),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_circle, color: scheme.onPrimary, size: 20),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text('Ajouter une opération',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: scheme.onPrimary, fontSize: 14.5, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.speed_outlined,
-            label: 'Kilométrage',
-            onTap: () => showMileageUpdateSheet(context, ref, vehicle),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.local_gas_station_outlined,
-            label: 'Plein',
-            onTap: () => showFuelFormSheet(context,
-                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
-          ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionTile(
+                icon: Icons.speed_outlined,
+                label: 'Kilométrage',
+                onTap: () => showMileageUpdateSheet(context, ref, vehicle),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: _QuickActionTile(
+                icon: Icons.local_gas_station_outlined,
+                label: 'Plein',
+                onTap: () => showFuelFormSheet(context,
+                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -699,10 +743,11 @@ class _QuickActionTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.md),
         onTap: onTap,
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            boxShadow: AppElevation.card(scheme),
           ),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           child: Column(
@@ -820,6 +865,7 @@ class _StatCard extends StatelessWidget {
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        boxShadow: AppElevation.card(scheme),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

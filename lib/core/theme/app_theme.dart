@@ -3,92 +3,94 @@ import 'package:flutter/material.dart';
 /// Single source of truth for AutoCarnet's look & feel (Principe 1 & 10:
 /// simple, consistent, easy to extend without touching every screen).
 ///
-/// "Premium clair" identity (validated design concept, 2026): a warm ivory
-/// ground instead of a generic Material grey/white, a deep forest green
-/// (evolved from the original seed green) instead of an auto-generated M3
-/// tonal palette, and a brass/copper accent for secondary emphasis - an
-/// automotive-trim colour, not a bank-app blue. Colours are declared
-/// explicitly (not `ColorScheme.fromSeed`) so every tone is a deliberate
-/// choice rather than an algorithmic derivation.
+/// "Auto Premium Clair" identity (validated design concept, 2026 - concept A
+/// of the design-review pass): a cool light-grey ground instead of the
+/// earlier warm ivory, a vivid automotive blue as the primary colour instead
+/// of a desaturated forest green, and a turquoise-green accent for secondary
+/// emphasis - chosen to read as a real automotive/premium product rather
+/// than a financial dashboard. Colours are declared explicitly (not
+/// `ColorScheme.fromSeed`) so every tone is a deliberate choice rather than
+/// an algorithmic derivation.
 class AppTheme {
   AppTheme._();
 
-  static const Color seed = Color(0xFF234533);
+  static const Color seed = Color(0xFF1652F0);
 
   static ThemeData light() => _base(_lightScheme);
   static ThemeData dark() => _base(_darkScheme);
 
   static const ColorScheme _lightScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: Color(0xFF234533),
-    onPrimary: Color(0xFFF4F6F0),
-    primaryContainer: Color(0xFFDFE8DC),
-    onPrimaryContainer: Color(0xFF13251A),
-    secondary: Color(0xFFA97A3F),
+    primary: Color(0xFF1652F0),
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: Color(0xFFE7EDFF),
+    onPrimaryContainer: Color(0xFF10286B),
+    secondary: Color(0xFF0EA37A),
     onSecondary: Color(0xFFFFFFFF),
-    secondaryContainer: Color(0xFFF3E6CF),
-    onSecondaryContainer: Color(0xFF4A3216),
-    tertiary: Color(0xFF4B6B57),
+    secondaryContainer: Color(0xFFDFF7EE),
+    onSecondaryContainer: Color(0xFF0A3D2E),
+    tertiary: Color(0xFF4F7E6C),
     onTertiary: Color(0xFFFFFFFF),
-    tertiaryContainer: Color(0xFFDCE6DA),
-    onTertiaryContainer: Color(0xFF13251A),
-    error: Color(0xFFA14B3E),
+    tertiaryContainer: Color(0xFFDDEAE3),
+    onTertiaryContainer: Color(0xFF17332A),
+    error: Color(0xFFE14343),
     onError: Color(0xFFFFFFFF),
-    errorContainer: Color(0xFFF4DFDA),
-    onErrorContainer: Color(0xFF3F150F),
-    surface: Color(0xFFF6F4EE),
-    onSurface: Color(0xFF1B2620),
+    errorContainer: Color(0xFFFBDEDE),
+    onErrorContainer: Color(0xFF5C1414),
+    surface: Color(0xFFF3F5FA),
+    onSurface: Color(0xFF12151C),
     surfaceContainerLowest: Color(0xFFFFFFFF),
-    surfaceContainerLow: Color(0xFFFAF8F2),
-    surfaceContainer: Color(0xFFF1EEE5),
-    surfaceContainerHigh: Color(0xFFEAE6DA),
-    surfaceContainerHighest: Color(0xFFE4DED0),
-    onSurfaceVariant: Color(0xFF5C6B5F),
-    outline: Color(0xFF8A9184),
-    outlineVariant: Color(0xFFE4DED0),
+    surfaceContainerLow: Color(0xFFF8F9FC),
+    surfaceContainer: Color(0xFFEEF1F7),
+    surfaceContainerHigh: Color(0xFFE7EBF3),
+    surfaceContainerHighest: Color(0xFFDFE4EE),
+    onSurfaceVariant: Color(0xFF535C6C),
+    outline: Color(0xFF9AA1B0),
+    outlineVariant: Color(0xFFE1E5EE),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
-    inverseSurface: Color(0xFF1B2620),
-    onInverseSurface: Color(0xFFF4F6F0),
-    inversePrimary: Color(0xFF9FCBAA),
+    inverseSurface: Color(0xFF12151C),
+    onInverseSurface: Color(0xFFF3F5FA),
+    inversePrimary: Color(0xFF9DB8FF),
   );
 
-  /// Dark companion of the same identity (deep green -> a lighter, dark-
-  /// legible green; ivory -> graphite; same brass accent) rather than an
-  /// unrelated palette - the two must read as one product.
+  /// Dark companion of the same identity (automotive blue -> a lightened
+  /// blue that stays legible on a dark ground; turquoise accent kept, just
+  /// lightened the same way) rather than an unrelated palette - the two
+  /// must read as one product.
   static const ColorScheme _darkScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: Color(0xFF8FCBA0),
-    onPrimary: Color(0xFF0E1A12),
-    primaryContainer: Color(0xFF25392B),
-    onPrimaryContainer: Color(0xFFCFE6D5),
-    secondary: Color(0xFFE2A75B),
-    onSecondary: Color(0xFF2E2008),
-    secondaryContainer: Color(0xFF3A2F1D),
-    onSecondaryContainer: Color(0xFFF3DDB8),
-    tertiary: Color(0xFF9BC2AC),
-    onTertiary: Color(0xFF0E1A12),
-    tertiaryContainer: Color(0xFF26332A),
-    onTertiaryContainer: Color(0xFFCFE6D5),
-    error: Color(0xFFE0876F),
-    onError: Color(0xFF3C160E),
-    errorContainer: Color(0xFF4D2118),
-    onErrorContainer: Color(0xFFF6D3C8),
-    surface: Color(0xFF14181A),
-    onSurface: Color(0xFFEDE7DA),
-    surfaceContainerLowest: Color(0xFF0E1111),
-    surfaceContainerLow: Color(0xFF181C1D),
-    surfaceContainer: Color(0xFF1D2224),
-    surfaceContainerHigh: Color(0xFF262B2C),
-    surfaceContainerHighest: Color(0xFF323836),
-    onSurfaceVariant: Color(0xFFA3A99E),
-    outline: Color(0xFF6C7269),
-    outlineVariant: Color(0xFF32372F),
+    primary: Color(0xFF7FA2FF),
+    onPrimary: Color(0xFF0A1B4A),
+    primaryContainer: Color(0xFF1D3170),
+    onPrimaryContainer: Color(0xFFD6E1FF),
+    secondary: Color(0xFF4FD9AC),
+    onSecondary: Color(0xFF06301F),
+    secondaryContainer: Color(0xFF114A38),
+    onSecondaryContainer: Color(0xFFC7F2E1),
+    tertiary: Color(0xFF8FB8A8),
+    onTertiary: Color(0xFF12281F),
+    tertiaryContainer: Color(0xFF24392F),
+    onTertiaryContainer: Color(0xFFD3E7DD),
+    error: Color(0xFFF0857D),
+    onError: Color(0xFF4A0E0E),
+    errorContainer: Color(0xFF63201C),
+    onErrorContainer: Color(0xFFFBDAD5),
+    surface: Color(0xFF10141C),
+    onSurface: Color(0xFFE7E9F0),
+    surfaceContainerLowest: Color(0xFF0A0D13),
+    surfaceContainerLow: Color(0xFF161B25),
+    surfaceContainer: Color(0xFF1B212C),
+    surfaceContainerHigh: Color(0xFF232A37),
+    surfaceContainerHighest: Color(0xFF2C3442),
+    onSurfaceVariant: Color(0xFFABB2C2),
+    outline: Color(0xFF6B7386),
+    outlineVariant: Color(0xFF333B49),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
-    inverseSurface: Color(0xFFEDE7DA),
-    onInverseSurface: Color(0xFF14181A),
-    inversePrimary: Color(0xFF234533),
+    inverseSurface: Color(0xFFE7E9F0),
+    onInverseSurface: Color(0xFF10141C),
+    inversePrimary: Color(0xFF1652F0),
   );
 
   static ThemeData _base(ColorScheme scheme) {
@@ -115,11 +117,11 @@ class AppTheme {
         systemOverlayStyle: null,
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        elevation: isDark ? 0 : 2,
         margin: EdgeInsets.zero,
         color: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shadowColor: isDark ? Colors.transparent : scheme.shadow.withValues(alpha: 0.10),
+        shadowColor: isDark ? Colors.transparent : scheme.shadow.withValues(alpha: 0.12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
           side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
@@ -153,6 +155,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          elevation: 2,
+          shadowColor: scheme.primary.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
@@ -401,6 +405,33 @@ class AppRadius {
   static const double md = 14;
   static const double lg = 20;
   static const double xl = 28;
+}
+
+/// Real, if subtle, elevation for the custom (non-`Card`) containers most
+/// screens build by hand - a plain `Border.all` reads as flat/"bancaire"
+/// (bloc design-review 2026: "peu de relief"). Two levels only: [card] for
+/// ordinary surfaces, [raised] for anything that should visibly float above
+/// the rest (the vehicle hero card, a primary CTA).
+class AppElevation {
+  AppElevation._();
+
+  static List<BoxShadow> card(ColorScheme scheme) => [
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 2, offset: const Offset(0, 1)),
+        BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 10), spreadRadius: -12),
+      ];
+
+  static List<BoxShadow> raised(ColorScheme scheme) => [
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 3)),
+        BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.16), blurRadius: 40, offset: const Offset(0, 18), spreadRadius: -14),
+      ];
+
+  /// A colour-matched glow under a primary CTA, echoing the button's own
+  /// colour rather than a neutral shadow - the "gros CTA premium" look.
+  static List<BoxShadow> cta(Color color) => [
+        BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 10), spreadRadius: -8),
+      ];
 }
 
 /// Shared motion durations/curves so animations feel consistent.
