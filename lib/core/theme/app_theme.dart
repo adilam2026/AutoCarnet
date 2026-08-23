@@ -39,16 +39,23 @@ class AppTheme {
     onError: Color(0xFFFFFFFF),
     errorContainer: Color(0xFFF8E7E3),
     onErrorContainer: Color(0xFF6E2A1D),
-    surface: Color(0xFFF5F6F7),
+    // Level 1 (app background) - a present, cool gray, not near-white
+    // (V2.1 design-review pass: V2 read as "trop blanche, trop pâle" on a
+    // real phone - background/cards/accents all blurred together).
+    surface: Color(0xFFF1F3F5),
     onSurface: Color(0xFF14171A),
+    // Level 2 (cards) - white, now genuinely perceptible against the
+    // darkened Level-1 background above.
     surfaceContainerLowest: Color(0xFFFFFFFF),
-    surfaceContainerLow: Color(0xFFFAFAFB),
+    surfaceContainerLow: Color(0xFFF5F7F8),
     surfaceContainer: Color(0xFFF1F2F3),
     surfaceContainerHigh: Color(0xFFEAEBEC),
     surfaceContainerHighest: Color(0xFFE2E4E6),
-    onSurfaceVariant: Color(0xFF6B7280),
-    outline: Color(0xFF9AA1AC),
-    outlineVariant: Color(0xFFE3E5E8),
+    // Darkened for real secondary-text legibility (V2.1: "assombrir le
+    // texte secondaire/tertiaire, actuellement trop pâle").
+    onSurfaceVariant: Color(0xFF545C68),
+    outline: Color(0xFF838B96),
+    outlineVariant: Color(0xFFDEE3E6),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
     inverseSurface: Color(0xFF14171A),
@@ -416,6 +423,7 @@ class AppRadius {
   static const double md = 10;
   static const double lg = 12;
   static const double xl = 16;
+  static const double pill = 999;
 }
 
 /// Real, but genuinely subtle, elevation for the custom (non-`Card`)
@@ -460,6 +468,15 @@ class AppElevation {
   /// without becoming a coloured block.
   static Color heroBorder(ColorScheme scheme) =>
       Color.alphaBlend(scheme.primary.withValues(alpha: 0.16), scheme.surfaceContainerLowest);
+
+  /// Level 3 of the V2.1 three-tier surface hierarchy: a sparing, very
+  /// light petrol tint reserved for icon chips, selection and targeted
+  /// secondary info - deliberately lighter than [ColorScheme.primaryContainer]
+  /// (which stays reserved for the vehicle card's own icon and other
+  /// "brand-soft" spots) so the two read as genuinely distinct steps,
+  /// never a big coloured zone on its own.
+  static Color surfaceAccent(ColorScheme scheme) =>
+      Color.alphaBlend(scheme.primary.withValues(alpha: 0.08), scheme.surfaceContainerLowest);
 }
 
 /// Shared motion durations/curves so animations feel consistent.

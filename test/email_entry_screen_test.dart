@@ -21,7 +21,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'not-an-email');
+    await tester.enterText(find.byKey(const Key('email-field')), 'not-an-email');
     await tester.tap(find.text('Continuer'));
     await tester.pump();
 
@@ -38,7 +38,7 @@ void main() {
       ),
     );
 
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsOneWidget);
+    expect(find.byKey(const Key('email-field')), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.textContaining('hors connexion'), findsNothing);
     expect(find.textContaining('Nom'), findsNothing);

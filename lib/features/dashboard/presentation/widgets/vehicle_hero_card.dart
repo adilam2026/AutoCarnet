@@ -78,22 +78,22 @@ class VehicleHeroCard extends ConsumerWidget {
               children: [
                 Container(height: 3, color: scheme.primary),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
+                  padding: const EdgeInsets.fromLTRB(13, 12, 13, 11),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Container(
-                            width: 38,
-                            height: 38,
+                            width: 34,
+                            height: 34,
                             decoration: BoxDecoration(
                               color: scheme.primaryContainer,
                               borderRadius: BorderRadius.circular(AppRadius.sm),
                             ),
-                            child: Icon(Icons.directions_car_filled, size: 19, color: scheme.primary),
+                            child: Icon(Icons.directions_car_filled, size: 17, color: scheme.primary),
                           ),
-                          const SizedBox(width: AppSpacing.sm),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,25 +101,25 @@ class VehicleHeroCard extends ConsumerWidget {
                               children: [
                                 Text(
                                   '${vehicle.brand} ${vehicle.model}',
-                                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 1),
                                 Row(
                                   children: [
                                     if (vehicle.year != null) ...[
                                       Text('${vehicle.year}',
-                                          style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+                                          style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
                                       Text(' · ',
-                                          style: TextStyle(fontSize: 13, color: scheme.outline)),
+                                          style: TextStyle(fontSize: 12.5, color: scheme.outline)),
                                     ],
                                     Flexible(
                                       child: Text(
                                         '${formatAmount(vehicle.currentMileage)} km',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.mono(context, fontSize: 15, fontWeight: FontWeight.w800),
+                                        style: AppTypography.mono(context, fontSize: 13.5, fontWeight: FontWeight.w800),
                                       ),
                                     ),
                                   ],
@@ -127,43 +127,18 @@ class VehicleHeroCard extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right, size: 16, color: scheme.onSurfaceVariant),
+                          Icon(Icons.chevron_right, size: 14, color: scheme.onSurfaceVariant),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  margin: const EdgeInsets.only(right: 6),
-                                  decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
-                                ),
-                                Expanded(
-                                  child: _StripColumn(
-                                    label: 'Santé',
-                                    value: health == null
-                                        ? '—'
-                                        : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
-                                    valueColor: isOk ? scheme.secondary : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 10), color: scheme.outlineVariant.withValues(alpha: 0.6)),
-                          Expanded(
-                            child: _StripColumn(
-                              label: 'Prochaine révision',
-                              value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 7),
+                      _FactsRow(
+                        dotColor: statusColor,
+                        healthText: health == null
+                            ? '—'
+                            : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+                        healthOk: isOk,
+                        revisionText:
+                            revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
                       ),
                     ],
                   ),
@@ -231,28 +206,65 @@ String formatReminderAbsoluteDue(Reminder r) {
   return parts.isEmpty ? '—' : parts.join(' · ');
 }
 
-class _StripColumn extends StatelessWidget {
-  const _StripColumn({required this.label, required this.value, this.valueColor});
-  final String label;
-  final String value;
-  final Color? valueColor;
+/// The V2.1 "compact single facts line" (validated design-review pass):
+/// collapses the earlier two-column status strip (with its own divider)
+/// into one slim inline row - "Santé X · À jour · Prochaine révision Y" -
+/// about half the height for the same information, nothing dropped.
+class _FactsRow extends StatelessWidget {
+  const _FactsRow({
+    required this.dotColor,
+    required this.healthText,
+    required this.healthOk,
+    required this.revisionText,
+  });
+
+  final Color dotColor;
+  final String healthText;
+  final bool healthOk;
+  final String revisionText;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final factStyle = TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant);
+    final boldStyle = TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: healthOk ? scheme.secondary : scheme.onSurface);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(label.toUpperCase(),
+        Container(
+          width: 6,
+          height: 6,
+          margin: const EdgeInsets.only(right: 3),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
+        ),
+        Text.rich(
+          TextSpan(
+            style: factStyle,
+            children: [const TextSpan(text: 'Santé '), TextSpan(text: healthText, style: boldStyle)],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(' · ', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: factStyle,
+              children: [
+                const TextSpan(text: 'Prochaine révision '),
+                TextSpan(
+                    text: revisionText,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+              ],
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 9.5, letterSpacing: 0.4, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 1),
-        Text(value,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: valueColor),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis),
+          ),
+        ),
       ],
     );
   }

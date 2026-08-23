@@ -123,7 +123,7 @@ void main() {
       (tester) async {
     await pump(tester);
 
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsOneWidget);
+    expect(find.byKey(const Key('email-field')), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.textContaining('Nom'), findsNothing);
     expect(find.textContaining('hors connexion'), findsNothing);
@@ -134,12 +134,12 @@ void main() {
       'back to the email screen', (tester) async {
     await pump(tester);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'user@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'user@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
 
     expect(fake.sentEmails, ['user@example.com']);
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsNothing,
+    expect(find.byKey(const Key('email-field')), findsNothing,
         reason: 'the email screen must be fully replaced, not shown alongside the OTP screen');
     expect(find.text('Vérifiez votre email'), findsOneWidget);
 
@@ -155,7 +155,7 @@ void main() {
 
     expect(fake.verifyCallCount, 1);
     expect(authenticatedCallCount, 1);
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsNothing,
+    expect(find.byKey(const Key('email-field')), findsNothing,
         reason: 'a successful OTP must never bounce back to the email screen');
   });
 
@@ -163,7 +163,7 @@ void main() {
       (tester) async {
     await pump(tester);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'user@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'user@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
 
@@ -175,7 +175,7 @@ void main() {
     expect(authenticatedCallCount, 0);
     // Still on the OTP screen, not thrown back to email.
     expect(find.text('Vérifiez votre email'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsNothing);
+    expect(find.byKey(const Key('email-field')), findsNothing);
 
     // A second, correct attempt on the *same* screen must succeed without
     // needing to retype the email (spec bloc 4: a single OTP pass).
@@ -198,7 +198,7 @@ void main() {
     await pump(tester);
     fake.knownEmails.add('known@example.com');
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'known@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'known@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pump();
     await tester.pump();
@@ -218,7 +218,7 @@ void main() {
     fake.knownEmails.add('revoked@example.com');
     fake.revokedEmails.add('revoked@example.com');
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'revoked@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'revoked@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
 
@@ -240,7 +240,7 @@ void main() {
     await pump(tester);
     fake.knownEmails.addAll(['a@example.com', 'b@example.com']);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'a@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'a@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pump();
     await tester.pump();
@@ -254,7 +254,7 @@ void main() {
     await pump(tester);
     fake.knownEmails.addAll(['a@example.com', 'b@example.com']);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'b@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'b@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pump();
     await tester.pump();
@@ -268,13 +268,13 @@ void main() {
   testWidgets('manually tapping back from OTP returns to a fresh email screen', (tester) async {
     await pump(tester);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'user@example.com');
+    await tester.enterText(find.byKey(const Key('email-field')), 'user@example.com');
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsOneWidget);
+    expect(find.byKey(const Key('email-field')), findsOneWidget);
   });
 }

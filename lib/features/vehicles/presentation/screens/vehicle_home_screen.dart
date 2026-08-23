@@ -1094,7 +1094,7 @@ class _ModuleTile extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: scheme.primaryContainer,
+              color: AppElevation.surfaceAccent(scheme),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(icon, color: scheme.primary, size: 19),

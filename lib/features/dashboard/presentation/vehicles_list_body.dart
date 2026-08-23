@@ -401,17 +401,67 @@ class _TodoSection extends ConsumerWidget {
 
         if (top.isEmpty) return const _AllGoodRow();
 
-        return ListSurface(
+        final urgencies = [
+          for (final r in top) reminderUrgency(r, currentMileage: vehicle.currentMileage),
+        ];
+        // V2.1 pass: a due action gives the section real visual weight
+        // instead of another plain white card - a severity-tinted surface
+        // and top accent bar (red if anything is overdue/urgent, orange
+        // otherwise), matching the "À faire prochainement" reference
+        // behaviour the top petrol accent bar on the vehicle card was
+        // itself validated against.
+        final isDanger = urgencies.contains(ReminderUrgency.urgent);
+
+        return _TodoSurface(
+          isDanger: isDanger,
           children: [
-            for (final reminder in top)
-              _TodoTile(
-                reminder: reminder,
-                vehicle: vehicle,
-                urgency: reminderUrgency(reminder, currentMileage: vehicle.currentMileage),
-              ),
+            for (var i = 0; i < top.length; i++)
+              _TodoTile(reminder: top[i], vehicle: vehicle, urgency: urgencies[i]),
           ],
         );
       },
+    );
+  }
+}
+
+/// The tinted, top-accented surface a non-empty "À faire prochainement"
+/// gets (V2.1 pass) - see [_TodoSection]. [ListSurface] (plain, untinted)
+/// stays reserved for "Dernières opérations" and other neutral lists.
+class _TodoSurface extends StatelessWidget {
+  const _TodoSurface({required this.isDanger, required this.children});
+  final bool isDanger;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tint = isDanger ? scheme.errorContainer : scheme.tertiaryContainer;
+    final accent = isDanger ? scheme.error : scheme.tertiary;
+    return Container(
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+        boxShadow: AppElevation.card(scheme),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(height: 3, color: accent),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Column(
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0)
+                    Divider(height: 1, color: scheme.shadow.withValues(alpha: 0.06)),
+                  children[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -468,31 +518,34 @@ class _TodoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (iconBg, iconColor, valueColor, icon) = switch (urgency) {
-      ReminderUrgency.urgent => (
-          scheme.errorContainer, scheme.error, scheme.error, Icons.warning_amber_rounded),
-      ReminderUrgency.upcoming => (
-          scheme.tertiaryContainer, scheme.tertiary, scheme.tertiary, Icons.event_outlined),
+    final (iconColor, valueColor, icon) = switch (urgency) {
+      ReminderUrgency.urgent => (scheme.error, scheme.error, Icons.warning_amber_rounded),
+      ReminderUrgency.upcoming => (scheme.tertiary, scheme.tertiary, Icons.event_outlined),
       ReminderUrgency.later ||
       ReminderUrgency.done =>
-        (scheme.surfaceContainerHighest, scheme.onSurfaceVariant, scheme.onSurfaceVariant, Icons.event_outlined),
+        (scheme.onSurfaceVariant, scheme.onSurfaceVariant, Icons.event_outlined),
     };
     final due = formatReminderDue(reminder, vehicle.currentMileage);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       child: Row(
         children: [
+          // White icon chip (never severity-tinted) - the surrounding
+          // _TodoSurface already carries the severity tint, so the chip's
+          // job here is contrast, matching the "À faire prochainement"
+          // reference row.
           Container(
             width: 28,
             height: 28,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(AppRadius.sm)),
+            decoration:
+                BoxDecoration(color: scheme.surfaceContainerLowest, borderRadius: BorderRadius.circular(AppRadius.sm)),
             child: Icon(icon, size: 14, color: iconColor),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(reminder.title,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ),
@@ -501,7 +554,7 @@ class _TodoTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: AppTypography.mono(context,
-                  fontSize: 12, fontWeight: FontWeight.w700, color: valueColor)),
+                  fontSize: 14, fontWeight: FontWeight.w800, color: valueColor)),
         ],
       ),
     );
@@ -564,7 +617,9 @@ class _RecentOperationsSection extends ConsumerWidget {
             ),
           );
         }
-        final top = entries.take(3).toList();
+        // V2.1 pass: capped at 2 (was 3) - "Voir tout" is right there for
+        // the rest, and this keeps "Votre carnet" higher in the viewport.
+        final top = entries.take(2).toList();
         return ListSurface(
           children: [
             for (final entry in top)
@@ -684,6 +739,9 @@ class _QuickActionsRow extends ConsumerWidget {
   }
 }
 
+/// A compact horizontal pill (icon + label inline) - V2.1 pass: the earlier
+/// icon-on-top tile competed too much with the vehicle card for visual
+/// weight; this row is deliberately smaller and never colour-blocked.
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({required this.icon, required this.label, required this.onTap});
   final IconData icon;
@@ -695,34 +753,35 @@ class _QuickActionTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
             border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-            boxShadow: AppElevation.card(scheme),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          child: Column(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppElevation.surfaceAccent(scheme),
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 17, color: scheme.primary),
+                child: Icon(icon, size: 12, color: scheme.primary),
               ),
-              const SizedBox(height: 6),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ),
             ],
           ),
         ),
@@ -757,6 +816,8 @@ class _InsightsStrip extends ConsumerWidget {
             children: [
               Expanded(
                 child: _StatCard(
+                  icon: Icons.shield_outlined,
+                  accent: true,
                   label: 'Santé',
                   value: health == null ? '—' : '${health.score}',
                   sub: '/ 100',
@@ -765,6 +826,7 @@ class _InsightsStrip extends ConsumerWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _StatCard(
+                  icon: Icons.bar_chart_rounded,
                   label: 'Dépenses ${DateTime.now().year}',
                   value: expenseStats.maybeWhen(
                       data: (s) => formatAmount(s.thisYear), orElse: () => '—'),
@@ -778,6 +840,7 @@ class _InsightsStrip extends ConsumerWidget {
             children: [
               Expanded(
                 child: _StatCard(
+                  icon: Icons.build_outlined,
                   label: 'Dernier entretien',
                   value: lastMaintenance == null ? 'Aucun' : _monthsAgo(lastMaintenance.date),
                   sub: lastMaintenance?.category ?? '',
@@ -786,6 +849,8 @@ class _InsightsStrip extends ConsumerWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _StatCard(
+                  icon: Icons.speed_outlined,
+                  accent: true,
                   label: 'Km / an estimé',
                   value: monthlyPace == null ? '—' : formatAmount(monthlyPace * 12),
                   sub: 'km',
@@ -807,10 +872,22 @@ class _InsightsStrip extends ConsumerWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.sub});
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.sub,
+    this.accent = false,
+  });
+  final IconData icon;
   final String label;
   final String value;
   final String sub;
+
+  /// V2.1 pass: never four visually-identical white rectangles - the two
+  /// structural/positive metrics (Santé, Km/an) get a petrol icon chip,
+  /// the other two stay neutral, so the grid isn't perfectly uniform.
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
@@ -827,17 +904,28 @@ class _StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Container(
+            width: 24,
+            height: 24,
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: accent ? AppElevation.surfaceAccent(scheme) : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(icon, size: 13, color: accent ? scheme.primary : scheme.onSurfaceVariant),
+          ),
           Text(label.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: TextStyle(fontSize: 9.5, letterSpacing: 0.3, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: AppTypography.mono(context, fontSize: 17, fontWeight: FontWeight.w600)),
+              style: AppTypography.mono(context,
+                  fontSize: 17, fontWeight: FontWeight.w800, color: accent ? scheme.primary : null)),
           if (sub.isNotEmpty)
             Text(sub,
                 maxLines: 1,

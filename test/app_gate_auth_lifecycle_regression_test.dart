@@ -179,7 +179,7 @@ void main() {
       await pumpGate(tester, account: account, pinService: pinService);
 
       expect(find.byType(EmailEntryScreen), findsOneWidget);
-      await tester.enterText(find.widgetWithText(TextField, 'Adresse email'), 'a@example.com');
+      await tester.enterText(find.byKey(const Key('email-field')), 'a@example.com');
       await tester.tap(find.text('Continuer'));
       await tester.pumpAndSettle();
 
@@ -254,7 +254,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(EmailEntryScreen), findsOneWidget);
-      final field = tester.widget<TextField>(find.widgetWithText(TextField, 'Adresse email'));
+      final field = tester.widget<TextField>(find.byKey(const Key('email-field')));
       expect(field.controller!.text, isEmpty,
           reason: 'must never show the previous account\'s email pre-filled');
     });

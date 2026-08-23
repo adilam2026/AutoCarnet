@@ -85,95 +85,182 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: scheme.primary,
+      backgroundColor: scheme.surface,
       body: SafeArea(
         bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // A real branded hero instead of a plain white background
-                  // (bloc design-review 2026: "vrai branding AutoCarnet,
-                  // gros logo, couleur forte") - a floating card carries the
-                  // actual form below it.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.xl),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 84,
-                          height: 84,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(AppRadius.xl),
-                          ),
-                          child: const Icon(Icons.directions_car_filled, size: 42, color: Colors.white),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text('AutoCarnet',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: Colors.white, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 4),
-                        Text('Connexion simple et sécurisée',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
-                      ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // V2.1 login pass (validated design-review): a compact petrol
+              // hero carrying a real automotive identity (an abstract mark,
+              // deliberately never an emoji or a cartoon car) - not the
+              // earlier oversized flat colour block with no brand presence.
+              Container(
+                width: double.infinity,
+                color: scheme.primary,
+                padding: const EdgeInsets.fromLTRB(28, 30, 28, 52),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                      ),
+                      child: const Icon(Icons.speed_rounded, size: 24, color: Colors.white),
                     ),
-                  ),
-                  Container(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight * 0.5),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+                    const SizedBox(height: 14),
+                    Text(
+                      'AUTOCARNET',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
                     ),
-                    padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg,
-                        AppSpacing.lg + MediaQuery.paddingOf(context).bottom),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('Bienvenue',
-                            style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Connectez-vous avec votre email pour retrouver vos véhicules sur '
-                          'tous vos appareils. Aucun mot de passe : un code vous sera envoyé '
-                          'par email.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        TextField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          autofillHints: null,
-                          decoration: const InputDecoration(labelText: 'Adresse email'),
-                          onSubmitted: (_) {
-                            if (!_busy) _submit();
-                          },
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(_error!, style: TextStyle(color: scheme.error)),
-                        ],
-                        const SizedBox(height: AppSpacing.md),
-                        FilledButton(
-                          onPressed: _busy ? null : _submit,
-                          child: _busy
-                              ? const SizedBox(
-                                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('Continuer'),
-                        ),
-                      ],
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Votre voiture. Son histoire.\nToujours avec vous.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                        height: 1.25,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      child: Text(
+                        'Entretiens, dépenses, documents et échéances réunis dans un seul carnet.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 13, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              // The card floats up over the hero/background boundary
+              // (negative top margin) for real depth, and stays genuinely
+              // compact - never a near-full-screen sheet.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(0, -32),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
+                          border: Border.all(color: scheme.outlineVariant),
+                          boxShadow: AppElevation.raised(scheme),
+                        ),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text('Accéder à AutoCarnet',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'ADRESSE EMAIL',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                                color: scheme.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              key: const Key('email-field'),
+                              controller: _emailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: null,
+                              decoration: const InputDecoration(
+                                hintText: 'vous@exemple.com',
+                                isDense: true,
+                              ),
+                              onSubmitted: (_) {
+                                if (!_busy) _submit();
+                              },
+                            ),
+                            if (_error != null) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(_error!, style: TextStyle(color: scheme.error)),
+                            ],
+                            const SizedBox(height: 14),
+                            FilledButton(
+                              onPressed: _busy ? null : _submit,
+                              child: _busy
+                                  ? const SizedBox(
+                                      height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Text('Continuer'),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Un code de vérification vous sera envoyé par email.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 11.5, color: scheme.outline),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(0, -12),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Vos données restent privées et sécurisées.',
+                            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _ReassuranceBadge(icon: Icons.lock_outline, label: 'Sans mot de passe'),
+                              const SizedBox(width: 18),
+                              _ReassuranceBadge(icon: Icons.sync, label: 'Synchronisé'),
+                              const SizedBox(width: 18),
+                              _ReassuranceBadge(icon: Icons.shield_outlined, label: 'Sécurisé'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ReassuranceBadge extends StatelessWidget {
+  const _ReassuranceBadge({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Icon(icon, size: 15, color: scheme.outline),
+        const SizedBox(height: 5),
+        Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: scheme.outline)),
+      ],
     );
   }
 }

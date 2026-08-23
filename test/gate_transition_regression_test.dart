@@ -253,6 +253,6 @@ void main() {
     expect(find.byType(LockScreen), findsNothing,
         reason: 'the previous account\'s lock screen must be gone, not frozen underneath');
     expect(find.byType(AccountGateScreen), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Adresse email'), findsOneWidget);
+    expect(find.byKey(const Key('email-field')), findsOneWidget);
   });
 }

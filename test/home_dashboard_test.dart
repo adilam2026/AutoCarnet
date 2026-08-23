@@ -1,5 +1,6 @@
 import 'package:autocarnet/core/database/database.dart';
 import 'package:autocarnet/core/database/providers.dart';
+import 'package:autocarnet/core/widgets/list_surface.dart';
 import 'package:autocarnet/features/account/data/account_repository.dart';
 import 'package:autocarnet/features/audit/data/audit_repository.dart';
 import 'package:autocarnet/features/dashboard/presentation/vehicles_list_body.dart';
@@ -176,7 +177,7 @@ void main() {
 
     expect(find.textContaining('Prochaine échéance'), findsNothing);
     expect(find.textContaining('PROCHAINE ÉCHÉANCE'), findsNothing);
-    expect(find.textContaining('PROCHAINE RÉVISION'), findsOneWidget);
+    expect(find.textContaining('Prochaine révision'), findsOneWidget);
     // The reminder's own title never leaks into this summary slot.
     expect(find.textContaining('Vidange + filtres'), findsNothing);
     expect(find.textContaining('95 400'), findsOneWidget);
@@ -310,8 +311,8 @@ void main() {
 
   group('"Dernières opérations" on the home dashboard', () {
     testWidgets(
-        'shows only the 3 most recent operations for the active vehicle, with a '
-        '"Voir tout" button for the rest', (tester) async {
+        'shows only the 2 most recent operations for the active vehicle (V2.1 pass - was 3), '
+        'with a "Voir tout" button for the rest', (tester) async {
       final reminders = ReminderRepository(db);
       final timeline = TimelineRepository(db);
       final repo = VehicleRepository(db, AuditRepository(db), reminders);
@@ -347,11 +348,18 @@ void main() {
       await pumpDashboard(tester);
       await tester.pump();
 
-      expect(find.text('Vidange + filtres'), findsOneWidget);
-      expect(find.text('Révision'), findsOneWidget);
-      expect(find.text('Pneus remplacés'), findsOneWidget);
+      // Scoped to the "Dernières opérations" list surface specifically:
+      // "Vidange + filtres" is also the most recent entry's category, which
+      // legitimately shows a second time as "Votre carnet"'s own "Dernier
+      // entretien" sub-line - a real, expected duplication of the same
+      // underlying data across two distinct sections, not a bug.
+      final opsList = find.byType(ListSurface);
+      expect(find.descendant(of: opsList, matching: find.text('Vidange + filtres')), findsOneWidget);
+      expect(find.descendant(of: opsList, matching: find.text('Révision')), findsOneWidget);
+      expect(find.text('Pneus remplacés'), findsNothing,
+          reason: 'only the 2 most recent operations should show on the home dashboard');
       expect(find.text('Plaquettes de frein'), findsNothing,
-          reason: 'only the 3 most recent operations should show on the home dashboard');
+          reason: 'only the 2 most recent operations should show on the home dashboard');
       expect(find.text('Voir tout'), findsOneWidget);
     });
 
