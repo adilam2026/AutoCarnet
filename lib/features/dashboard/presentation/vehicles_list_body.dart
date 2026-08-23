@@ -6,6 +6,7 @@ import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/layout.dart';
+import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../expenses/data/expense_repository.dart';
 import '../../fuel/presentation/fuel_form_sheet.dart';
@@ -397,18 +398,16 @@ class _TodoSection extends ConsumerWidget {
             .toList()
           ..sort((a, b) => proximity(a).compareTo(proximity(b)));
 
-        if (top.isEmpty) return const _AllGoodCard();
+        if (top.isEmpty) return const _AllGoodRow();
 
-        return Column(
+        return ListSurface(
           children: [
-            for (var i = 0; i < top.length && i < 3; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.xs),
+            for (final reminder in top)
               _TodoTile(
-                reminder: top[i],
+                reminder: reminder,
                 vehicle: vehicle,
-                urgency: reminderUrgency(top[i], currentMileage: vehicle.currentMileage),
+                urgency: reminderUrgency(reminder, currentMileage: vehicle.currentMileage),
               ),
-            ],
           ],
         );
       },
@@ -416,31 +415,40 @@ class _TodoSection extends ConsumerWidget {
   }
 }
 
-class _AllGoodCard extends StatelessWidget {
-  const _AllGoodCard();
+class _AllGoodRow extends StatelessWidget {
+  const _AllGoodRow();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 11),
       decoration: BoxDecoration(
-        color: scheme.tertiaryContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
         boxShadow: AppElevation.card(scheme),
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, color: scheme.tertiary),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(Icons.check, size: 15, color: scheme.secondary),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Tout est à jour', style: TextStyle(fontWeight: FontWeight.w700)),
-                Text('Aucune action requise pour le moment.',
-                    style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant)),
+                const Text('Tout est à jour',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('Aucune action requise',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -459,55 +467,41 @@ class _TodoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final railColor = switch (urgency) {
-      ReminderUrgency.urgent => scheme.error,
-      ReminderUrgency.upcoming => scheme.secondary,
-      ReminderUrgency.later || ReminderUrgency.done => scheme.onSurfaceVariant,
+    final (iconBg, iconColor, valueColor, icon) = switch (urgency) {
+      ReminderUrgency.urgent => (
+          scheme.errorContainer, scheme.error, scheme.error, Icons.warning_amber_rounded),
+      ReminderUrgency.upcoming => (
+          scheme.tertiaryContainer, scheme.tertiary, scheme.tertiary, Icons.event_outlined),
+      ReminderUrgency.later ||
+      ReminderUrgency.done =>
+        (scheme.surfaceContainerHighest, scheme.onSurfaceVariant, scheme.onSurfaceVariant, Icons.event_outlined),
     };
     final due = formatReminderDue(reminder, vehicle.currentMileage);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        boxShadow: AppElevation.card(scheme),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: Icon(icon, size: 14, color: iconColor),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(width: 3, color: railColor),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(reminder.title,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        Text(due,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            softWrap: false,
-                            style: AppTypography.mono(context,
-                                fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(reminder.title,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ),
-        ),
+          Text(due,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: AppTypography.mono(context,
+                  fontSize: 12, fontWeight: FontWeight.w700, color: valueColor)),
+        ],
       ),
     );
   }
@@ -558,7 +552,7 @@ class _RecentOperationsSection extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
               boxShadow: AppElevation.card(Theme.of(context).colorScheme),
@@ -570,16 +564,14 @@ class _RecentOperationsSection extends ConsumerWidget {
           );
         }
         final top = entries.take(3).toList();
-        return Column(
+        return ListSurface(
           children: [
-            for (var i = 0; i < top.length; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.xs),
+            for (final entry in top)
               _RecentOperationTile(
-                entry: top[i],
+                entry: entry,
                 onTap: () => showMaintenanceFormSheet(context,
-                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage, editing: top[i]),
+                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage, editing: entry),
               ),
-            ],
           ],
         );
       },
@@ -598,56 +590,48 @@ class _RecentOperationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        boxShadow: AppElevation.card(scheme),
-      ),
-      child: Material(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-            ),
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.build_outlined, size: 17, color: scheme.primary),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 9),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.category,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                      Text(
-                        '${_fmtDate(entry.date)} · ${formatAmount(entry.mileage)} km',
+                child: Icon(Icons.build_outlined, size: 14, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.category,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                        style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    Text(
+                      '${formatAmount(entry.mileage)} km',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Text(_fmtDate(entry.date),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+            ],
           ),
         ),
       ),
@@ -655,73 +639,44 @@ class _RecentOperationTile extends StatelessWidget {
   }
 }
 
-/// Direct-tap actions - each opens its target form immediately (no
-/// intermediate sheet), unlike the rarer "add/join a vehicle" action which
-/// stays behind the tab's FAB. Document was dropped: it's a rarer action
-/// than the other three and didn't earn a permanent slot on the home screen
-/// just to fill a 2x2 grid. "Opération" is the most common of the three, so
-/// it gets a real primary CTA (bloc design-review 2026: "un bouton
-/// principal plus important") - Kilométrage/Plein stay direct-tap too, just
-/// visually secondary.
+/// Direct-tap actions - each opens its target form immediately, no
+/// intermediate sheet. Three equal tiles rather than one giant primary CTA
+/// plus a smaller pair (bloc design-review 2026, V2 pass: a full-width
+/// coloured button here duplicated the tab's own "Ajouter" FAB - "choisis
+/// une logique... pas deux CTA concurrents"). Document stays off this row:
+/// it's rarer than the other three and didn't earn a permanent slot.
 class _QuickActionsRow extends ConsumerWidget {
   const _QuickActionsRow({required this.vehicle});
   final Vehicle vehicle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
+    return Row(
       children: [
-        Material(
-          color: scheme.primary,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.build_outlined,
+            label: 'Entretien',
             onTap: () => showMaintenanceFormSheet(context,
                 vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
-            child: Ink(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                boxShadow: AppElevation.cta(scheme.primary),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: AppSpacing.sm),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_circle, color: scheme.onPrimary, size: 20),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text('Ajouter une opération',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: scheme.onPrimary, fontSize: 14.5, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.speed_outlined,
-                label: 'Kilométrage',
-                onTap: () => showMileageUpdateSheet(context, ref, vehicle),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.local_gas_station_outlined,
-                label: 'Plein',
-                onTap: () => showFuelFormSheet(context,
-                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
-              ),
-            ),
-          ],
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.speed_outlined,
+            label: 'Kilométrage',
+            onTap: () => showMileageUpdateSheet(context, ref, vehicle),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionTile(
+            icon: Icons.local_gas_station_outlined,
+            label: 'Plein',
+            onTap: () => showFuelFormSheet(context,
+                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+          ),
         ),
       ],
     );

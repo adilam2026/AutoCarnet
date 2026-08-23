@@ -63,12 +63,6 @@ flutter:
           weight: 600
         - asset: assets/fonts/Figtree-Bold.ttf
           weight: 700
-    - family: Fraunces
-      fonts:
-        - asset: assets/fonts/Fraunces-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Fraunces-SemiBold.ttf
-          weight: 600
     - family: IBM Plex Mono
       fonts:
         - asset: assets/fonts/IBMPlexMono-Medium.ttf

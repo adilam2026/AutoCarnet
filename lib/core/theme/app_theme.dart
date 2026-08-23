@@ -3,94 +3,96 @@ import 'package:flutter/material.dart';
 /// Single source of truth for AutoCarnet's look & feel (Principe 1 & 10:
 /// simple, consistent, easy to extend without touching every screen).
 ///
-/// "Auto Premium Clair" identity (validated design concept, 2026 - concept A
-/// of the design-review pass): a cool light-grey ground instead of the
-/// earlier warm ivory, a vivid automotive blue as the primary colour instead
-/// of a desaturated forest green, and a turquoise-green accent for secondary
-/// emphasis - chosen to read as a real automotive/premium product rather
-/// than a financial dashboard. Colours are declared explicitly (not
+/// "Premium sobre" identity (validated design concept, 2026 - V2 of the
+/// design-review pass, superseding the earlier vivid-blue/turquoise
+/// "Auto Premium Clair" concept the user rejected as too colourful/"fun"):
+/// a single restrained petrol-blue brand colour used sparingly (CTAs, the
+/// active nav state, small accents) rather than saturated gradients or a
+/// different hue per vehicle; muted status colours (secondary=success,
+/// tertiary=warning, error=danger) instead of loud ones; a cool near-white
+/// ground and graphite text. Colours are declared explicitly (not
 /// `ColorScheme.fromSeed`) so every tone is a deliberate choice rather than
 /// an algorithmic derivation.
 class AppTheme {
   AppTheme._();
 
-  static const Color seed = Color(0xFF1652F0);
+  static const Color seed = Color(0xFF123B54);
 
   static ThemeData light() => _base(_lightScheme);
   static ThemeData dark() => _base(_darkScheme);
 
   static const ColorScheme _lightScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: Color(0xFF1652F0),
+    primary: Color(0xFF123B54),
     onPrimary: Color(0xFFFFFFFF),
-    primaryContainer: Color(0xFFE7EDFF),
-    onPrimaryContainer: Color(0xFF10286B),
-    secondary: Color(0xFF0EA37A),
+    primaryContainer: Color(0xFFE7EEF1),
+    onPrimaryContainer: Color(0xFF123B54),
+    secondary: Color(0xFF2E8F63),
     onSecondary: Color(0xFFFFFFFF),
-    secondaryContainer: Color(0xFFDFF7EE),
-    onSecondaryContainer: Color(0xFF0A3D2E),
-    tertiary: Color(0xFF4F7E6C),
+    secondaryContainer: Color(0xFFE4F2EA),
+    onSecondaryContainer: Color(0xFF1B5B3E),
+    tertiary: Color(0xFFC07A1F),
     onTertiary: Color(0xFFFFFFFF),
-    tertiaryContainer: Color(0xFFDDEAE3),
-    onTertiaryContainer: Color(0xFF17332A),
-    error: Color(0xFFE14343),
+    tertiaryContainer: Color(0xFFF7ECDA),
+    onTertiaryContainer: Color(0xFF6E4712),
+    error: Color(0xFFC7442F),
     onError: Color(0xFFFFFFFF),
-    errorContainer: Color(0xFFFBDEDE),
-    onErrorContainer: Color(0xFF5C1414),
-    surface: Color(0xFFF3F5FA),
-    onSurface: Color(0xFF12151C),
+    errorContainer: Color(0xFFF8E7E3),
+    onErrorContainer: Color(0xFF6E2A1D),
+    surface: Color(0xFFF5F6F7),
+    onSurface: Color(0xFF14171A),
     surfaceContainerLowest: Color(0xFFFFFFFF),
-    surfaceContainerLow: Color(0xFFF8F9FC),
-    surfaceContainer: Color(0xFFEEF1F7),
-    surfaceContainerHigh: Color(0xFFE7EBF3),
-    surfaceContainerHighest: Color(0xFFDFE4EE),
-    onSurfaceVariant: Color(0xFF535C6C),
-    outline: Color(0xFF9AA1B0),
-    outlineVariant: Color(0xFFE1E5EE),
+    surfaceContainerLow: Color(0xFFFAFAFB),
+    surfaceContainer: Color(0xFFF1F2F3),
+    surfaceContainerHigh: Color(0xFFEAEBEC),
+    surfaceContainerHighest: Color(0xFFE2E4E6),
+    onSurfaceVariant: Color(0xFF6B7280),
+    outline: Color(0xFF9AA1AC),
+    outlineVariant: Color(0xFFE3E5E8),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
-    inverseSurface: Color(0xFF12151C),
-    onInverseSurface: Color(0xFFF3F5FA),
-    inversePrimary: Color(0xFF9DB8FF),
+    inverseSurface: Color(0xFF14171A),
+    onInverseSurface: Color(0xFFF5F6F7),
+    inversePrimary: Color(0xFF9FC2D8),
   );
 
-  /// Dark companion of the same identity (automotive blue -> a lightened
-  /// blue that stays legible on a dark ground; turquoise accent kept, just
+  /// Dark companion of the same identity (petrol blue -> a lightened
+  /// blue-grey that stays legible on a dark ground; the muted status colours
   /// lightened the same way) rather than an unrelated palette - the two
   /// must read as one product.
   static const ColorScheme _darkScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: Color(0xFF7FA2FF),
-    onPrimary: Color(0xFF0A1B4A),
-    primaryContainer: Color(0xFF1D3170),
-    onPrimaryContainer: Color(0xFFD6E1FF),
-    secondary: Color(0xFF4FD9AC),
-    onSecondary: Color(0xFF06301F),
-    secondaryContainer: Color(0xFF114A38),
-    onSecondaryContainer: Color(0xFFC7F2E1),
-    tertiary: Color(0xFF8FB8A8),
-    onTertiary: Color(0xFF12281F),
-    tertiaryContainer: Color(0xFF24392F),
-    onTertiaryContainer: Color(0xFFD3E7DD),
-    error: Color(0xFFF0857D),
-    onError: Color(0xFF4A0E0E),
-    errorContainer: Color(0xFF63201C),
-    onErrorContainer: Color(0xFFFBDAD5),
-    surface: Color(0xFF10141C),
-    onSurface: Color(0xFFE7E9F0),
-    surfaceContainerLowest: Color(0xFF0A0D13),
-    surfaceContainerLow: Color(0xFF161B25),
-    surfaceContainer: Color(0xFF1B212C),
-    surfaceContainerHigh: Color(0xFF232A37),
-    surfaceContainerHighest: Color(0xFF2C3442),
-    onSurfaceVariant: Color(0xFFABB2C2),
-    outline: Color(0xFF6B7386),
-    outlineVariant: Color(0xFF333B49),
+    primary: Color(0xFF8FB6CC),
+    onPrimary: Color(0xFF0B2536),
+    primaryContainer: Color(0xFF1D4258),
+    onPrimaryContainer: Color(0xFFD7E7EE),
+    secondary: Color(0xFF7FCBA2),
+    onSecondary: Color(0xFF0A3521),
+    secondaryContainer: Color(0xFF1E4E36),
+    onSecondaryContainer: Color(0xFFCDEEDC),
+    tertiary: Color(0xFFE2AA5C),
+    onTertiary: Color(0xFF432C05),
+    tertiaryContainer: Color(0xFF5C3E0F),
+    onTertiaryContainer: Color(0xFFF7E1BE),
+    error: Color(0xFFE49385),
+    onError: Color(0xFF4A160D),
+    errorContainer: Color(0xFF63271C),
+    onErrorContainer: Color(0xFFF8DAD3),
+    surface: Color(0xFF15181B),
+    onSurface: Color(0xFFE6E7E9),
+    surfaceContainerLowest: Color(0xFF0D0F11),
+    surfaceContainerLow: Color(0xFF1A1D20),
+    surfaceContainer: Color(0xFF1F2225),
+    surfaceContainerHigh: Color(0xFF282B2F),
+    surfaceContainerHighest: Color(0xFF313539),
+    onSurfaceVariant: Color(0xFFA8AFB8),
+    outline: Color(0xFF6C7278),
+    outlineVariant: Color(0xFF34383C),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
-    inverseSurface: Color(0xFFE7E9F0),
-    onInverseSurface: Color(0xFF10141C),
-    inversePrimary: Color(0xFF1652F0),
+    inverseSurface: Color(0xFFE6E7E9),
+    onInverseSurface: Color(0xFF15181B),
+    inversePrimary: Color(0xFF123B54),
   );
 
   static ThemeData _base(ColorScheme scheme) {
@@ -208,8 +210,21 @@ class AppTheme {
         backgroundColor: scheme.surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: scheme.primaryContainer,
-        height: 64,
+        indicatorColor: scheme.primary.withValues(alpha: 0.10),
+        height: 60,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: states.contains(WidgetState.selected) ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            size: 22,
+            color: states.contains(WidgetState.selected) ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+        ),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: scheme.primary,
@@ -293,12 +308,11 @@ class AppTheme {
     );
   }
 
-  /// Two type roles, deliberately: Figtree for every UI/body role (the
-  /// workhorse - labels, buttons, running text), Fraunces only for the
-  /// headline/titleLarge roles that read as editorial moments (a greeting,
-  /// a vehicle name, a screen's big heading) - never applied wholesale, or
-  /// the app would feel like a magazine instead of a tool. See
-  /// [AppTypography.mono] for the third role (odometer/stat figures).
+  /// A single sans-serif family (Figtree) for every role, hierarchy carried
+  /// entirely by weight and size (V2 design-review pass: the earlier serif
+  /// display face on greetings/vehicle names read as an artificial,
+  /// "magazine" identity rather than a premium automotive product). See
+  /// [AppTypography.mono] for the one other role (odometer/stat figures).
   static TextTheme _textTheme(ColorScheme scheme) {
     const base = Typography.blackMountainView;
     return base
@@ -308,14 +322,10 @@ class AppTheme {
           displayColor: scheme.onSurface,
         )
         .copyWith(
-          headlineLarge: const TextStyle(
-              fontFamily: AppFonts.display, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-          headlineMedium: const TextStyle(
-              fontFamily: AppFonts.display, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-          headlineSmall: const TextStyle(
-              fontFamily: AppFonts.display, fontWeight: FontWeight.w500, letterSpacing: -0.2),
-          titleLarge: const TextStyle(
-              fontFamily: AppFonts.display, fontWeight: FontWeight.w500, letterSpacing: -0.1),
+          headlineLarge: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3),
+          headlineMedium: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3),
+          headlineSmall: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.2),
+          titleLarge: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: -0.1),
           titleMedium: const TextStyle(fontWeight: FontWeight.w600),
           titleSmall: const TextStyle(fontWeight: FontWeight.w600),
           labelLarge: const TextStyle(fontWeight: FontWeight.w600),
@@ -326,12 +336,11 @@ class AppTheme {
   }
 }
 
-/// Font family names - the app's three type roles (see [AppTheme._textTheme]
+/// Font family names - the app's two type roles (see [AppTheme._textTheme]
 /// and [AppTypography.mono]).
 class AppFonts {
   AppFonts._();
   static const String body = 'Figtree';
-  static const String display = 'Fraunces';
   static const String mono = 'IBM Plex Mono';
 }
 
@@ -396,41 +405,44 @@ class AppSpacing {
   static const double xl = 32;
 }
 
-/// Shared corner-radius scale - softened slightly for the "Premium clair"
-/// identity (validated design concept, 2026): more visible curvature on
-/// cards reads as considered rather than default-Material.
+/// Shared corner-radius scale - deliberately tighter than the earlier
+/// "Premium clair" concept (validated design concept, 2026, V2 pass): large
+/// pill-like curvature everywhere was called out as reading "childish"
+/// rather than premium. Small elements stay near-square, cards get a modest
+/// curve, and only rare full-bleed sheets reach [xl].
 class AppRadius {
   AppRadius._();
-  static const double sm = 10;
-  static const double md = 14;
-  static const double lg = 20;
-  static const double xl = 28;
+  static const double sm = 8;
+  static const double md = 10;
+  static const double lg = 12;
+  static const double xl = 16;
 }
 
-/// Real, if subtle, elevation for the custom (non-`Card`) containers most
-/// screens build by hand - a plain `Border.all` reads as flat/"bancaire"
-/// (bloc design-review 2026: "peu de relief"). Two levels only: [card] for
-/// ordinary surfaces, [raised] for anything that should visibly float above
-/// the rest (the vehicle hero card, a primary CTA).
+/// Real, but genuinely subtle, elevation for the custom (non-`Card`)
+/// containers most screens build by hand - a plain `Border.all` alone reads
+/// as flat, but the earlier concept's shadows were too heavy (bloc
+/// design-review 2026, V2 pass: "pas une grosse ombre derrière toutes les
+/// cartes... quelque chose de subtil, à la iOS"). Two levels only: [card]
+/// for ordinary surfaces (near-invisible, border does most of the work),
+/// [raised] for anything that should read as a distinct floating surface
+/// (a bottom sheet, a dialog).
 class AppElevation {
   AppElevation._();
 
   static List<BoxShadow> card(ColorScheme scheme) => [
-        BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 2, offset: const Offset(0, 1)),
-        BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 10), spreadRadius: -12),
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.04), blurRadius: 3, offset: const Offset(0, 1)),
       ];
 
   static List<BoxShadow> raised(ColorScheme scheme) => [
-        BoxShadow(color: scheme.shadow.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 3)),
-        BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.16), blurRadius: 40, offset: const Offset(0, 18), spreadRadius: -14),
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 1)),
+        BoxShadow(color: scheme.shadow.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8), spreadRadius: -10),
       ];
 
   /// A colour-matched glow under a primary CTA, echoing the button's own
-  /// colour rather than a neutral shadow - the "gros CTA premium" look.
+  /// colour rather than a neutral shadow - kept only for the rare CTA that
+  /// should stand out (never applied everywhere).
   static List<BoxShadow> cta(Color color) => [
-        BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 10), spreadRadius: -8),
+        BoxShadow(color: color.withValues(alpha: 0.24), blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -6),
       ];
 }
 

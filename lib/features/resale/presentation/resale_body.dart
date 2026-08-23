@@ -20,7 +20,6 @@ import '../../vehicles/presentation/providers/vehicle_form_providers.dart';
 import '../domain/resale_pdf.dart';
 import '../domain/resale_readiness.dart';
 import '../domain/resale_recommendations.dart';
-import '../../dashboard/presentation/widgets/vehicle_hero_card.dart' show vehicleCardGradient;
 import '../domain/valuation/valuation_engine.dart';
 import '../domain/valuation/valuation_models.dart';
 import 'widgets/valuation_breakdown_sheet.dart';
@@ -163,7 +162,6 @@ class _ResaleSummary extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         _EstimationCard(
           result: valuation,
-          vehicleId: vehicle.id,
           onExplain: () => showValuationBreakdownSheet(context, valuation),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -279,87 +277,90 @@ class _VehicleHeaderCard extends StatelessWidget {
 /// Vente rapide/Prix haut are real numbers too, just visually secondary,
 /// flanking it below instead of competing with it as three equal chips.
 class _EstimationCard extends StatelessWidget {
-  const _EstimationCard({required this.result, required this.vehicleId, required this.onExplain});
+  const _EstimationCard({required this.result, required this.onExplain});
   final ValuationResult result;
-  final String vehicleId;
   final VoidCallback onExplain;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final gradient = vehicleCardGradient(vehicleId);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
+          padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradient,
-            ),
-            boxShadow: AppElevation.raised(scheme),
+            color: scheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            boxShadow: AppElevation.card(scheme),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('PRIX CONSEILLÉ',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.sell_outlined, size: 13, color: scheme.primary),
+                  const SizedBox(width: 5),
+                  Text('PRIX CONSEILLÉ AUTOCARNET',
+                      style: TextStyle(
+                          color: scheme.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5)),
+                ],
+              ),
               const SizedBox(height: 6),
               FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
                 child: Text.rich(
                   TextSpan(
                     text: formatAmount(result.fairPrice),
-                    style: AppTypography.mono(context,
-                        fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: AppTypography.mono(context, fontSize: 32, fontWeight: FontWeight.w800),
                     children: [
                       TextSpan(
                         text: ' DH',
                         style: TextStyle(
                             fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.85)),
+                            color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _ConfidenceBadge(confidence: result.confidence),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TierChip(label: 'Vente rapide', value: formatCurrency(result.quickSale)),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _TierChip(label: 'Prix haut', value: formatCurrency(result.highPrice)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Divider(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: onExplain,
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                  child: const Text('Voir le détail du calcul', style: TextStyle(fontSize: 13)),
+                ),
+              ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _TierChip(label: 'Vente rapide', value: formatCurrency(result.quickSale)),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _TierChip(label: 'Prix haut', value: formatCurrency(result.highPrice)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: onExplain,
-            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            child: const Text('Voir le détail du calcul'),
-          ),
-        ),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -442,12 +443,10 @@ class _TierChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 9),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
+        color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        boxShadow: AppElevation.card(scheme),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +461,7 @@ class _TierChip extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: value != null
-                ? AppTypography.mono(context, fontSize: 15, fontWeight: FontWeight.w600)
+                ? AppTypography.mono(context, fontSize: 14, fontWeight: FontWeight.w700)
                 : TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
           ),
         ],

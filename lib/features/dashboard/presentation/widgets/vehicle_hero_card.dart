@@ -7,14 +7,14 @@ import '../../../../core/utils/currency_format.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
-/// The vehicle as the central, "instrument cluster" element of the home
-/// dashboard ("Auto Premium Clair" concept, 2026, design-review pass) - a
-/// colour-identified, elevated card rather than a plain bordered rectangle:
-/// every vehicle gets its own deterministic gradient (stable across app
-/// opens, distinct across a multi-vehicle garage) so the fleet doesn't read
-/// as a stack of identical rows. Shows only what's already computed
-/// elsewhere (health score, reminders): nothing here invents new business
-/// logic.
+/// The vehicle as a compact identity strip on the home dashboard ("Premium
+/// sobre" concept, 2026, V2 design-review pass) - deliberately plain rather
+/// than colour-coded per vehicle: the earlier per-vehicle gradient palette
+/// had no functional justification and read as arbitrary/"fun" rather than
+/// premium. AutoCarnet's own brand colour (never a colour tied to a
+/// specific car) is the only accent here, used sparingly on the icon tile.
+/// Shows only what's already computed elsewhere (health score, reminders):
+/// nothing here invents new business logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
     super.key,
@@ -26,8 +26,8 @@ class VehicleHeroCard extends ConsumerWidget {
   final Vehicle vehicle;
 
   /// This vehicle's own active reminders (already scoped by the caller via
-  /// vehicleActiveRemindersProvider) - used for the status pill and the
-  /// "prochaine révision"/"prochaine échéance" lines.
+  /// vehicleActiveRemindersProvider) - used for the health strip and the
+  /// "prochaine révision" value.
   final List<Reminder> reminders;
   final VoidCallback onTap;
 
@@ -51,112 +51,96 @@ class VehicleHeroCard extends ConsumerWidget {
     final health = ref.watch(vehicleHealthScoreProvider(vehicle));
     final worst = _worstUrgency();
     final revision = _nearestMaintenance();
-    final gradient = vehicleCardGradient(vehicle.id);
+    final isOk = worst == ReminderUrgency.later || worst == ReminderUrgency.done;
+    final statusColor = isOk ? scheme.secondary : scheme.tertiary;
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.xl),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+        child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradient,
-            ),
-            boxShadow: AppElevation.raised(scheme),
+            color: scheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            boxShadow: AppElevation.card(scheme),
           ),
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Positioned(
-                right: -14,
-                bottom: -18,
-                child: Icon(Icons.directions_car_filled,
-                    size: 128, color: Colors.white.withValues(alpha: 0.14)),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${vehicle.brand} ${vehicle.model}',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              [
-                                if (vehicle.year != null) '${vehicle.year}',
-                                if (vehicle.plate != null) vehicle.plate!,
-                              ].join(' · '),
-                              style: AppTypography.mono(context,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.78)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _StatusBadge(urgency: worst),
-                    ],
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Icon(Icons.directions_car_filled, size: 18, color: scheme.primary),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                formatAmount(vehicle.currentMileage),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.mono(context,
-                                    fontSize: 30, fontWeight: FontWeight.w700, color: Colors.white),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text('km',
-                                style: AppTypography.mono(context,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white.withValues(alpha: 0.78))),
-                          ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${vehicle.brand} ${vehicle.model}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (health != null) _HealthRing(score: health.score),
-                    ],
+                        Text(
+                          [
+                            if (vehicle.year != null) '${vehicle.year}',
+                            '${formatAmount(vehicle.currentMileage)} km',
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Divider(height: 1, color: Colors.white.withValues(alpha: 0.22)),
-                  const SizedBox(height: AppSpacing.sm),
-                  // Deliberately neutral: no reminder title here (never
-                  // "Vidange + filtres à prévoir") - this card is the
-                  // summary, the nature of the operation belongs to the
-                  // entretien tab. "Prochaine échéance" (document-based)
-                  // was removed entirely rather than duplicated with "À
-                  // faire prochainement" below.
-                  _MetaColumn(
-                    label: 'Prochaine révision',
-                    value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                  Icon(Icons.chevron_right, size: 16, color: scheme.onSurfaceVariant),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
+                        ),
+                        Expanded(
+                          child: _StripColumn(
+                            label: 'Santé',
+                            value: health == null
+                                ? '—'
+                                : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+                            valueColor: isOk ? scheme.secondary : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 10), color: scheme.outlineVariant.withValues(alpha: 0.6)),
+                  Expanded(
+                    child: _StripColumn(
+                      label: 'Prochaine révision',
+                      value: revision == null ? 'Aucune prévue' : formatReminderAbsoluteDue(revision),
+                    ),
                   ),
                 ],
               ),
@@ -182,24 +166,6 @@ class VehicleHeroCard extends ConsumerWidget {
         ReminderUrgency.later => 2,
         ReminderUrgency.done => 3,
       };
-}
-
-/// A small, fixed set of premium gradients (all colour-harmonious with the
-/// brand's blue/turquoise identity) picked deterministically from the
-/// vehicle's id - the same vehicle always renders the same colour across
-/// app opens, and a multi-vehicle garage reads as genuinely distinct cars
-/// rather than identical rows (bloc design-review 2026, "couleur liée au
-/// véhicule"). Never derived from the free-text "couleur" field the owner
-/// can type in the vehicle sheet - that's an arbitrary string, not reliably
-/// mappable to a real colour.
-List<Color> vehicleCardGradient(String vehicleId) {
-  const palette = [
-    [Color(0xFF0E1B3E), Color(0xFF1652F0), Color(0xFF3E8BFF)],
-    [Color(0xFF2B2420), Color(0xFF7A4A22), Color(0xFFFF9A3D)],
-    [Color(0xFF0B2E28), Color(0xFF0EA37A), Color(0xFF3FD9AC)],
-    [Color(0xFF2E1230), Color(0xFF8C2F6B), Color(0xFFE6598F)],
-  ];
-  return palette[vehicleId.hashCode.abs() % palette.length];
 }
 
 /// "dans 8 000 km" / "dans 32 jours" / "12/05/2027" - the same compact
@@ -240,78 +206,26 @@ String formatReminderAbsoluteDue(Reminder r) {
   return parts.isEmpty ? '—' : parts.join(' · ');
 }
 
-class _HealthRing extends StatelessWidget {
-  const _HealthRing({required this.score});
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 42,
-      height: 42,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox.expand(
-            child: CircularProgressIndicator(
-              value: score / 100,
-              strokeWidth: 3.5,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
-              valueColor: const AlwaysStoppedAnimation(Colors.white),
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Text('$score',
-              style: AppTypography.mono(context,
-                  fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.urgency});
-  final ReminderUrgency urgency;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (urgency) {
-      ReminderUrgency.urgent => 'À surveiller',
-      ReminderUrgency.upcoming => 'À surveiller',
-      ReminderUrgency.later || ReminderUrgency.done => 'À jour',
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.20),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(label,
-          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
-    );
-  }
-}
-
-class _MetaColumn extends StatelessWidget {
-  const _MetaColumn({required this.label, required this.value});
+class _StripColumn extends StatelessWidget {
+  const _StripColumn({required this.label, required this.value, this.valueColor});
   final String label;
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                fontSize: 10.5,
-                letterSpacing: 0.4,
-                fontWeight: FontWeight.w700,
-                color: Colors.white.withValues(alpha: 0.72))),
-        const SizedBox(height: 2),
+                fontSize: 9.5, letterSpacing: 0.4, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 1),
         Text(value,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white),
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: valueColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
       ],
