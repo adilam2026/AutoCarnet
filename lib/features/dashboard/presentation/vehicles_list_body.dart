@@ -50,7 +50,8 @@ class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
 
     return vehiclesAsync.when(
       loading: () => const LoadingView(),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) =>
+          const ErrorView(message: 'Impossible de charger vos véhicules. Réessayez dans un instant.'),
       data: (vehicles) {
         if (vehicles.isEmpty) return _EmptyDashboard();
         final index = _selectedIndex.clamp(0, vehicles.length - 1);

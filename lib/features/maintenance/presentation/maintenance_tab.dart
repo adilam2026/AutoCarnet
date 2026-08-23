@@ -42,7 +42,8 @@ class _MaintenanceTabState extends ConsumerState<MaintenanceTab> {
       appBar: AppBar(title: const Text('Entretiens')),
       body: entriesAsync.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) =>
+            const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
         data: (entries) {
           if (entries.isEmpty) {
             return EmptyState(

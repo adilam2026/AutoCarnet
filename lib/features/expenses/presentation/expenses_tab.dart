@@ -49,7 +49,8 @@ class _ExpensesTabState extends ConsumerState<ExpensesTab> {
       appBar: AppBar(title: const Text('Dépenses')),
       body: expensesAsync.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) =>
+            const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
         data: (expenses) {
           if (expenses.isEmpty) {
             return EmptyState(

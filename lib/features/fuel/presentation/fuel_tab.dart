@@ -45,7 +45,8 @@ class _FuelTabState extends ConsumerState<FuelTab> {
       appBar: AppBar(title: const Text('Carburant')),
       body: entriesAsync.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) =>
+            const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
         data: (entries) {
           if (entries.isEmpty) {
             return EmptyState(

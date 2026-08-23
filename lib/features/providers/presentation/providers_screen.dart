@@ -16,7 +16,8 @@ class ProvidersScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Prestataires')),
       body: providersAsync.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) =>
+            const ErrorView(message: 'Impossible de charger vos prestataires. Réessayez dans un instant.'),
         data: (providers) {
           if (providers.isEmpty) {
             return const EmptyState(

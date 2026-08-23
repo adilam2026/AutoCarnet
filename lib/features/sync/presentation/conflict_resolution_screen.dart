@@ -9,6 +9,7 @@ import '../../../core/sync/conflict_resolution_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/loading_error_views.dart';
 
 const Map<String, String> _tableLabels = {
   'vehicles': 'Fiche véhicule',
@@ -48,7 +49,8 @@ class ConflictResolutionScreen extends ConsumerWidget {
       body: conflictsAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const ErrorView(
+            message: 'Impossible de charger les conflits en attente. Réessayez dans un instant.'),
         data: (conflicts) {
           if (conflicts.isEmpty) {
             return const EmptyState(

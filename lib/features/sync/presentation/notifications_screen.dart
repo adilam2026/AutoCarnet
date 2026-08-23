@@ -6,6 +6,7 @@ import '../../../core/database/database.dart';
 import '../../../core/notifications/notification_repository.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/loading_error_views.dart';
 import 'conflict_resolution_screen.dart';
 
 /// Persistent, per-device notification center (see AppNotifications' class
@@ -39,7 +40,8 @@ class NotificationsScreen extends ConsumerWidget {
       body: notificationsAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const ErrorView(
+            message: 'Impossible de charger vos notifications. Réessayez dans un instant.'),
         data: (items) {
           if (items.isEmpty) {
             return const EmptyState(

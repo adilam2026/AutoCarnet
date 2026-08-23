@@ -44,7 +44,8 @@ class _ResaleBodyState extends ConsumerState<ResaleBody> {
 
     return vehiclesAsync.when(
       loading: () => const LoadingView(),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) =>
+          const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
       data: (vehicles) {
         if (vehicles.isEmpty) {
           return const EmptyState(
@@ -112,7 +113,10 @@ class _ResaleSummary extends ConsumerWidget {
         documentsAsync.error ??
         remindersAsync.error ??
         mileageAsync.error;
-    if (error != null) return ErrorView(message: error.toString());
+    if (error != null) {
+      return const ErrorView(
+          message: 'Impossible de charger ces données. Réessayez dans un instant.');
+    }
 
     final maintenanceEntries = maintenanceAsync.value ?? const <MaintenanceEntry>[];
     final documents = documentsAsync.value ?? const <DocumentWithVersion>[];
@@ -220,7 +224,7 @@ class _ResaleSummary extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        showAppSnackBar(context, 'Impossible de générer le PDF : $e',
+        showAppSnackBar(context, 'Impossible de générer le PDF. Réessayez dans un instant.',
             icon: Icons.error_outline);
       }
     }

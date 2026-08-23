@@ -40,7 +40,8 @@ class _DocumentsTabState extends ConsumerState<DocumentsTab> {
       appBar: AppBar(title: const Text('Documents')),
       body: docsAsync.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) =>
+            const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
         data: (docs) {
           if (docs.isEmpty) {
             return EmptyState(

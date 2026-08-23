@@ -33,7 +33,8 @@ class _AlertsBodyState extends ConsumerState<AlertsBody> {
 
     return remindersAsync.when(
       loading: () => const LoadingView(),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) =>
+          const ErrorView(message: 'Impossible de charger ces données. Réessayez dans un instant.'),
       data: (reminders) {
         if (reminders.isEmpty) {
           return const EmptyState(

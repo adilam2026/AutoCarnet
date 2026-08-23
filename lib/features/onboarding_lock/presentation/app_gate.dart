@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/sync/sync_coordinator.dart';
@@ -129,7 +130,17 @@ class _AppGateState extends ConsumerState<AppGate> {
   /// 3/19: OTP success never skips straight to HOME either way).
   Future<void> _onAccountAuthenticated() async {
     final account = ref.read(accountRepositoryProvider);
-    final currentUserId = account.currentUser!.id;
+    // A code can be verified successfully by Supabase and yet the session
+    // it should have created is already gone by the time this runs (a
+    // token that expires immediately after a "successful" auth). Without
+    // this check that read a null `currentUser` through a `!`, crashing
+    // with an unhandled TypeError that VerifyEmailScreen's generic catch
+    // still displayed as "Une erreur est survenue" - but left the
+    // already-consumed code with no way to retry except starting over.
+    final currentUserId = account.currentUser?.id;
+    if (currentUserId == null) {
+      throw AuthException('Votre session a expiré. Veuillez réessayer.');
+    }
     final previousDeviceUserId = await account.lastDeviceUserId();
     if (previousDeviceUserId != null && previousDeviceUserId != currentUserId) {
       await ref.read(vehicleRepositoryProvider).handleAccountSwitch(previousDeviceUserId);

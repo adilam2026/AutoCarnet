@@ -53,7 +53,9 @@ class VehicleHomeScreen extends ConsumerWidget {
 
     return vehicleAsync.when(
       loading: () => const Scaffold(body: LoadingView()),
-      error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
+      error: (e, _) => const Scaffold(
+        body: ErrorView(message: 'Impossible de charger ce véhicule. Réessayez dans un instant.'),
+      ),
       data: (vehicle) => vehicle == null
           ? _VehicleSyncingView(vehicleId: vehicleId)
           : _VehicleHomeBody(vehicle: vehicle),
