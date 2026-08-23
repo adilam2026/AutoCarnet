@@ -294,6 +294,11 @@ void main() {
       }
 
       await pumpDashboard(tester);
+      // A second vehicle's own reminders stream (vehicleActiveRemindersProvider
+      // family, distinct from the base vehicles list stream) needs its own
+      // settle cycle - one extra pump here was occasionally borderline on a
+      // slower CI runner, showing the loading spinner instead of the card.
+      await tester.pump();
       await tester.pump();
 
       // Dacia Duster (no reminders) is active by default.
