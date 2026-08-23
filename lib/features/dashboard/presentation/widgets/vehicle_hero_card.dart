@@ -96,6 +96,14 @@ class VehicleHeroCard extends ConsumerWidget {
             key: ValueKey('vehicleHeroCardContour-${vehicle.id}'),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLowest,
+              // The border must carry its OWN matching borderRadius, not
+              // just rely on the ancestor Material's rounded clip to hide
+              // the corners - a border painted on an un-rounded
+              // BoxDecoration is a sharp rectangle first and only gets
+              // clipped afterwards, which left tiny slivers of the
+              // straight vertical edges visible just past the bottom
+              // corners (finition bug, cohérence pass follow-up).
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(color: contourColor, width: 1.3),
             ),
             child: Column(

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/icon_chip.dart';
+import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../account/data/account_repository.dart';
 import '../../onboarding_lock/data/biometric_service.dart';
@@ -189,32 +191,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (account.isSignedIn) ...[
             const SectionHeader('Compte'),
             const SizedBox(height: AppSpacing.sm),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.alternate_email),
-                    title: Text(account.currentUser?.email ?? ''),
-                    subtitle: const Text('Compte AutoCarnet'),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.devices_other_outlined),
-                    title: const Text('Appareils connectés'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => const DevicesScreen())),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.manage_accounts_outlined),
-                    title: const Text('Gestion du compte'),
-                    subtitle: const Text('Dissocier cet appareil, déconnecter tous les appareils'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _onOpenAccountManagement,
-                  ),
-                ],
-              ),
+            ListSurface(
+              children: [
+                ListTile(
+                  leading: const IconChip(Icons.alternate_email),
+                  title: Text(account.currentUser?.email ?? ''),
+                  subtitle: const Text('Compte AutoCarnet'),
+                ),
+                ListTile(
+                  leading: const IconChip(Icons.devices_other_outlined),
+                  title: const Text('Appareils connectés'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const DevicesScreen())),
+                ),
+                ListTile(
+                  leading: const IconChip(Icons.manage_accounts_outlined),
+                  title: const Text('Gestion du compte'),
+                  subtitle: const Text('Dissocier cet appareil, déconnecter tous les appareils'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _onOpenAccountManagement,
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.lg),
           ],
@@ -223,84 +221,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           profileAsync.maybeWhen(
             data: (profile) => profile == null
                 ? const SizedBox.shrink()
-                : Card(
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.person_outline),
-                          title: Text(profile.displayName),
-                          subtitle: const Text('Nom et prénom'),
-                          trailing: const Icon(Icons.edit_outlined),
-                          onTap: () => _onEditDisplayName(profile),
+                : ListSurface(
+                    children: [
+                      ListTile(
+                        leading: const IconChip(Icons.person_outline),
+                        title: Text(profile.displayName),
+                        subtitle: const Text('Nom et prénom'),
+                        trailing: const Icon(Icons.edit_outlined),
+                        onTap: () => _onEditDisplayName(profile),
+                      ),
+                      ListTile(
+                        leading: const IconChip(Icons.payments_outlined),
+                        title: const Text('Devise'),
+                        subtitle: Text(profile.currency),
+                        trailing: DropdownButton<String>(
+                          value: availableCurrencies.contains(profile.currency)
+                              ? profile.currency
+                              : availableCurrencies.first,
+                          underline: const SizedBox.shrink(),
+                          items: availableCurrencies
+                              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) _onChangeCurrency(profile, v);
+                          },
                         ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.payments_outlined),
-                          title: const Text('Devise'),
-                          subtitle: Text(profile.currency),
-                          trailing: DropdownButton<String>(
-                            value: availableCurrencies.contains(profile.currency)
-                                ? profile.currency
-                                : availableCurrencies.first,
-                            underline: const SizedBox.shrink(),
-                            items: availableCurrencies
-                                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                .toList(),
-                            onChanged: (v) {
-                              if (v != null) _onChangeCurrency(profile, v);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
             orElse: () => const SizedBox.shrink(),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Sécurité'),
           const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: _loading
-                ? const Padding(
-                    padding: EdgeInsets.all(AppSpacing.lg),
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
-                : Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.password_outlined),
-                        title: const Text('Modifier le code d\'accès'),
-                        subtitle: const Text('Protège uniquement l\'accès local sur cet appareil'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _onChangePin,
-                      ),
-                      if (_biometricSupported) ...[
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary: const Icon(Icons.fingerprint),
-                          title: const Text('Déverrouillage biométrique'),
-                          subtitle: const Text('Empreinte ou reconnaissance faciale, en plus du PIN'),
-                          value: _biometricEnabled,
-                          onChanged: _onBiometricToggled,
-                        ),
-                      ],
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.lock_clock_outlined),
-                        title: const Text('Verrouiller maintenant'),
-                        subtitle: const Text(
-                            'Reverrouille l\'application sur cet appareil - le compte reste connecté'),
-                        onTap: _onLockNow,
-                      ),
-                    ],
+          _loading
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
                   ),
-          ),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : ListSurface(
+                  children: [
+                    ListTile(
+                      leading: const IconChip(Icons.password_outlined),
+                      title: const Text('Modifier le code d\'accès'),
+                      subtitle: const Text('Protège uniquement l\'accès local sur cet appareil'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _onChangePin,
+                    ),
+                    if (_biometricSupported)
+                      SwitchListTile(
+                        secondary: const IconChip(Icons.fingerprint),
+                        title: const Text('Déverrouillage biométrique'),
+                        subtitle: const Text('Empreinte ou reconnaissance faciale, en plus du PIN'),
+                        value: _biometricEnabled,
+                        onChanged: _onBiometricToggled,
+                      ),
+                    ListTile(
+                      leading: const IconChip(Icons.lock_clock_outlined),
+                      title: const Text('Verrouiller maintenant'),
+                      subtitle: const Text(
+                          'Reverrouille l\'application sur cet appareil - le compte reste connecté'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _onLockNow,
+                    ),
+                  ],
+                ),
           const SizedBox(height: AppSpacing.xl),
           Center(
             child: Text(

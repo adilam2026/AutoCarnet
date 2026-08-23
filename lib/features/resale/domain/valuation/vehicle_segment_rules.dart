@@ -24,14 +24,22 @@ class VehicleSegmentRules {
 
   /// Multiplicative adjustment applied to a brand tier's generic new-price
   /// midpoint - a mid-size SUV costs meaningfully more new than a city car
-  /// of the same brand, regardless of which brand it is.
+  /// of the same brand, regardless of which brand it is. `suvMoyen` was
+  /// lowered from 1.75 to 1.46 (recalibration pass, 2026): for an
+  /// unsourced premium model (e.g. a 2021 Audi Q5, whose real generation
+  /// wasn't in the sourced référentiel) the old multiplier pushed the
+  /// generic reference price to ~831 000 MAD - well above what that model
+  /// actually cost new - which then cascaded into a resale estimate near
+  /// 477 000 MAD instead of the expected ~390 000 MAD. Still a single
+  /// generic multiplier shared by every brand/model in this segment, never
+  /// tuned for one specific vehicle.
   static const Map<VehicleSegment, double> _multipliers = {
     VehicleSegment.citadine: 0.65,
     VehicleSegment.compacte: 0.90,
     VehicleSegment.berline: 1.10,
     VehicleSegment.monospace: 1.00,
     VehicleSegment.suvCompact: 1.30,
-    VehicleSegment.suvMoyen: 1.75,
+    VehicleSegment.suvMoyen: 1.46,
     VehicleSegment.suvGrand: 2.10,
     VehicleSegment.coupeCabriolet: 1.30,
     VehicleSegment.pickup: 1.20,

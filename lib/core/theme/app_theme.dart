@@ -329,14 +329,26 @@ class AppTheme {
           displayColor: scheme.onSurface,
         )
         .copyWith(
-          headlineLarge: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3),
-          headlineMedium: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3),
-          headlineSmall: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.2),
-          titleLarge: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: -0.1),
-          titleMedium: const TextStyle(fontWeight: FontWeight.w600),
-          titleSmall: const TextStyle(fontWeight: FontWeight.w600),
-          labelLarge: const TextStyle(fontWeight: FontWeight.w600),
-          bodyMedium: const TextStyle(height: 1.35),
+          // `copyWith` REPLACES each named TextStyle wholesale rather than
+          // merging it with the `.apply()` above - every entry here must
+          // therefore repeat its own `color:` explicitly, or it silently
+          // reverts to `color: null` (Flutter/Material3 then tends to
+          // resolve that toward white), which is exactly how AppBar titles
+          // and other titleLarge/titleMedium/labelLarge text across the
+          // app were rendering unreadable on light surfaces (cohérence
+          // pass follow-up - global contrast audit).
+          headlineLarge: TextStyle(
+              fontWeight: FontWeight.w700, letterSpacing: -0.3, color: scheme.onSurface),
+          headlineMedium: TextStyle(
+              fontWeight: FontWeight.w700, letterSpacing: -0.3, color: scheme.onSurface),
+          headlineSmall: TextStyle(
+              fontWeight: FontWeight.w700, letterSpacing: -0.2, color: scheme.onSurface),
+          titleLarge: TextStyle(
+              fontWeight: FontWeight.w600, letterSpacing: -0.1, color: scheme.onSurface),
+          titleMedium: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface),
+          titleSmall: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface),
+          labelLarge: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface),
+          bodyMedium: TextStyle(height: 1.35, color: scheme.onSurface),
           bodySmall: TextStyle(height: 1.3, color: scheme.onSurfaceVariant),
           labelSmall: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
         );

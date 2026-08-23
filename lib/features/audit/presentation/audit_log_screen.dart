@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/icon_chip.dart';
+import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/loading_error_views.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../data/audit_repository.dart';
@@ -42,31 +45,29 @@ class AuditLogScreen extends ConsumerWidget {
             },
             orElse: () => <String, String>{},
           );
-          return ListView.separated(
+          return ListView(
             padding: EdgeInsets.fromLTRB(
                 AppSpacing.md, AppSpacing.md, AppSpacing.md, fabSafeBottomPadding(context)),
-            itemCount: events.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
-            itemBuilder: (context, i) {
-              final e = events[i];
-              final vehicleName = e.vehicleId != null ? vehicleNames[e.vehicleId] : null;
-              return Card(
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.history_outlined),
-                  title: Text(e.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(
-                    [
-                      _fmt(e.occurredAt),
-                      ?vehicleName,
-                    ].join(' • '),
-                  ),
-                ),
-              );
-            },
+            children: [
+              ListSurface(
+                children: [
+                  for (final e in events) _buildRow(e, vehicleNames),
+                ],
+              ),
+            ],
           );
         },
       ),
+    );
+  }
+
+  Widget _buildRow(AuditEvent e, Map<String, String> vehicleNames) {
+    final vehicleName = e.vehicleId != null ? vehicleNames[e.vehicleId] : null;
+    return ListTile(
+      dense: true,
+      leading: const IconChip(Icons.history_outlined),
+      title: Text(e.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Text([_fmt(e.occurredAt), ?vehicleName].join(' • ')),
     );
   }
 

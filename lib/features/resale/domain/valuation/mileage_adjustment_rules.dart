@@ -2,13 +2,18 @@
 /// nudges the estimate accordingly - configurable in one place, not spread
 /// across the UI. A vehicle with a higher mileage than the reference for
 /// its age must never come out strictly ahead of an identical, less-driven
-/// vehicle without reason.
+/// vehicle without reason. Strengthened (recalibration pass, 2026) after
+/// the Opel Astra 2012/270 000 km control case showed a vehicle far above
+/// its age-reference mileage wasn't being penalized enough to keep the
+/// overall estimate realistic - a moderate excess (a few thousand km) still
+/// barely moves the estimate, but a large, genuine excess (tens of
+/// thousands of km) now weighs meaningfully more than before.
 class MileageAdjustmentRules {
   const MileageAdjustmentRules._();
 
   static const referenceKmPerYear = 15000;
-  static const _adjustmentPerThousandKm = 0.0015;
-  static const _maxAdjustment = 0.15;
+  static const _adjustmentPerThousandKm = 0.0026;
+  static const _maxAdjustment = 0.25;
 
   static double referenceMileageForAge(int ageMonths) {
     if (ageMonths <= 0) return 0;

@@ -133,10 +133,21 @@ class InternalValuationProvider implements ValuationEngine {
             ? ConfidenceLevel.good
             : (ratio >= 0.4 ? ConfidenceLevel.medium : ConfidenceLevel.low));
 
+    // The fourchette's width now actually reflects how much AutoCarnet
+    // trusts its own inputs (recalibration pass, 2026) - a well-documented,
+    // sourced vehicle gets a tighter band; a mostly-unknown one gets a
+    // wider, more cautious band, so the "prix haut" is never implied to be
+    // just as reachable when confidence is low.
+    final spread = switch (confidence) {
+      ConfidenceLevel.good => 0.06,
+      ConfidenceLevel.medium => 0.09,
+      ConfidenceLevel.low => 0.13,
+    };
+
     return ValuationResult(
-      quickSale: central * 0.92,
-      fairPrice: central,
-      highPrice: central * 1.08,
+      quickSale: _roundToNearestThousand(central * (1 - spread)),
+      fairPrice: _roundToNearestThousand(central),
+      highPrice: _roundToNearestThousand(central * (1 + spread)),
       breakdown: breakdown,
       confidence: confidence,
       confidenceFactors: factors,
@@ -148,6 +159,11 @@ class InternalValuationProvider implements ValuationEngine {
     if (b.day < a.day) months -= 1;
     return months < 0 ? 0 : months;
   }
+
+  /// AutoCarnet never claims false precision (mission: "390 000 MAD" not
+  /// "389 847 MAD") - every price the engine hands back is rounded to a
+  /// commercially sensible figure, not a raw multiplication result.
+  double _roundToNearestThousand(double value) => (value / 1000).round() * 1000;
 }
 
 final valuationEngineProvider = Provider<ValuationEngine>((ref) {

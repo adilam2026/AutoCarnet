@@ -2725,6 +2725,18 @@ class $ServiceProvidersTable extends ServiceProviders
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<ServiceProviderCategory?, String>
+  category =
+      GeneratedColumn<String>(
+        'category',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<ServiceProviderCategory?>(
+        $ServiceProvidersTable.$convertercategoryn,
+      );
   static const VerificationMeta _addressMeta = const VerificationMeta(
     'address',
   );
@@ -2849,6 +2861,7 @@ class $ServiceProvidersTable extends ServiceProviders
     id,
     name,
     type,
+    category,
     address,
     city,
     country,
@@ -2983,6 +2996,12 @@ class $ServiceProvidersTable extends ServiceProviders
         DriftSqlType.string,
         data['${effectivePrefix}type'],
       ),
+      category: $ServiceProvidersTable.$convertercategoryn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}category'],
+        ),
+      ),
       address: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}address'],
@@ -3034,12 +3053,20 @@ class $ServiceProvidersTable extends ServiceProviders
   $ServiceProvidersTable createAlias(String alias) {
     return $ServiceProvidersTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<ServiceProviderCategory, String, String>
+  $convertercategory = const EnumNameConverter<ServiceProviderCategory>(
+    ServiceProviderCategory.values,
+  );
+  static JsonTypeConverter2<ServiceProviderCategory?, String?, String?>
+  $convertercategoryn = JsonTypeConverter2.asNullable($convertercategory);
 }
 
 class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
   final String id;
   final String name;
   final String? type;
+  final ServiceProviderCategory? category;
   final String? address;
   final String? city;
   final String? country;
@@ -3055,6 +3082,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     required this.id,
     required this.name,
     this.type,
+    this.category,
     this.address,
     this.city,
     this.country,
@@ -3074,6 +3102,11 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || type != null) {
       map['type'] = Variable<String>(type);
+    }
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(
+        $ServiceProvidersTable.$convertercategoryn.toSql(category),
+      );
     }
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
@@ -3110,6 +3143,9 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       id: Value(id),
       name: Value(name),
       type: type == null && nullToAbsent ? const Value.absent() : Value(type),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
       address: address == null && nullToAbsent
           ? const Value.absent()
           : Value(address),
@@ -3147,6 +3183,9 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String?>(json['type']),
+      category: $ServiceProvidersTable.$convertercategoryn.fromJson(
+        serializer.fromJson<String?>(json['category']),
+      ),
       address: serializer.fromJson<String?>(json['address']),
       city: serializer.fromJson<String?>(json['city']),
       country: serializer.fromJson<String?>(json['country']),
@@ -3167,6 +3206,9 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String?>(type),
+      'category': serializer.toJson<String?>(
+        $ServiceProvidersTable.$convertercategoryn.toJson(category),
+      ),
       'address': serializer.toJson<String?>(address),
       'city': serializer.toJson<String?>(city),
       'country': serializer.toJson<String?>(country),
@@ -3185,6 +3227,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     String? id,
     String? name,
     Value<String?> type = const Value.absent(),
+    Value<ServiceProviderCategory?> category = const Value.absent(),
     Value<String?> address = const Value.absent(),
     Value<String?> city = const Value.absent(),
     Value<String?> country = const Value.absent(),
@@ -3200,6 +3243,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     id: id ?? this.id,
     name: name ?? this.name,
     type: type.present ? type.value : this.type,
+    category: category.present ? category.value : this.category,
     address: address.present ? address.value : this.address,
     city: city.present ? city.value : this.city,
     country: country.present ? country.value : this.country,
@@ -3217,6 +3261,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       type: data.type.present ? data.type.value : this.type,
+      category: data.category.present ? data.category.value : this.category,
       address: data.address.present ? data.address.value : this.address,
       city: data.city.present ? data.city.value : this.city,
       country: data.country.present ? data.country.value : this.country,
@@ -3239,6 +3284,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
+          ..write('category: $category, ')
           ..write('address: $address, ')
           ..write('city: $city, ')
           ..write('country: $country, ')
@@ -3259,6 +3305,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
     id,
     name,
     type,
+    category,
     address,
     city,
     country,
@@ -3278,6 +3325,7 @@ class ServiceProvider extends DataClass implements Insertable<ServiceProvider> {
           other.id == this.id &&
           other.name == this.name &&
           other.type == this.type &&
+          other.category == this.category &&
           other.address == this.address &&
           other.city == this.city &&
           other.country == this.country &&
@@ -3295,6 +3343,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> type;
+  final Value<ServiceProviderCategory?> category;
   final Value<String?> address;
   final Value<String?> city;
   final Value<String?> country;
@@ -3311,6 +3360,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.type = const Value.absent(),
+    this.category = const Value.absent(),
     this.address = const Value.absent(),
     this.city = const Value.absent(),
     this.country = const Value.absent(),
@@ -3328,6 +3378,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     required String id,
     required String name,
     this.type = const Value.absent(),
+    this.category = const Value.absent(),
     this.address = const Value.absent(),
     this.city = const Value.absent(),
     this.country = const Value.absent(),
@@ -3348,6 +3399,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? type,
+    Expression<String>? category,
     Expression<String>? address,
     Expression<String>? city,
     Expression<String>? country,
@@ -3365,6 +3417,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (type != null) 'type': type,
+      if (category != null) 'category': category,
       if (address != null) 'address': address,
       if (city != null) 'city': city,
       if (country != null) 'country': country,
@@ -3384,6 +3437,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     Value<String>? id,
     Value<String>? name,
     Value<String?>? type,
+    Value<ServiceProviderCategory?>? category,
     Value<String?>? address,
     Value<String?>? city,
     Value<String?>? country,
@@ -3401,6 +3455,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
+      category: category ?? this.category,
       address: address ?? this.address,
       city: city ?? this.city,
       country: country ?? this.country,
@@ -3427,6 +3482,11 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(
+        $ServiceProvidersTable.$convertercategoryn.toSql(category.value),
+      );
     }
     if (address.present) {
       map['address'] = Variable<String>(address.value);
@@ -3473,6 +3533,7 @@ class ServiceProvidersCompanion extends UpdateCompanion<ServiceProvider> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
+          ..write('category: $category, ')
           ..write('address: $address, ')
           ..write('city: $city, ')
           ..write('country: $country, ')
@@ -15721,6 +15782,7 @@ typedef $$ServiceProvidersTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<String?> type,
+      Value<ServiceProviderCategory?> category,
       Value<String?> address,
       Value<String?> city,
       Value<String?> country,
@@ -15739,6 +15801,7 @@ typedef $$ServiceProvidersTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String?> type,
+      Value<ServiceProviderCategory?> category,
       Value<String?> address,
       Value<String?> city,
       Value<String?> country,
@@ -15863,6 +15926,16 @@ class $$ServiceProvidersTableFilterComposer
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    ServiceProviderCategory?,
+    ServiceProviderCategory,
+    String
+  >
+  get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get address => $composableBuilder(
@@ -16045,6 +16118,11 @@ class $$ServiceProvidersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get address => $composableBuilder(
     column: $table.address,
     builder: (column) => ColumnOrderings(column),
@@ -16118,6 +16196,10 @@ class $$ServiceProvidersTableAnnotationComposer
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ServiceProviderCategory?, String>
+  get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
 
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
@@ -16294,6 +16376,7 @@ class $$ServiceProvidersTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> type = const Value.absent(),
+                Value<ServiceProviderCategory?> category = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> city = const Value.absent(),
                 Value<String?> country = const Value.absent(),
@@ -16310,6 +16393,7 @@ class $$ServiceProvidersTableTableManager
                 id: id,
                 name: name,
                 type: type,
+                category: category,
                 address: address,
                 city: city,
                 country: country,
@@ -16328,6 +16412,7 @@ class $$ServiceProvidersTableTableManager
                 required String id,
                 required String name,
                 Value<String?> type = const Value.absent(),
+                Value<ServiceProviderCategory?> category = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> city = const Value.absent(),
                 Value<String?> country = const Value.absent(),
@@ -16344,6 +16429,7 @@ class $$ServiceProvidersTableTableManager
                 id: id,
                 name: name,
                 type: type,
+                category: category,
                 address: address,
                 city: city,
                 country: country,

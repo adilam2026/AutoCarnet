@@ -5,11 +5,16 @@ import 'dart:math' as math;
 /// Deliberately non-linear (steeper in year one, then progressively
 /// gentler) and centralized here so the coefficients can evolve without
 /// touching the engine or the UI. Rates below year 1 aside were widened
-/// (slower decay from year 2 onward) after the Moroccan used-market
+/// once (slower decay from year 2 onward) after the Moroccan used-market
 /// control cases (Opel Astra 2012/270 000 km, Audi Q5) showed the tighter
 /// Western-style rule of thumb previously used here was retaining too
-/// little value for older, high-mileage vehicles on the Moroccan
-/// second-hand market - still a generic curve applied identically to
+/// little value for older, high-mileage vehicles - then tightened again
+/// on the post-10-year brackets specifically (recalibration pass, 2026)
+/// after those same two control cases swung the other way and started
+/// overestimating: a 14-year-old, 270 000 km Astra was landing close to
+/// 80 000 MAD instead of the expected ~70 000 MAD. The under-5-years
+/// brackets (which the more recent Audi Q5 case never even reaches) are
+/// untouched by this pass - still a generic curve applied identically to
 /// every vehicle, never tuned per brand/model.
 class DepreciationRules {
   const DepreciationRules._();
@@ -30,10 +35,10 @@ class DepreciationRules {
 
     factor *= consume(1, 0.20); // Year 1: -20%
     if (years > 0) factor *= consume(4, 0.095); // Years 2-5: -9.5%/year
-    if (years > 0) factor *= consume(5, 0.055); // Years 6-10: -5.5%/year
+    if (years > 0) factor *= consume(5, 0.062); // Years 6-10: -6.2%/year
     if (years > 0) {
-      // Beyond 10 years: -2.75%/year, uncapped duration.
-      factor *= math.pow(1 - 0.0275, years).toDouble();
+      // Beyond 10 years: -3.4%/year, uncapped duration.
+      factor *= math.pow(1 - 0.034, years).toDouble();
     }
 
     return factor.clamp(_floor, 1.0);

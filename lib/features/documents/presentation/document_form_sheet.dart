@@ -7,6 +7,7 @@ import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
 import '../../../core/widgets/sheet_handle.dart';
 import '../../account/data/account_repository.dart';
+import '../../providers/domain/insurance_companies.dart';
 import '../../providers/presentation/provider_picker_field.dart';
 import '../data/document_repository.dart';
 import '../domain/document_renewal_rules.dart';
@@ -135,6 +136,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
         ref,
         selected: _selectedProvider,
         typedText: _providerText,
+        category: _type == 'Assurance' ? ServiceProviderCategory.assurance : null,
       );
       final repo = ref.read(documentRepositoryProvider);
       final cost = double.tryParse(_costCtrl.text.trim());
@@ -278,9 +280,11 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
             ],
             const SizedBox(height: AppSpacing.md),
             ProviderPickerField(
-              label: 'Organisme / prestataire',
+              label: _type == 'Assurance' ? 'Compagnie d\'assurance' : 'Organisme / prestataire',
               onSelected: (p) => _selectedProvider = p,
               onTextChanged: (text) => _providerText = text,
+              category: _type == 'Assurance' ? ServiceProviderCategory.assurance : null,
+              presetSuggestions: _type == 'Assurance' ? moroccanAutoInsurers : const [],
             ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(

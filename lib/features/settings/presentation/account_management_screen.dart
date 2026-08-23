@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/icon_chip.dart';
+import '../../../core/widgets/list_surface.dart';
+import '../../../core/widgets/section_header.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
 
 /// "Gestion du compte": the two rare, sensitive actions that really end an
@@ -80,31 +83,30 @@ class AccountManagementScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          const SectionHeader('Actions sensibles'),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Actions rares et sensibles. Elles ne suppriment jamais le compte '
             'ni ses données sur le cloud.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.link_off),
-                  title: const Text('Dissocier ce compte de cet appareil'),
-                  subtitle: const Text(
-                      'Retour à l\'écran email - une vérification sera requise pour se reconnecter ici'),
-                  onTap: () => _onDissociateThisDevice(context, ref),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Déconnecter tous les appareils'),
-                  subtitle: const Text('Ferme toutes les sessions de ce compte, partout'),
-                  onTap: () => _onDisconnectEverywhere(context, ref),
-                ),
-              ],
-            ),
+          ListSurface(
+            children: [
+              ListTile(
+                leading: IconChip(Icons.link_off, color: Theme.of(context).colorScheme.error),
+                title: const Text('Dissocier ce compte de cet appareil'),
+                subtitle: const Text(
+                    'Retour à l\'écran email - une vérification sera requise pour se reconnecter ici'),
+                onTap: () => _onDissociateThisDevice(context, ref),
+              ),
+              ListTile(
+                leading: IconChip(Icons.logout, color: Theme.of(context).colorScheme.error),
+                title: const Text('Déconnecter tous les appareils'),
+                subtitle: const Text('Ferme toutes les sessions de ce compte, partout'),
+                onTap: () => _onDisconnectEverywhere(context, ref),
+              ),
+            ],
           ),
         ],
       ),

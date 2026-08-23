@@ -39,13 +39,26 @@ class ProviderRepository {
         .getSingleOrNull();
   }
 
-  Future<List<ServiceProvider>> search(String term, {String? currentUserId}) {
+  /// [category] narrows results to that single category when given (e.g.
+  /// the fuel form only wants stations, the insurance document only wants
+  /// insurers) - a provider with no category at all (legacy row, or one
+  /// created before this filter existed) is never hidden by it, since an
+  /// unclassified provider might still be exactly what the user is
+  /// looking for.
+  Future<List<ServiceProvider>> search(
+    String term, {
+    String? currentUserId,
+    ServiceProviderCategory? category,
+  }) {
     final query = _db.select(_db.serviceProviders)
       ..where((p) => p.name.like('%$term%') & p.isArchived.equals(false))
       ..orderBy([(p) => OrderingTerm.asc(p.name)])
       ..limit(20);
     if (currentUserId != null) {
       query.where((p) => p.ownerId.isNull() | p.ownerId.equals(currentUserId));
+    }
+    if (category != null) {
+      query.where((p) => p.category.equals(category.name) | p.category.isNull());
     }
     return query.get();
   }
@@ -68,10 +81,11 @@ class ProviderRepository {
 
   Future<String> createProvider({
     required String name,
-    String? type,
+    ServiceProviderCategory? category,
+    String? address,
     String? city,
     String? phone,
-    String? email,
+    String? comments,
     String? currentUserId,
   }) async {
     final id = newId();
@@ -80,16 +94,43 @@ class ProviderRepository {
           ServiceProvidersCompanion.insert(
             id: id,
             name: name,
-            type: Value(type),
+            category: Value(category),
+            address: Value(address),
             city: Value(city),
             phone: Value(phone),
-            email: Value(email),
+            comments: Value(comments),
             ownerId: Value(currentUserId),
             createdAt: now,
             updatedAt: now,
           ),
         );
     return id;
+  }
+
+  /// Full edit of an existing prestataire (mission point 2: "modifier un
+  /// prestataire") - only [name] is required, matching [createProvider];
+  /// every other field can be cleared by passing an explicit empty/null
+  /// value through its [Value] wrapper.
+  Future<void> updateProvider({
+    required String id,
+    required String name,
+    Value<ServiceProviderCategory?> category = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> city = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
+    Value<String?> comments = const Value.absent(),
+  }) {
+    return (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id))).write(
+      ServiceProvidersCompanion(
+        name: Value(name),
+        category: category,
+        address: address,
+        city: city,
+        phone: phone,
+        comments: comments,
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Account-switch safety net, same pattern as
@@ -111,6 +152,13 @@ class ProviderRepository {
       ),
     );
   }
+
+  /// The Prestataires screen's "Supprimer" action - a soft delete (same
+  /// pattern as VehicleRepository.softDelete), never a hard SQL delete: a
+  /// maintenance entry, expense or document that already references this
+  /// provider must keep working, it just stops being offered as a
+  /// suggestion for new entries and disappears from the Prestataires list.
+  Future<void> deleteProvider(String id) => archive(id);
 }
 
 final providerRepositoryProvider = Provider<ProviderRepository>((ref) {

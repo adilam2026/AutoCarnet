@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/icon_chip.dart';
+import '../../../core/widgets/list_surface.dart';
 import '../../account/data/account_repository.dart';
 
 /// "Appareils connectés" (spec bloc 13/14): every device authorized for
@@ -69,44 +72,43 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Center(
-                child: Text(
-                  'Impossible de récupérer la liste des appareils. '
-                  'Vérifiez votre connexion.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return const EmptyState(
+              icon: Icons.sync_problem_outlined,
+              title: 'Connexion impossible',
+              subtitle: 'Impossible de récupérer la liste des appareils. Vérifiez votre connexion.',
             );
           }
           final devices = snapshot.data ?? const [];
           if (devices.isEmpty) {
-            return const Center(child: Text('Aucun appareil enregistré.'));
+            return const EmptyState(
+              icon: Icons.devices_other_outlined,
+              title: 'Aucun appareil enregistré',
+            );
           }
-          return ListView.separated(
+          return ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: devices.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final device = devices[index];
-              return Card(
-                child: ListTile(
-                  leading: Icon(device.isThisDevice ? Icons.smartphone : Icons.devices_other_outlined),
-                  title: Text(device.name),
-                  subtitle: Text(device.isThisDevice
-                      ? 'Cet appareil'
-                      : device.lastSeenAt != null
-                          ? 'Dernière activité : ${device.lastSeenAt}'
-                          : 'Activité inconnue'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Révoquer',
-                    onPressed: () => _revoke(device),
-                  ),
-                ),
-              );
-            },
+            children: [
+              ListSurface(
+                children: [
+                  for (final device in devices)
+                    ListTile(
+                      leading: IconChip(
+                          device.isThisDevice ? Icons.smartphone : Icons.devices_other_outlined),
+                      title: Text(device.name),
+                      subtitle: Text(device.isThisDevice
+                          ? 'Cet appareil'
+                          : device.lastSeenAt != null
+                              ? 'Dernière activité : ${device.lastSeenAt}'
+                              : 'Activité inconnue'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Révoquer',
+                        onPressed: () => _revoke(device),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           );
         },
       ),

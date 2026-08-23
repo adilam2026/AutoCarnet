@@ -113,10 +113,23 @@ class MileageEntries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A prestataire's category - distinct from the prestataire ITSELF (e.g.
+/// "Audi Casablanca" is a real provider whose category is
+/// [concessionnaire]; the category is never preloaded as a fake generic
+/// provider on its own). Deliberately labelled "Garage agréé" rather than
+/// "Garagiste agréé" for [garageAgree] (mission wording note - the
+/// category names an establishment, not a person).
+enum ServiceProviderCategory { concessionnaire, garageAgree, centreMecanique, assurance, stationService, autre }
+
 class ServiceProviders extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get type => text().nullable()();
+  // The prestataire's category (mission point 3/16) - a distinct, new
+  // column from the pre-existing free-text [type] above (which no caller
+  // ever populated), so existing/legacy rows simply have no category
+  // rather than an ambiguous reinterpretation of old data.
+  TextColumn get category => textEnum<ServiceProviderCategory>().nullable()();
   TextColumn get address => text().nullable()();
   TextColumn get city => text().nullable()();
   TextColumn get country => text().nullable()();

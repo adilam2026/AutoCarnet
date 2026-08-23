@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -117,6 +117,13 @@ class AppDatabase extends _$AppDatabase {
             // transparently by VehicleRepository.backfillMissingCardColors,
             // called once at app startup.
             await m.addColumn(vehicles, vehicles.cardColorKey);
+          }
+          if (from < 9) {
+            // Prestataires: real categorized types (concessionnaire, garage
+            // agréé, centre mécanique, assurance, station-service, autre) -
+            // corrections pass. Existing rows simply have no category
+            // (nullable) rather than a guessed one.
+            await m.addColumn(serviceProviders, serviceProviders.category);
           }
         },
       );

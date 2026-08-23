@@ -112,6 +112,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
         ref,
         selected: _selectedProvider,
         typedText: _providerText,
+        category: ServiceProviderCategory.stationService,
       );
       final repo = ref.read(fuelRepositoryProvider);
       if (_isEditing) {
@@ -334,6 +335,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
                     initialName: _initialProviderName,
                     onSelected: (p) => _selectedProvider = p,
                     onTextChanged: (text) => _providerText = text,
+                    category: ServiceProviderCategory.stationService,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(
