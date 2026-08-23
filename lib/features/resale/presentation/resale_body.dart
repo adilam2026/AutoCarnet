@@ -20,6 +20,7 @@ import '../../vehicles/presentation/providers/vehicle_form_providers.dart';
 import '../domain/resale_pdf.dart';
 import '../domain/resale_readiness.dart';
 import '../domain/resale_recommendations.dart';
+import '../../dashboard/presentation/widgets/vehicle_hero_card.dart' show vehicleCardGradient;
 import '../domain/valuation/valuation_engine.dart';
 import '../domain/valuation/valuation_models.dart';
 import 'widgets/valuation_breakdown_sheet.dart';
@@ -162,6 +163,7 @@ class _ResaleSummary extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         _EstimationCard(
           result: valuation,
+          vehicleId: vehicle.id,
           onExplain: () => showValuationBreakdownSheet(context, valuation),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -272,95 +274,138 @@ class _VehicleHeaderCard extends StatelessWidget {
   }
 }
 
+/// "Prix conseillé" as the dominant, hero-sized figure (bloc design-review
+/// 2026: "la valeur centrale doit avoir beaucoup plus d'impact visuel") -
+/// Vente rapide/Prix haut are real numbers too, just visually secondary,
+/// flanking it below instead of competing with it as three equal chips.
 class _EstimationCard extends StatelessWidget {
-  const _EstimationCard({required this.result, required this.onExplain});
+  const _EstimationCard({required this.result, required this.vehicleId, required this.onExplain});
   final ValuationResult result;
+  final String vehicleId;
   final VoidCallback onExplain;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _TierChip(
-                        label: 'Vente rapide', value: formatCurrency(result.quickSale)),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _TierChip(
-                        label: 'Prix conseillé',
-                        value: formatCurrency(result.fairPrice),
-                        highlight: true),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _TierChip(
-                        label: 'Prix haut', value: formatCurrency(result.highPrice)),
-                  ),
-                ],
-              ),
+    final gradient = vehicleCardGradient(vehicleId);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppSpacing.sm,
-              runSpacing: 4,
-              children: [
-                _ConfidenceBadge(confidence: result.confidence),
-                TextButton(
-                  onPressed: onExplain,
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                  child: const Text('Comment cette estimation est calculée ?'),
+            boxShadow: AppElevation.raised(scheme),
+          ),
+          child: Column(
+            children: [
+              Text('PRIX CONSEILLÉ',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6)),
+              const SizedBox(height: 6),
+              FittedBox(
+                child: Text.rich(
+                  TextSpan(
+                    text: formatAmount(result.fairPrice),
+                    style: AppTypography.mono(context,
+                        fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white),
+                    children: [
+                      TextSpan(
+                        text: ' DH',
+                        style: TextStyle(
+                            fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.85)),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            Row(
+              ),
+              const SizedBox(height: 10),
+              _ConfidenceBadge(confidence: result.confidence),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _TierChip(label: 'Vente rapide', value: formatCurrency(result.quickSale)),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _TierChip(label: 'Prix haut', value: formatCurrency(result.highPrice)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: onExplain,
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: const Text('Voir le détail du calcul'),
+          ),
+        ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    'Estimation AutoCarnet indicative — aucune cote de marché '
-                    'externe (type Argus) n\'est connectée aujourd\'hui.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(),
-            Text('Confiance de l\'estimation', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.sm),
-            for (final factor in result.confidenceFactors)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      factor.satisfied ? Icons.check_circle_outline : Icons.circle_outlined,
-                      size: 16,
-                      color: factor.satisfied ? scheme.tertiary : scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
+                    Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: AppSpacing.xs),
                     Expanded(
-                      child: Text(factor.label, style: Theme.of(context).textTheme.bodySmall),
+                      child: Text(
+                        'Estimation AutoCarnet indicative — aucune cote de marché '
+                        'externe (type Argus) n\'est connectée aujourd\'hui.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ),
                   ],
                 ),
-              ),
-          ],
+                const SizedBox(height: AppSpacing.sm),
+                const Divider(),
+                Text('Confiance de l\'estimation', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppSpacing.sm),
+                for (final factor in result.confidenceFactors)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          factor.satisfied ? Icons.check_circle_outline : Icons.circle_outlined,
+                          size: 16,
+                          color: factor.satisfied ? scheme.tertiary : scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(factor.label, style: Theme.of(context).textTheme.bodySmall),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -389,10 +434,9 @@ class _ConfidenceBadge extends StatelessWidget {
 }
 
 class _TierChip extends StatelessWidget {
-  const _TierChip({required this.label, this.value, this.highlight = false});
+  const _TierChip({required this.label, this.value});
   final String label;
   final String? value;
-  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -400,8 +444,10 @@ class _TierChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: highlight ? scheme.primaryContainer.withValues(alpha: 0.5) : scheme.surfaceContainerHigh,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        boxShadow: AppElevation.card(scheme),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

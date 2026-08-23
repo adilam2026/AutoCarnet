@@ -83,61 +83,90 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: scheme.primary,
       body: SafeArea(
+        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.directions_car_filled,
-                          size: 40, color: Theme.of(context).colorScheme.primary),
+                  // A real branded hero instead of a plain white background
+                  // (bloc design-review 2026: "vrai branding AutoCarnet,
+                  // gros logo, couleur forte") - a floating card carries the
+                  // actual form below it.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.xl),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
+                          ),
+                          child: const Icon(Icons.directions_car_filled, size: 42, color: Colors.white),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text('AutoCarnet',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: Colors.white, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text('Connexion simple et sécurisée',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Bienvenue sur AutoCarnet',
-                      textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Connectez-vous avec votre email pour retrouver vos véhicules sur '
-                    'tous vos appareils. Aucun mot de passe : un code vous sera envoyé '
-                    'par email.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: null,
-                    decoration: const InputDecoration(labelText: 'Adresse email'),
-                    onSubmitted: (_) {
-                      if (!_busy) _submit();
-                    },
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Continuer'),
+                  Container(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight * 0.5),
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+                    ),
+                    padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg,
+                        AppSpacing.lg + MediaQuery.paddingOf(context).bottom),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Bienvenue',
+                            style: Theme.of(context).textTheme.headlineSmall),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Connectez-vous avec votre email pour retrouver vos véhicules sur '
+                          'tous vos appareils. Aucun mot de passe : un code vous sera envoyé '
+                          'par email.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: null,
+                          decoration: const InputDecoration(labelText: 'Adresse email'),
+                          onSubmitted: (_) {
+                            if (!_busy) _submit();
+                          },
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(_error!, style: TextStyle(color: scheme.error)),
+                        ],
+                        const SizedBox(height: AppSpacing.md),
+                        FilledButton(
+                          onPressed: _busy ? null : _submit,
+                          child: _busy
+                              ? const SizedBox(
+                                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Continuer'),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

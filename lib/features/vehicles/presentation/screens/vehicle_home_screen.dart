@@ -29,7 +29,8 @@ import '../../domain/vehicle_health.dart';
 import '../../domain/vehicle_ownership.dart';
 import '../../../sharing/presentation/share_vehicle_screen.dart';
 import '../../../sharing/presentation/vehicle_access_screen.dart';
-import '../../../dashboard/presentation/widgets/vehicle_hero_card.dart' show formatReminderDue;
+import '../../../dashboard/presentation/widgets/vehicle_hero_card.dart'
+    show formatReminderDue, vehicleCardGradient;
 import '../providers/vehicle_form_providers.dart';
 import '../widgets/add_operation_sheet.dart';
 import '../widgets/health_factors_sheet.dart';
@@ -490,91 +491,126 @@ class _VehicleSummaryCard extends StatelessWidget {
       if (vehicle.year != null) '${vehicle.year}',
       if (vehicle.plate != null) vehicle.plate!,
     ];
+    final gradient = vehicleCardGradient(vehicle.id);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // The vehicle name is already the AppBar title on this
-                // screen (unlike the home dashboard, which has none) - only
-                // the subtitle (year/plate) belongs here too, never a
-                // second "Peugeot 308" competing with it.
-                if (subtitleParts.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      subtitleParts.join(' · '),
-                      style: AppTypography.mono(context,
-                          fontSize: 12.5, fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant),
-                    ),
-                  )
-                else
-                  const Spacer(),
-                _HealthRingBadge(score: health.score, onTap: onTapHealth),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(vehicle.currentMileage.toStringAsFixed(0),
-                    style: AppTypography.mono(context, fontSize: 32, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 6),
-                Text('km',
-                    style: AppTypography.mono(context, fontSize: 13, color: scheme.onSurfaceVariant)),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              lastUpdate != null
-                  ? 'Mis à jour le ${_fmt(lastUpdate!)}'
-                  : 'Kilométrage jamais mis à jour',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (onUpdate != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: onUpdate,
-                  child: const Text('Mettre à jour le kilométrage'),
-                ),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        boxShadow: AppElevation.raised(scheme),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -14,
+            bottom: -18,
+            child: Icon(Icons.directions_car_filled,
+                size: 120, color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // The vehicle name is already the AppBar title on this
+                  // screen (unlike the home dashboard, which has none) - only
+                  // the subtitle (year/plate) belongs here too, never a
+                  // second "Peugeot 308" competing with it.
+                  if (subtitleParts.isNotEmpty)
+                    Expanded(
+                      child: Text(
+                        subtitleParts.join(' · '),
+                        style: AppTypography.mono(context,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.82)),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  _HealthRingBadge(score: health.score, onTap: onTapHealth),
+                ],
               ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: completeness, minHeight: 5),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(vehicle.currentMileage.toStringAsFixed(0),
+                      style: AppTypography.mono(context,
+                          fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white)),
+                  const SizedBox(width: 6),
+                  Text('km',
+                      style: AppTypography.mono(context,
+                          fontSize: 13, color: Colors.white.withValues(alpha: 0.82))),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                lastUpdate != null
+                    ? 'Mis à jour le ${_fmt(lastUpdate!)}'
+                    : 'Kilométrage jamais mis à jour',
+                style:
+                    Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.72)),
+              ),
+              if (onUpdate != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: onUpdate,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+                    ),
+                    child: const Text('Mettre à jour le kilométrage'),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Text('$completenessPercent % complète',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall),
               ],
-            ),
-            if (completenessPercent < 100 && onComplete != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: onComplete,
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                  child: Text('Compléter la fiche', style: TextStyle(color: scheme.primary)),
-                ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: completeness,
+                        minHeight: 5,
+                        backgroundColor: Colors.white.withValues(alpha: 0.25),
+                        valueColor: const AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text('$completenessPercent % complète',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: Colors.white.withValues(alpha: 0.82))),
+                ],
               ),
+              if (completenessPercent < 100 && onComplete != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: onComplete,
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    child: const Text('Compléter la fiche', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -589,7 +625,6 @@ class _HealthRingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
@@ -603,11 +638,14 @@ class _HealthRingBadge extends StatelessWidget {
               child: CircularProgressIndicator(
                 value: score / 100,
                 strokeWidth: 3.5,
-                backgroundColor: scheme.outlineVariant,
-                valueColor: AlwaysStoppedAnimation(scheme.primary),
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                valueColor: const AlwaysStoppedAnimation(Colors.white),
+                strokeCap: StrokeCap.round,
               ),
             ),
-            Text('$score', style: AppTypography.mono(context, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text('$score',
+                style: AppTypography.mono(context,
+                    fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
           ],
         ),
       ),
@@ -640,52 +678,58 @@ class _NextRevisionCard extends StatelessWidget {
     } else if (estimate.remainingKm != null) {
       lines.add('Ajoutez régulièrement votre kilométrage pour une estimation de date.');
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLowest,
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(width: 3, color: railColor),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        overdue ? Icons.warning_amber_outlined : Icons.event_available_outlined,
-                        size: 20,
-                        color: railColor,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                            for (final l in lines)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(l,
-                                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                              ),
-                          ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: AppElevation.card(scheme),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 3, color: railColor),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          overdue ? Icons.warning_amber_outlined : Icons.event_available_outlined,
+                          size: 20,
+                          color: railColor,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                              for (final l in lines)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(l,
+                                      style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -723,9 +767,10 @@ class _TodoCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+          color: scheme.tertiaryContainer.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          boxShadow: AppElevation.card(scheme),
         ),
         child: Row(
           children: [
@@ -763,37 +808,43 @@ class _ReminderTile extends StatelessWidget {
       ReminderUrgency.later || ReminderUrgency.done => scheme.onSurfaceVariant,
     };
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLowest,
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(width: 3, color: railColor),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(reminder.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                      ),
-                      Text(formatReminderDue(reminder, currentMileage),
-                          style: AppTypography.mono(context,
-                              fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
-                    ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: AppElevation.card(scheme),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 3, color: railColor),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(reminder.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                        ),
+                        Text(formatReminderDue(reminder, currentMileage),
+                            style: AppTypography.mono(context,
+                                fontSize: 12, fontWeight: FontWeight.w600, color: railColor)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -937,6 +988,7 @@ class _OverviewTile extends StatelessWidget {
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        boxShadow: AppElevation.card(scheme),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

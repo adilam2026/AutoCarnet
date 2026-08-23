@@ -173,7 +173,7 @@ class _AccountAvatarButton extends ConsumerWidget {
       data: (p) => p?.displayName,
       orElse: () => null,
     );
-    final initials = _initialsFrom(displayName ?? account.currentUser?.email);
+    final initials = _initialsFromName(displayName ?? account.currentUser?.email);
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.xs),
@@ -195,16 +195,18 @@ class _AccountAvatarButton extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _initialsFrom(String? source) {
-    final trimmed = source?.trim() ?? '';
-    if (trimmed.isEmpty) return '?';
-    final parts = trimmed.split(RegExp(r'\s+'));
-    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return trimmed[0].toUpperCase();
+/// Shared between the avatar button and the drawer header - the same
+/// person must show the same initials everywhere in the shell.
+String _initialsFromName(String? source) {
+  final trimmed = source?.trim() ?? '';
+  if (trimmed.isEmpty) return '?';
+  final parts = trimmed.split(RegExp(r'\s+'));
+  if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
+  return trimmed[0].toUpperCase();
 }
 
 class _AppDrawer extends ConsumerWidget {
@@ -250,41 +252,57 @@ class _AppDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final profileAsync = ref.watch(localProfileProvider);
+    ref.watch(authStateChangesProvider);
+    final email = ref.read(accountRepositoryProvider).currentUser?.email;
+    final displayName = profileAsync.maybeWhen(data: (p) => p?.displayName, orElse: () => null);
     return Drawer(
+      backgroundColor: scheme.surface,
       child: SafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            DrawerHeader(
+            Container(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xl, AppSpacing.md, AppSpacing.lg),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.directions_car_filled,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      size: 32,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      profileAsync.maybeWhen(
-                        data: (p) => p?.displayName ?? 'AutoCarnet',
-                        orElse: () => 'AutoCarnet',
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [scheme.primary, scheme.secondary],
                 ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    child: Text(
+                      _initialsFromName(displayName ?? email),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          displayName?.isNotEmpty == true ? displayName! : 'AutoCarnet',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        if (email != null && email.isNotEmpty)
+                          Text(email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             ListTile(
@@ -360,14 +378,26 @@ class _AppDrawer extends ConsumerWidget {
               },
             ),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app),
-              title: const Text('Verrouiller AutoCarnet'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _onLockApp(context, ref);
-              },
+            const SizedBox(height: AppSpacing.xs),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Material(
+                color: scheme.errorContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                  leading: Icon(Icons.lock_outline, color: scheme.error),
+                  title: Text('Verrouiller AutoCarnet',
+                      style: TextStyle(color: scheme.onErrorContainer, fontWeight: FontWeight.w600)),
+                  trailing: Icon(Icons.exit_to_app, size: 18, color: scheme.error),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _onLockApp(context, ref);
+                  },
+                ),
+              ),
             ),
+            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),
