@@ -397,6 +397,24 @@ void main() {
   });
 
   testWidgets(
+      'premium-redesign pass: the CTA\'s small circular chevron button IS coloured with the '
+      'vehicle\'s own identity colour - "un point d\'accent plutôt que de colorer tout le '
+      'bandeau"', (tester) async {
+    final vehicles = VehicleRepository(db, AuditRepository(db), ReminderRepository(db));
+    final q5Id = await vehicles.createVehicle(brand: 'Audi', model: 'Q5', currentMileage: 86750);
+    final q5 = await vehicles.getOne(q5Id);
+
+    await pumpWithRouter(tester, vehicles);
+
+    final accentCircle = find.byWidgetPredicate((w) =>
+        w is Container &&
+        w.constraints == const BoxConstraints.tightFor(width: 34, height: 34) &&
+        (w.decoration as BoxDecoration?)?.shape == BoxShape.circle);
+    final decoration = tester.widget<Container>(accentCircle).decoration as BoxDecoration;
+    expect(decoration.color, VehicleCardColor.fromKey(q5.cardColorKey).color);
+  });
+
+  testWidgets(
       'brand logos render clearly larger than the pre-existing 16px size, and a glyph known to '
       'be under-filled (Audi\'s wide rings) is boosted past a plain, well-filled mark '
       '(Volkswagen\'s circular badge)', (tester) async {

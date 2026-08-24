@@ -558,12 +558,15 @@ class _GrandVehicleCard extends ConsumerWidget {
                     // feedback: "le bouton kilométrage déborde sur la barre
                     // en bas" - the "Mettre à jour le kilométrage" tile had
                     // zero gap before the CTA's own padding started, making
-                    // the two visually crowd/touch each other).
-                    const SizedBox(height: AppSpacing.md),
+                    // the two visually crowd/touch each other). Kept modest
+                    // now that the CTA band carries its own top divider as
+                    // a visual break too - the premium-redesign pass wants
+                    // this whole zone lighter, not more spaced out.
+                    const SizedBox(height: AppSpacing.sm),
                   ],
                 ),
               ),
-              _GrandCtaBand(onTap: onOpenFiche),
+              _GrandCtaBand(accentColor: vehicleColor.color, onTap: onOpenFiche),
             ],
           ),
         ),
@@ -580,75 +583,86 @@ class _GrandVehicleCard extends ConsumerWidget {
 /// bottom corners come out rounded for free instead of needing their own
 /// radius.
 ///
-/// Deliberately a FIXED neutral tone, never the vehicle's own [cardColor]
-/// (mission pass, 2026: the band used to reuse it and read as a near-
-/// duplicate of the identity header right above it). A true middle grey
-/// (Tailwind "gray-500", luminance ~0.17, ~4.8:1 contrast with white text -
-/// comfortably above WCAG AA's 4.5:1) - lightened from an earlier, much
-/// darker slate (luminance ~0.09) that user feedback read as "bleu foncé"
-/// rather than a neutral grey. Still dark enough for white text/icons to
-/// stay legible, light enough to never read as near-black or blue-tinted -
-/// keeps this CTA visually distinct from every vehicle's own colour while
-/// still standing out from the plain white card body above it.
-const Color _grandCtaBandColor = Color(0xFF6B7280);
-
+/// Premium-redesign pass, 2026 (user feedback: the earlier full-bleed solid
+/// band - first the vehicle's own colour, then a flat dark grey - "donne
+/// une coupure brutale" and "alourdit le bas"). The CTA stays unmissable,
+/// but through typography/contrast/spacing and a single colour ACCENT
+/// (the small circular chevron button) rather than filling the whole band -
+/// "un point d'accent plutôt que de colorer tout le bandeau". [accentColor]
+/// is the vehicle's own identity colour, used ONLY on that small circle so
+/// it still reads as "this vehicle's" CTA without duplicating the header.
 class _GrandCtaBand extends StatelessWidget {
-  const _GrandCtaBand({required this.onTap});
+  const _GrandCtaBand({required this.accentColor, required this.onTap});
+  final Color accentColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: _grandCtaBandColor,
+      // A very light, barely-tinted surface (a hair darker than the card's
+      // own white body) - never the vehicle's colour, never a heavy flat
+      // grey.
+      color: scheme.surfaceContainer,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Voir la fiche complète du véhicule',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.1,
-                        color: Colors.white,
-                      ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Voir la fiche complète du véhicule',
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.1,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Entretien, documents, dépenses et plus',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Entretien, documents, dépenses et plus',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.white.withValues(alpha: 0.82),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: contrastingOnColor(accentColor),
+                      size: 18,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1162,50 +1176,56 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // User feedback pass: the tile used to fill itself with
-    // surfaceContainerLowest - literally the same pure white as the card
-    // body directly behind it, leaving only a faint 60%-alpha outline to
-    // separate the two ("les 3 boutons sont trop blancs"). A visibly
-    // tinted grey fill gives the tile real presence against the card.
-    return Material(
-      color: scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-      child: InkWell(
+    // Premium-redesign pass, 2026 (user feedback: a flat grey fill "donne
+    // visuellement l'impression de champs de formulaire ou de boutons
+    // désactivés"). Back to a white/near-white fill - but this time with an
+    // actually-visible thin border and a genuine, if very light, drop
+    // shadow doing the work a solid grey fill did before, so the tile
+    // still reads as a real, tappable "quick action" rather than
+    // disappearing into the card the way its first white-on-white version
+    // did.
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.6),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: AppElevation.surfaceAccent(scheme),
-                  shape: BoxShape.circle,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.9)),
+        boxShadow: AppElevation.card(scheme),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: AppElevation.surfaceAccent(scheme),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 13, color: scheme.primary),
                 ),
-                child: Icon(icon, size: 12, color: scheme.primary),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
