@@ -20,13 +20,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class _FakeSignedInAccountRepository implements AccountRepository {
   @override
   User? get currentUser => User(
-        id: 'user-1',
-        appMetadata: const {},
-        userMetadata: null,
-        aud: 'authenticated',
-        email: 'a@example.com',
-        createdAt: DateTime.now().toIso8601String(),
-      );
+    id: 'user-1',
+    appMetadata: const {},
+    userMetadata: null,
+    aud: 'authenticated',
+    email: 'a@example.com',
+    createdAt: DateTime.now().toIso8601String(),
+  );
   @override
   Session? get currentSession => null;
   @override
@@ -38,7 +38,10 @@ class _FakeSignedInAccountRepository implements AccountRepository {
   @override
   Future<void> sendEmailCode(String email) async {}
   @override
-  Future<void> verifyEmailCode({required String email, required String code}) async {}
+  Future<void> verifyEmailCode({
+    required String email,
+    required String code,
+  }) async {}
   @override
   Future<String> installationId() async => 'test-device';
   @override
@@ -82,10 +85,12 @@ void main() {
   tearDown(() => db.close());
 
   List<Override> commonOverrides() => [
-        appDatabaseProvider.overrideWithValue(db),
-        accountRepositoryProvider.overrideWithValue(_FakeSignedInAccountRepository()),
-        vehicleRepositoryProvider.overrideWithValue(repo),
-      ];
+    appDatabaseProvider.overrideWithValue(db),
+    accountRepositoryProvider.overrideWithValue(
+      _FakeSignedInAccountRepository(),
+    ),
+    vehicleRepositoryProvider.overrideWithValue(repo),
+  ];
 
   // Each helper mounts its own screen, and a single test runs both in
   // sequence to compare them - a plain ProviderScope (not a manually-owned
@@ -99,7 +104,10 @@ void main() {
     await tester.pump(Duration.zero);
   }
 
-  Future<Color> pumpAccueilContour(WidgetTester tester, String vehicleId) async {
+  Future<Color> pumpAccueilContour(
+    WidgetTester tester,
+    String vehicleId,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: commonOverrides(),
@@ -113,41 +121,58 @@ void main() {
     await tester.pump();
 
     final contour = tester.widget<Container>(
-      find.byKey(ValueKey('vehicleHeroCardContour-$vehicleId')),
+      find.byKey(ValueKey('grandVehicleCardContour-$vehicleId')),
     );
-    final color = ((contour.decoration as BoxDecoration).border as Border).top.color;
+    final color =
+        ((contour.decoration as BoxDecoration).border as Border).top.color;
     await settle(tester);
     return color;
   }
 
-  Future<(Color chipColor, Color chipTextColor, Color summaryCardColor)> pumpFiche(
-      WidgetTester tester, String vehicleId) async {
+  Future<(Color chipColor, Color chipTextColor, Color summaryCardColor)>
+  pumpFiche(WidgetTester tester, String vehicleId) async {
     final router = GoRouter(
       initialLocation: '/vehicles/$vehicleId',
       routes: [
-        GoRoute(path: '/', builder: (context, state) => const Scaffold(body: Text('ACCUEIL'))),
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('ACCUEIL')),
+        ),
         GoRoute(
           path: '/vehicles/:id',
-          builder: (context, state) => VehicleHomeScreen(vehicleId: state.pathParameters['id']!),
+          builder: (context, state) =>
+              VehicleHomeScreen(vehicleId: state.pathParameters['id']!),
         ),
       ],
     );
     await tester.pumpWidget(
       ProviderScope(
         overrides: commonOverrides(),
-        child: MaterialApp.router(theme: AppTheme.light(), routerConfig: router),
+        child: MaterialApp.router(
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
       ),
     );
     await tester.pump();
     await tester.pump();
 
-    final chip = tester.widget<Container>(find.byKey(const Key('vehicleIdentityChip')));
-    final chipColor = ((chip.decoration as BoxDecoration).border as Border).top.color;
-    final nameText = tester.widget<Text>(
-      find.descendant(of: find.byKey(const Key('vehicleIdentityChip')), matching: find.byType(Text)),
+    final chip = tester.widget<Container>(
+      find.byKey(const Key('vehicleIdentityChip')),
     );
-    final summary = tester.widget<Container>(find.byKey(const Key('vehicleSummaryCardContour')));
-    final summaryColor = ((summary.decoration as BoxDecoration).border as Border).top.color;
+    final chipColor =
+        ((chip.decoration as BoxDecoration).border as Border).top.color;
+    final nameText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('vehicleIdentityChip')),
+        matching: find.byType(Text),
+      ),
+    );
+    final summary = tester.widget<Container>(
+      find.byKey(const Key('vehicleSummaryCardContour')),
+    );
+    final summaryColor =
+        ((summary.decoration as BoxDecoration).border as Border).top.color;
     final nameColor = nameText.style!.color!;
 
     await settle(tester);
@@ -155,41 +180,64 @@ void main() {
   }
 
   testWidgets(
-      'a single auto-assigned vehicle: the accueil card contour, the fiche header identity '
-      'chip and the fiche main card all use the SAME colour', (tester) async {
-    final vehicleId =
-        await repo.createVehicle(brand: 'Audi', model: 'Q5', currentMileage: 86750);
+    'a single auto-assigned vehicle: the accueil card contour, the fiche header identity '
+    'chip and the fiche main card all use the SAME colour',
+    (tester) async {
+      final vehicleId = await repo.createVehicle(
+        brand: 'Audi',
+        model: 'Q5',
+        currentMileage: 86750,
+      );
 
-    final accueilContour = await pumpAccueilContour(tester, vehicleId);
-    final expected = VehicleCardColor.bluePetrole.onLightSurface;
-    expect(accueilContour, expected,
-        reason: 'first vehicle in an empty garage is auto-assigned bluePetrole');
+      final accueilContour = await pumpAccueilContour(tester, vehicleId);
+      final expected = VehicleCardColor.bluePetrole.onLightSurface;
+      expect(
+        accueilContour,
+        expected,
+        reason: 'first vehicle in an empty garage is auto-assigned bluePetrole',
+      );
 
-    final (chipColor, nameColor, summaryColor) = await pumpFiche(tester, vehicleId);
-    // The chip's own border is deliberately drawn at reduced alpha (a
-    // softer, more compact accent than the accueil card's full-strength
-    // contour) - same hue, not the same literal Color value.
-    expect(chipColor.withValues(alpha: 1), expected);
-    expect(summaryColor, expected);
-    expect(nameColor, isNot(Colors.white),
-        reason: 'regression: the vehicle name must never render white-on-white again');
-    expect(nameColor, AppTheme.light().colorScheme.onSurface);
-  });
+      final (chipColor, nameColor, summaryColor) = await pumpFiche(
+        tester,
+        vehicleId,
+      );
+      // The chip's own border is deliberately drawn at reduced alpha (a
+      // softer, more compact accent than the accueil card's full-strength
+      // contour) - same hue, not the same literal Color value.
+      expect(chipColor.withValues(alpha: 1), expected);
+      expect(summaryColor, expected);
+      expect(
+        nameColor,
+        isNot(Colors.white),
+        reason:
+            'regression: the vehicle name must never render white-on-white again',
+      );
+      expect(nameColor, AppTheme.light().colorScheme.onSurface);
+    },
+  );
 
   testWidgets(
-      'after a manual colour change from the fiche, the new colour is reflected on both the '
-      'accueil card and the fiche itself', (tester) async {
-    final vehicleId =
-        await repo.createVehicle(brand: 'Opel', model: 'Astra', currentMileage: 270000);
-    await repo.updateVehicleCardColor(vehicleId, VehicleCardColor.terracotta);
+    'after a manual colour change from the fiche, the new colour is reflected on both the '
+    'accueil card and the fiche itself',
+    (tester) async {
+      final vehicleId = await repo.createVehicle(
+        brand: 'Opel',
+        model: 'Astra',
+        currentMileage: 270000,
+      );
+      await repo.updateVehicleCardColor(vehicleId, VehicleCardColor.terracotta);
 
-    final accueilContour = await pumpAccueilContour(tester, vehicleId);
-    final expected = VehicleCardColor.terracotta.onLightSurface;
-    expect(accueilContour, expected);
+      final accueilContour = await pumpAccueilContour(tester, vehicleId);
+      final expected = VehicleCardColor.terracotta.onLightSurface;
+      expect(accueilContour, expected);
 
-    final (chipColor, nameColor, summaryColor) = await pumpFiche(tester, vehicleId);
-    expect(chipColor.withValues(alpha: 1), expected);
-    expect(summaryColor, expected);
-    expect(nameColor, isNot(Colors.white));
-  });
+      final (chipColor, nameColor, summaryColor) = await pumpFiche(
+        tester,
+        vehicleId,
+      );
+      expect(chipColor.withValues(alpha: 1), expected);
+      expect(summaryColor, expected);
+      expect(nameColor, isNot(Colors.white));
+    },
+  );
 }

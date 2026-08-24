@@ -15,6 +15,7 @@ import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../reminders/domain/reminder_urgency.dart';
 import '../../vehicles/data/vehicle_repository.dart';
+import '../../vehicles/domain/vehicle_card_color.dart';
 import '../../vehicles/presentation/widgets/mileage_update_sheet.dart';
 import 'widgets/vehicle_hero_card.dart';
 
@@ -55,7 +56,8 @@ class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
   /// vehicle added/removed) - recreating it on every rebuild would reset
   /// the user's current swipe position for no reason.
   PageController _carouselController(int vehicleCount) {
-    if (_pageController == null || _pageControllerVehicleCount != vehicleCount) {
+    if (_pageController == null ||
+        _pageControllerVehicleCount != vehicleCount) {
       _pageController?.dispose();
       final aligned = _virtualHalfWindow - (_virtualHalfWindow % vehicleCount);
       _pageController = PageController(
@@ -79,8 +81,10 @@ class _VehiclesListBodyState extends ConsumerState<VehiclesListBody> {
 
     return vehiclesAsync.when(
       loading: () => const LoadingView(),
-      error: (e, _) =>
-          const ErrorView(message: 'Impossible de charger vos véhicules. Réessayez dans un instant.'),
+      error: (e, _) => const ErrorView(
+        message:
+            'Impossible de charger vos véhicules. Réessayez dans un instant.',
+      ),
       data: (vehicles) {
         if (vehicles.isEmpty) return _EmptyDashboard();
         final index = _selectedIndex.clamp(0, vehicles.length - 1);
@@ -106,52 +110,6 @@ String _greetingLine(WidgetRef ref) {
   return (name == null || name.isEmpty) ? 'Bonjour' : 'Bonjour $name';
 }
 
-/// "Votre Audi Q5 est à jour." / "2 actions sont à prévoir prochainement."
-/// - always scoped to the single active vehicle (the one currently shown
-/// in the carousel/card above), never an aggregate across the garage: a
-/// swipe to another vehicle must change this line too.
-class _StatusLine extends ConsumerWidget {
-  const _StatusLine({required this.vehicle});
-  final Vehicle vehicle;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
-    final actionable = remindersAsync.maybeWhen(
-      data: (all) => all.where((r) {
-        final u = reminderUrgency(r, currentMileage: vehicle.currentMileage);
-        return u == ReminderUrgency.urgent || u == ReminderUrgency.upcoming;
-      }).length,
-      orElse: () => 0,
-    );
-
-    final text = actionable == 0
-        ? 'Votre ${vehicle.brand} ${vehicle.model} est à jour.'
-        : actionable == 1
-            ? '1 action est à prévoir prochainement.'
-            : '$actionable actions sont à prévoir prochainement.';
-
-    return Row(
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          margin: const EdgeInsets.only(right: 7),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: actionable == 0 ? scheme.tertiary : scheme.secondary,
-          ),
-        ),
-        Expanded(
-          child: Text(text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-        ),
-      ],
-    );
-  }
-}
-
 class _EmptyDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -165,7 +123,10 @@ class _EmptyDashboard extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(_greetingLine(ref), style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                _greetingLine(ref),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const SizedBox(height: AppSpacing.xl),
               Center(
                 child: Container(
@@ -175,7 +136,11 @@ class _EmptyDashboard extends ConsumerWidget {
                     color: scheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.directions_car_filled, size: 44, color: scheme.primary),
+                  child: Icon(
+                    Icons.directions_car_filled,
+                    size: 44,
+                    color: scheme.primary,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -188,7 +153,9 @@ class _EmptyDashboard extends ConsumerWidget {
               Text(
                 'Centralisez l\'entretien, les documents et les dépenses de vos '
                 'véhicules - un carnet complet, toujours avec vous.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -226,63 +193,56 @@ class _Dashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = vehicles[selectedIndex];
-
-    return ListView(
-      padding: EdgeInsets.fromLTRB(0, AppSpacing.md, 0, fabSafeBottomPadding(context)),
+    // Everything below the greeting belongs to the active vehicle and
+    // swipes as ONE piece (mission "grande carte" pass, 2026): the identity
+    // band, santé/révision, à faire prochainement, dernières opérations,
+    // actions rapides and the closing CTA are all inside the same
+    // `_GrandVehicleCard`, never split between a swipeable card up top and
+    // static sections below it.
+    return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_greetingLine(ref), style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 6),
-              _StatusLine(vehicle: selected),
-            ],
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.sm,
           ),
-        ),
-        const SizedBox(height: 14),
-        if (vehicles.length == 1)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: _VehicleCardWithReminders(
-              vehicle: vehicles.first,
-              onTap: () => context.push('/vehicles/${vehicles.first.id}'),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _greetingLine(ref),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
-          )
-        else
-          _VehicleCarousel(
-            vehicles: vehicles,
-            selectedIndex: selectedIndex,
-            controller: pageController,
-            onChanged: onVehicleChanged,
           ),
-        const SizedBox(height: AppSpacing.md),
-        _SectionLabel('À faire prochainement'),
-        const SizedBox(height: AppSpacing.xs),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: _TodoSection(vehicle: selected),
         ),
-        const SizedBox(height: AppSpacing.md),
-        _SectionLabel(
-          'Dernières opérations',
-          trailing: _RecentOperationsSeeAllButton(vehicleId: selected.id),
+        Expanded(
+          child: vehicles.length == 1
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    0,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: fabSafeBottomPadding(context),
+                    ),
+                    child: _GrandVehicleCard(
+                      vehicle: vehicles.first,
+                      onOpenFiche: () =>
+                          context.push('/vehicles/${vehicles.first.id}'),
+                    ),
+                  ),
+                )
+              : _VehicleCarousel(
+                  vehicles: vehicles,
+                  selectedIndex: selectedIndex,
+                  controller: pageController,
+                  onChanged: onVehicleChanged,
+                ),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: _RecentOperationsSection(vehicle: selected),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _SectionLabel('Actions rapides'),
-        const SizedBox(height: AppSpacing.xs),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: _QuickActionsRow(vehicle: selected),
-        ),
-        const SizedBox(height: AppSpacing.md),
       ],
     );
   }
@@ -317,20 +277,15 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Wires a single vehicle's own active reminders into [VehicleHeroCard] -
-/// the small piece of glue both the single-vehicle and carousel paths need.
-class _VehicleCardWithReminders extends ConsumerWidget {
-  const _VehicleCardWithReminders({required this.vehicle, required this.onTap});
-  final Vehicle vehicle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reminders = ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value ?? const [];
-    return VehicleHeroCard(vehicle: vehicle, reminders: reminders, onTap: onTap);
-  }
-}
-
+/// Multi-vehicle path: a full-bleed [PageView] where every page IS the
+/// entire per-vehicle synthesis (identity, santé, à faire, opérations,
+/// actions, CTA) - swiping anywhere inside a page changes all of it
+/// together (mission "grande carte" pass, 2026), never just a small card
+/// up top while static sections stay behind on the previous vehicle. Each
+/// page gets its own [SingleChildScrollView] so a taller page (more due
+/// reminders, more recent operations) never overflows - the PageView
+/// itself only needs the bounded height its [Expanded] parent already
+/// gives it, no measurement or animation hack required.
 class _VehicleCarousel extends StatelessWidget {
   const _VehicleCarousel({
     required this.vehicles,
@@ -355,46 +310,234 @@ class _VehicleCarousel extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        // Sized to Variant A's actual content height (identity band +
-        // facts line + "voir la fiche" row, each with their own padding) -
-        // a mismatch here either clips the card or leaves an empty gap
-        // under it.
-        SizedBox(
-          height: 130,
+        Expanded(
           child: PageView.builder(
             controller: controller,
             itemCount: _virtualPageCount,
-            onPageChanged: (virtualIndex) => onChanged(virtualIndex % vehicles.length),
+            onPageChanged: (virtualIndex) =>
+                onChanged(virtualIndex % vehicles.length),
             itemBuilder: (context, virtualIndex) {
               final vehicle = vehicles[virtualIndex % vehicles.length];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                child: _VehicleCardWithReminders(
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  fabSafeBottomPadding(context),
+                ),
+                child: _GrandVehicleCard(
                   vehicle: vehicle,
-                  onTap: () => context.push('/vehicles/${vehicle.id}'),
+                  onOpenFiche: () => context.push('/vehicles/${vehicle.id}'),
                 ),
               );
             },
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < vehicles.length; i++)
-              AnimatedContainer(
-                duration: AppMotion.fast,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: i == selectedIndex ? 16 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: i == selectedIndex ? scheme.primary : scheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(3),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < vehicles.length; i++)
+                AnimatedContainer(
+                  duration: AppMotion.fast,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == selectedIndex ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == selectedIndex
+                        ? VehicleCardColor.fromKey(
+                            vehicles[selectedIndex].cardColorKey,
+                          ).onLightSurface
+                        : scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// The accueil's single continuous "grande carte véhicule" (mission pass,
+/// 2026): the identity band is literally this card's own top edge - there
+/// is no separate outer frame drawn around it. One border, one
+/// borderRadius, one ClipRRect (the same concentric-clip technique
+/// [VehicleHeroCard] used to own itself) now wraps the identity header AND
+/// every section below it, down to the closing CTA - so a border gap can
+/// never reappear between "the vehicle card" and "the rest of the
+/// synthesis" the way it could when they were two separate widgets.
+class _GrandVehicleCard extends ConsumerWidget {
+  const _GrandVehicleCard({required this.vehicle, required this.onOpenFiche});
+  final Vehicle vehicle;
+  final VoidCallback onOpenFiche;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final reminders =
+        ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value ?? const [];
+    final vehicleColor = VehicleCardColor.fromKey(vehicle.cardColorKey);
+    final cardColor = vehicleColor.color;
+    // The card's own identity colour as its single outer contour (mission
+    // point 1-3): it must read as ONE unified block, never a frame stacked
+    // on top of a separate vehicle card.
+    final contourColor = vehicleColor.onLightSurface;
+    // See vehicle_hero_card.dart's former version of this same comment: a
+    // Container with both a border and a borderRadius insets its child by
+    // the border's own width, but that inset content still has SQUARE
+    // corners of its own unless a second, CONCENTRIC clip (radius -
+    // borderWidth) is applied around it - otherwise the outer rounded arc
+    // near each corner leaves a small gap where this card's own background
+    // shows through.
+    const contourWidth = 1.3;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppElevation.hero(scheme),
+      ),
+      child: Container(
+        key: ValueKey('grandVehicleCardContour-${vehicle.id}'),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: contourColor, width: contourWidth),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg - contourWidth),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              VehicleHeroCard(vehicle: vehicle, reminders: reminders),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.6),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SectionLabel('À faire prochainement'),
+                    const SizedBox(height: AppSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: _TodoSection(vehicle: vehicle),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _SectionLabel(
+                      'Dernières opérations',
+                      trailing: _RecentOperationsSeeAllButton(
+                        vehicleId: vehicle.id,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: _RecentOperationsSection(vehicle: vehicle),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _SectionLabel('Actions rapides'),
+                    const SizedBox(height: AppSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: _QuickActionsRow(vehicle: vehicle),
+                    ),
+                  ],
+                ),
+              ),
+              _GrandCtaBand(color: cardColor, onTap: onOpenFiche),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The accueil's single, unmissable entry point into the fiche véhicule
+/// (mission point 5-7, 2026 pass): full-bleed, solid in the vehicle's own
+/// colour, with a subtitle and a real chevron affordance - replacing the
+/// old thin, easy-to-miss "Voir la fiche du véhicule" row that a
+/// first-time user reportedly never noticed. Sits flush at the bottom of
+/// `_GrandVehicleCard`'s own ClipRRect, so its bottom corners come out
+/// rounded for free instead of needing their own radius.
+class _GrandCtaBand extends StatelessWidget {
+  const _GrandCtaBand({required this.color, required this.onTap});
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Voir la fiche complète du véhicule',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.1,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Administratif, entretiens, documents, dépenses...',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -414,10 +557,14 @@ class _TodoSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final remindersAsync = ref.watch(vehicleActiveRemindersProvider(vehicle.id));
+    final remindersAsync = ref.watch(
+      vehicleActiveRemindersProvider(vehicle.id),
+    );
     return remindersAsync.when(
       loading: () => const SizedBox(
-          height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+        height: 56,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
       error: (_, _) => const SizedBox.shrink(),
       data: (reminders) {
         // A single ascending scalar (days or km remaining, whichever is
@@ -426,21 +573,35 @@ class _TodoSection extends ConsumerWidget {
         // "1. dépassé, 2. le plus proche, 3. km restant le plus faible"
         // order the spec asks for, without a separate urgency-rank key.
         double proximity(Reminder r) {
-          final byDays = r.dueDate?.difference(DateTime.now()).inDays.toDouble();
-          final byKm = r.dueMileage != null ? r.dueMileage! - vehicle.currentMileage : null;
-          if (byDays != null && byKm != null) return byDays < byKm ? byDays : byKm;
+          final byDays = r.dueDate
+              ?.difference(DateTime.now())
+              .inDays
+              .toDouble();
+          final byKm = r.dueMileage != null
+              ? r.dueMileage! - vehicle.currentMileage
+              : null;
+          if (byDays != null && byKm != null) {
+            return byDays < byKm ? byDays : byKm;
+          }
           return byDays ?? byKm ?? double.infinity;
         }
 
-        final top = reminders
-            .where((r) => isReminderDueSoon(r, currentMileage: vehicle.currentMileage))
-            .toList()
-          ..sort((a, b) => proximity(a).compareTo(proximity(b)));
+        final top =
+            reminders
+                .where(
+                  (r) => isReminderDueSoon(
+                    r,
+                    currentMileage: vehicle.currentMileage,
+                  ),
+                )
+                .toList()
+              ..sort((a, b) => proximity(a).compareTo(proximity(b)));
 
         if (top.isEmpty) return const _AllGoodRow();
 
         final urgencies = [
-          for (final r in top) reminderUrgency(r, currentMileage: vehicle.currentMileage),
+          for (final r in top)
+            reminderUrgency(r, currentMileage: vehicle.currentMileage),
         ];
         // V2.1 pass: a due action gives the section real visual weight
         // instead of another plain white card - a severity-tinted surface
@@ -454,7 +615,11 @@ class _TodoSection extends ConsumerWidget {
           isDanger: isDanger,
           children: [
             for (var i = 0; i < top.length; i++)
-              _TodoTile(reminder: top[i], vehicle: vehicle, urgency: urgencies[i]),
+              _TodoTile(
+                reminder: top[i],
+                vehicle: vehicle,
+                urgency: urgencies[i],
+              ),
           ],
         );
       },
@@ -496,7 +661,10 @@ class _TodoSurface extends StatelessWidget {
               children: [
                 for (var i = 0; i < children.length; i++) ...[
                   if (i > 0)
-                    Divider(height: 1, color: scheme.shadow.withValues(alpha: 0.06)),
+                    Divider(
+                      height: 1,
+                      color: scheme.shadow.withValues(alpha: 0.06),
+                    ),
                   children[i],
                 ],
               ],
@@ -515,7 +683,10 @@ class _AllGoodRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 11),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 11,
+      ),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -538,10 +709,17 @@ class _AllGoodRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Tout est à jour',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text('Aucune action requise',
-                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                const Text(
+                  'Tout est à jour',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Aucune action requise',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -552,7 +730,11 @@ class _AllGoodRow extends StatelessWidget {
 }
 
 class _TodoTile extends StatelessWidget {
-  const _TodoTile({required this.reminder, required this.vehicle, required this.urgency});
+  const _TodoTile({
+    required this.reminder,
+    required this.vehicle,
+    required this.urgency,
+  });
   final Reminder reminder;
   final Vehicle vehicle;
   final ReminderUrgency urgency;
@@ -561,11 +743,21 @@ class _TodoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (iconColor, valueColor, icon) = switch (urgency) {
-      ReminderUrgency.urgent => (scheme.error, scheme.error, Icons.warning_amber_rounded),
-      ReminderUrgency.upcoming => (scheme.tertiary, scheme.tertiary, Icons.event_outlined),
-      ReminderUrgency.later ||
-      ReminderUrgency.done =>
-        (scheme.onSurfaceVariant, scheme.onSurfaceVariant, Icons.event_outlined),
+      ReminderUrgency.urgent => (
+        scheme.error,
+        scheme.error,
+        Icons.warning_amber_rounded,
+      ),
+      ReminderUrgency.upcoming => (
+        scheme.tertiary,
+        scheme.tertiary,
+        Icons.event_outlined,
+      ),
+      ReminderUrgency.later || ReminderUrgency.done => (
+        scheme.onSurfaceVariant,
+        scheme.onSurfaceVariant,
+        Icons.event_outlined,
+      ),
     };
     final due = formatReminderDue(reminder, vehicle.currentMileage);
 
@@ -580,23 +772,36 @@ class _TodoTile extends StatelessWidget {
           Container(
             width: 28,
             height: 28,
-            decoration:
-                BoxDecoration(color: scheme.surfaceContainerLowest, borderRadius: BorderRadius.circular(AppRadius.sm)),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
             child: Icon(icon, size: 14, color: iconColor),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(reminder.title,
-                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ),
-          Text(due,
+            child: Text(
+              reminder.title,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: AppTypography.mono(context,
-                  fontSize: 14, fontWeight: FontWeight.w800, color: valueColor)),
+            ),
+          ),
+          Text(
+            due,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: AppTypography.mono(
+              context,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: valueColor,
+            ),
+          ),
         ],
       ),
     );
@@ -612,7 +817,8 @@ class _RecentOperationsSeeAllButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasEntries =
-        (ref.watch(vehicleMaintenanceProvider(vehicleId)).value ?? const []).isNotEmpty;
+        (ref.watch(vehicleMaintenanceProvider(vehicleId)).value ?? const [])
+            .isNotEmpty;
     if (!hasEntries) return const SizedBox.shrink();
     return TextButton(
       style: TextButton.styleFrom(
@@ -621,7 +827,10 @@ class _RecentOperationsSeeAllButton extends ConsumerWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onPressed: () => context.push('/vehicles/$vehicleId/timeline'),
-      child: const Text('Voir tout', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+      child: const Text(
+        'Voir tout',
+        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+      ),
     );
   }
 }
@@ -640,7 +849,9 @@ class _RecentOperationsSection extends ConsumerWidget {
     final entriesAsync = ref.watch(vehicleMaintenanceProvider(vehicle.id));
     return entriesAsync.when(
       loading: () => const SizedBox(
-          height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+        height: 56,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
       error: (_, _) => const SizedBox.shrink(),
       data: (entries) {
         if (entries.isEmpty) {
@@ -650,12 +861,18 @@ class _RecentOperationsSection extends ConsumerWidget {
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+              ),
               boxShadow: AppElevation.card(Theme.of(context).colorScheme),
             ),
             child: Text(
               'Aucune opération enregistrée pour l\'instant.',
-              style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           );
         }
@@ -667,8 +884,12 @@ class _RecentOperationsSection extends ConsumerWidget {
             for (final entry in top)
               _RecentOperationTile(
                 entry: entry,
-                onTap: () => showMaintenanceFormSheet(context,
-                    vehicleId: vehicle.id, currentMileage: vehicle.currentMileage, editing: entry),
+                onTap: () => showMaintenanceFormSheet(
+                  context,
+                  vehicleId: vehicle.id,
+                  currentMileage: vehicle.currentMileage,
+                  editing: entry,
+                ),
               ),
           ],
         );
@@ -693,7 +914,10 @@ class _RecentOperationTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 9),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 9,
+          ),
           child: Row(
             children: [
               Container(
@@ -703,32 +927,46 @@ class _RecentOperationTile extends StatelessWidget {
                   color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: Icon(Icons.build_outlined, size: 14, color: scheme.onSurfaceVariant),
+                child: Icon(
+                  Icons.build_outlined,
+                  size: 14,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(entry.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    Text(
+                      entry.category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     Text(
                       '${formatAmount(entry.mileage)} km',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
-                      style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Text(_fmtDate(entry.date),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+              Text(
+                _fmtDate(entry.date),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
             ],
           ),
         ),
@@ -755,8 +993,11 @@ class _QuickActionsRow extends ConsumerWidget {
           child: _QuickActionTile(
             icon: Icons.build_outlined,
             label: 'Entretien',
-            onTap: () => showMaintenanceFormSheet(context,
-                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+            onTap: () => showMaintenanceFormSheet(
+              context,
+              vehicleId: vehicle.id,
+              currentMileage: vehicle.currentMileage,
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -772,8 +1013,11 @@ class _QuickActionsRow extends ConsumerWidget {
           child: _QuickActionTile(
             icon: Icons.local_gas_station_outlined,
             label: 'Plein',
-            onTap: () => showFuelFormSheet(context,
-                vehicleId: vehicle.id, currentMileage: vehicle.currentMileage),
+            onTap: () => showFuelFormSheet(
+              context,
+              vehicleId: vehicle.id,
+              currentMileage: vehicle.currentMileage,
+            ),
           ),
         ),
       ],
@@ -785,7 +1029,11 @@ class _QuickActionsRow extends ConsumerWidget {
 /// icon-on-top tile competed too much with the vehicle card for visual
 /// weight; this row is deliberately smaller and never colour-blocked.
 class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({required this.icon, required this.label, required this.onTap});
+  const _QuickActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -802,7 +1050,9 @@ class _QuickActionTile extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.6),
+            ),
           ),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           child: Row(
@@ -819,10 +1069,15 @@ class _QuickActionTile extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Flexible(
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -831,4 +1086,3 @@ class _QuickActionTile extends StatelessWidget {
     );
   }
 }
-

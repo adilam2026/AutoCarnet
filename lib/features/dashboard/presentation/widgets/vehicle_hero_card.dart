@@ -8,31 +8,27 @@ import '../../../reminders/domain/reminder_urgency.dart';
 import '../../../vehicles/domain/vehicle_card_color.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
-/// The vehicle as the home dashboard's real "carte identité du véhicule"
-/// (design-review pass, 2026, Variante A retenue) - the accueil's principal
-/// component, not just another card among the others. Hierarchy comes from
-/// colour, composition and depth rather than sheer size: a top band in the
-/// vehicle's own identity colour ([VehicleCardColor], auto-assigned at
-/// creation, personalisable from the fiche) carries the identity (icon,
-/// name, year, mileage); the lower zone stays on the app's ordinary white
-/// surface so the health/révision numbers read exactly like the rest of
-/// the accueil. Cohérence pass: the vehicle's colour is also the card's
-/// single outer contour (never just the top band's fill), so the three
-/// zones read as one unified component instead of stacked pieces - text
-/// and icons on the coloured band go through [VehicleCardColor.onColor]
-/// (real luminance contrast, not an assumed white) and the contour/CTA
-/// accent goes through [VehicleCardColor.onLightSurface]. A final low-key
-/// row ("Voir la fiche du véhicule") makes explicit what the whole card
-/// already does on tap (bloc 20 bis): it is never a second, competing tap
-/// target, only a visible affordance. Shows only what's already computed
-/// elsewhere (health score, reminders): nothing here invents new business
-/// logic.
+/// The vehicle identity header - icon/name/year/mileage on a band in the
+/// vehicle's own colour ([VehicleCardColor], auto-assigned at creation,
+/// personalisable from the fiche), plus the compact santé/révision facts
+/// line underneath. This is only the TOP of the accueil's "grande carte"
+/// (see `_GrandVehicleCard` in vehicles_list_body.dart, mission "fusion
+/// carte véhicule + carte globale" pass, 2026): it owns no border, no
+/// rounded corners and no tap target of its own on purpose - the grand
+/// card wrapping it owns the single outer contour (clipping this band's
+/// square top corners into its own rounded ones for free), and the only
+/// way into the fiche véhicule is now that wrapper's own bottom CTA, never
+/// a tap anywhere on this identity header (a whole-card tap target would
+/// only compete with the horizontal swipe gesture the grand card also
+/// carries). Text/icons on the coloured band go through
+/// [VehicleCardColor.onColor] (real luminance contrast, not an assumed
+/// white). Shows only what's already computed elsewhere (health score,
+/// reminders): nothing here invents new business logic.
 class VehicleHeroCard extends ConsumerWidget {
   const VehicleHeroCard({
     super.key,
     required this.vehicle,
     required this.reminders,
-    required this.onTap,
   });
 
   final Vehicle vehicle;
@@ -41,7 +37,6 @@ class VehicleHeroCard extends ConsumerWidget {
   /// vehicleActiveRemindersProvider) - used for the health strip and the
   /// "prochaine révision" value.
   final List<Reminder> reminders;
-  final VoidCallback onTap;
 
   Reminder? _nearestMaintenance() {
     final candidates = reminders
@@ -76,201 +71,112 @@ class VehicleHeroCard extends ConsumerWidget {
     // never assumed white (mission point 4) - every current palette entry
     // resolves to white, but this stays correct if that ever changes.
     final onColor = vehicleColor.onColor;
-    // A near-invisible tint of the vehicle's own colour, not a new one -
-    // just enough to separate the CTA row from the facts above it.
-    final ctaTint = Color.alphaBlend(
-      cardColor.withValues(alpha: 0.05),
-      scheme.surfaceContainerLowest,
-    );
-    // The card's own identity colour as its single outer contour (mission
-    // point 1-3): it must read as ONE unified block, not three stacked
-    // pieces - the coloured band above already IS this colour, so the
-    // border only becomes visible where it meets the white/tinted zones
-    // below, tying the whole card together without a heavy fill.
-    final contourColor = vehicleColor.onLightSurface;
-    // A Container with both a `border` and a `borderRadius` automatically
-    // insets its child by the border's own width (Flutter's
-    // BoxDecoration.padding) - but that inset content (the Column of
-    // zones below) still has SQUARE corners of its own. Near the card's
-    // corners the outer border's rounded arc curves inward by up to
-    // AppRadius.lg, far more than the thin uniform inset, so the flat
-    // top-band rectangle's square corner pokes past that curve and gets
-    // clipped by the ancestor Material - leaving a tiny white gap (this
-    // card's own surfaceContainerLowest background showing through) right
-    // at the corner: the "coupure" reported on recette. The fix is a
-    // second, CONCENTRIC clip sized to the border's own inset
-    // (radius - borderWidth) around the inner content, so its rounded
-    // corners land exactly flush against the inside of the border with no
-    // gap and no overlap - the same border/borderRadius pair still owns
-    // the one, unbroken outer stroke.
-    const contourWidth = 1.3;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppElevation.hero(scheme),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            key: ValueKey('vehicleHeroCardContour-${vehicle.id}'),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: contourColor, width: contourWidth),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.lg - contourWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Level 1 - identity: the vehicle's own colour, clipped
-                  // to the card's own rounded corners by the ClipRRect
-                  // above (no bar ever "sits on top" of the card - it
-                  // belongs to it).
-                  Container(
-                    color: cardColor,
-                    padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
-                    child: Row(
+    return Column(
+      key: ValueKey('vehicleHeroCardHeader-${vehicle.id}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Identity band - the grand card wrapping this widget clips its
+        // square top corners into its own rounded ones (CSS-style
+        // overflow-clip via that wrapper's ClipRRect), so no radius is
+        // needed here at all.
+        Container(
+          color: cardColor,
+          padding: const EdgeInsets.fromLTRB(13, 13, 13, 11),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: onColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(
+                  Icons.directions_car_filled,
+                  size: 16,
+                  color: onColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${vehicle.brand} ${vehicle.model}',
+                      style: TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: onColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 1),
+                    Row(
                       children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: onColor.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: Icon(
-                            Icons.directions_car_filled,
-                            size: 16,
-                            color: onColor,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${vehicle.brand} ${vehicle.model}',
-                                style: TextStyle(
-                                  fontSize: 16.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.3,
-                                  color: onColor,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 1),
-                              Row(
-                                children: [
-                                  if (vehicle.year != null) ...[
-                                    Text(
-                                      '${vehicle.year}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: onColor.withValues(alpha: 0.78),
-                                      ),
-                                    ),
-                                    Text(
-                                      ' · ',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: onColor.withValues(alpha: 0.55),
-                                      ),
-                                    ),
-                                  ],
-                                  Flexible(
-                                    child: Text(
-                                      '${formatAmount(vehicle.currentMileage)} km',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.mono(
-                                        context,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: onColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 14,
-                          color: onColor.withValues(alpha: 0.85),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Level 2 - état du véhicule: back on the ordinary white
-                  // surface, so these numbers read exactly like the rest of
-                  // the accueil.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(13, 7, 13, 7),
-                    child: _FactsRow(
-                      dotColor: statusColor,
-                      healthText: health == null
-                          ? '—'
-                          : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
-                      healthOk: isOk,
-                      revisionText: revision == null
-                          ? 'Aucune prévue'
-                          : formatReminderAbsoluteDue(revision),
-                    ),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: scheme.outlineVariant.withValues(alpha: 0.6),
-                  ),
-                  // Level 3 - action: an explicit affordance that the whole
-                  // card opens the fiche véhicule (bloc 20 bis) - not a new
-                  // tap target, it shares the InkWell above.
-                  Container(
-                    color: ctaTint,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 7,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Voir la fiche du véhicule',
+                        if (vehicle.year != null) ...[
+                          Text(
+                            '${vehicle.year}',
                             style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: contourColor,
+                              fontSize: 12,
+                              color: onColor.withValues(alpha: 0.78),
                             ),
+                          ),
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: onColor.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
+                        Flexible(
+                          child: Text(
+                            '${formatAmount(vehicle.currentMileage)} km',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style: AppTypography.mono(
+                              context,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: onColor,
+                            ),
                           ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 14,
-                          color: contourColor,
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              Icon(
+                Icons.chevron_right,
+                size: 14,
+                color: onColor.withValues(alpha: 0.85),
+              ),
+            ],
           ),
         ),
-      ),
+        // Facts line - back on the ordinary white surface, so these
+        // numbers read exactly like the rest of the accueil.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(13, 9, 13, 9),
+          child: _FactsRow(
+            dotColor: statusColor,
+            healthText: health == null
+                ? '—'
+                : '${health.score}${isOk ? ' · À jour' : ' · À surveiller'}',
+            healthOk: isOk,
+            revisionText: revision == null
+                ? 'Aucune prévue'
+                : formatReminderAbsoluteDue(revision),
+          ),
+        ),
+      ],
     );
   }
 
