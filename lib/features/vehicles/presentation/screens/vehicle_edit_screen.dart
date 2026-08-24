@@ -8,6 +8,7 @@ import '../../../../core/utils/feedback.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../fuel/domain/fuel_types.dart';
 import '../../data/vehicle_repository.dart';
+import '../../domain/finish_level_labels.dart';
 import '../../domain/vehicle_card_color.dart';
 import '../../domain/vehicle_reference_data.dart';
 import '../widgets/brand_model_fields.dart';
@@ -35,6 +36,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
   String? _transmission;
   DateTime? _firstRegistrationDate;
   VehicleCondition? _condition;
+  VehicleFinishLevel? _finishLevel;
   late VehicleCardColor _cardColor;
   bool _saving = false;
 
@@ -55,6 +57,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         transmissionTypes.contains(v.transmission) ? v.transmission : null;
     _firstRegistrationDate = v.firstRegistrationDate;
     _condition = v.condition;
+    _finishLevel = v.finishLevel;
     _cardColor = VehicleCardColor.fromKey(v.cardColorKey);
   }
 
@@ -101,6 +104,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         firstRegistrationDate: Value(_firstRegistrationDate),
         firstRegistrationDatePrecision: const Value(null),
         condition: Value(_condition),
+        finishLevel: Value(_finishLevel),
         comments: Value(
             _comments.text.trim().isEmpty ? null : _comments.text.trim()),
       );
@@ -236,6 +240,18 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
                 DropdownMenuItem(value: c, child: Text(_conditionLabel(c))),
             ],
             onChanged: (v) => setState(() => _condition = v),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DropdownButtonFormField<VehicleFinishLevel>(
+            initialValue: _finishLevel,
+            decoration: const InputDecoration(labelText: 'Finition / niveau d\'équipement'),
+            hint: const Text('Sélectionner'),
+            isExpanded: true,
+            items: [
+              for (final f in VehicleFinishLevel.values)
+                DropdownMenuItem(value: f, child: Text(finishLevelLabel(f))),
+            ],
+            onChanged: (v) => setState(() => _finishLevel = v),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Notes'),

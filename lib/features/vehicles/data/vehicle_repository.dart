@@ -116,6 +116,7 @@ class VehicleRepository {
     String? fuelType,
     String? transmission,
     String? color,
+    VehicleFinishLevel? finishLevel,
     String? photoPath,
     String? comments,
   }) async {
@@ -136,6 +137,7 @@ class VehicleRepository {
             fuelType: Value(fuelType),
             transmission: Value(transmission),
             color: Value(color),
+            finishLevel: Value(finishLevel),
             cardColorKey: Value(cardColor.storageKey),
             photoPath: Value(photoPath),
             comments: Value(comments),
@@ -457,6 +459,7 @@ class VehicleRepository {
       v.color,
       v.firstRegistrationDate,
       v.condition,
+      v.finishLevel,
     ];
     final filled = fields.where((f) => f != null && f != '').length;
     return filled / fields.length;

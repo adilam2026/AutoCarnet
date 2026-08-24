@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,12 @@ class AppDatabase extends _$AppDatabase {
             // corrections pass. Existing rows simply have no category
             // (nullable) rather than a guessed one.
             await m.addColumn(serviceProviders, serviceProviders.category);
+          }
+          if (from < 10) {
+            // Finition / niveau d'équipement - structured field for the
+            // resale valuation engine (mission 2026). Existing rows simply
+            // have none (nullable) rather than a guessed level.
+            await m.addColumn(vehicles, vehicles.finishLevel);
           }
         },
       );

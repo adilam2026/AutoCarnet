@@ -35,6 +35,7 @@ class ValuationInput {
   final String? fuelType;
   final String? transmission;
   final VehicleCondition? condition;
+  final VehicleFinishLevel? finishLevel;
   final int maintenanceEntryCount;
   final bool hasRecentMaintenance;
 
@@ -48,6 +49,7 @@ class ValuationInput {
     this.fuelType,
     this.transmission,
     this.condition,
+    this.finishLevel,
     this.maintenanceEntryCount = 0,
     this.hasRecentMaintenance = false,
   });

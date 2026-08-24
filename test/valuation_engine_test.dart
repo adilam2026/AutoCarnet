@@ -18,6 +18,7 @@ void main() {
     String? fuelType,
     String? transmission,
     VehicleCondition? condition,
+    VehicleFinishLevel? finishLevel,
     int maintenanceEntryCount = 0,
   }) {
     return ValuationInput(
@@ -29,6 +30,7 @@ void main() {
       fuelType: fuelType,
       transmission: transmission,
       condition: condition,
+      finishLevel: finishLevel,
       maintenanceEntryCount: maintenanceEntryCount,
     );
   }
@@ -342,6 +344,81 @@ void main() {
         maintenanceEntryCount: 8,
       ));
       expect(result.confidence, isNot(ConfidenceLevel.good));
+    });
+  });
+
+  group('Finition / niveau d\'équipement (mission 2026 - précision de '
+      'l\'estimation)', () {
+    test('A. at strictly identical brand/model/year/mileage/état, finition '
+        'orders the estimate: entrée de gamme < milieu de gamme < haut de '
+        'gamme < full options', () {
+      final entry = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.entryLevel));
+      final mid = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.midRange));
+      final high = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.highEnd));
+      final full = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.fullOptions));
+      expect(entry.fairPrice, lessThan(mid.fairPrice));
+      expect(mid.fairPrice, lessThan(high.fairPrice));
+      expect(high.fairPrice, lessThan(full.fairPrice));
+    });
+
+    test('B. the finition spread stays secondary/capped - entrée de gamme '
+        'vs full options never differs by more than a modest fraction of '
+        'the estimate, unlike age or kilométrage which can swing it by '
+        'tens of percent', () {
+      final entry = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.entryLevel));
+      final full = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.fullOptions));
+      final spread = (full.fairPrice - entry.fairPrice) / entry.fairPrice;
+      expect(spread, greaterThan(0));
+      expect(spread, lessThan(0.20));
+    });
+
+    test('C. an unset finition is neutral (same estimate as milieu de '
+        'gamme), never silently treated as entrée de gamme or full '
+        'options', () {
+      final unset = engine.compute(baseInput(condition: VehicleCondition.good));
+      final mid = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.midRange));
+      expect(unset.fairPrice, mid.fairPrice);
+    });
+
+    test('D. the breakdown always carries an explicit "Finition / niveau '
+        'd\'équipement" line, with the real amount applied (positive, '
+        'negative or neutral)', () {
+      final entry = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.entryLevel));
+      final full = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.fullOptions));
+      final mid = engine.compute(
+          baseInput(condition: VehicleCondition.good, finishLevel: VehicleFinishLevel.midRange));
+      ValuationBreakdownLine line(ValuationResult r) =>
+          r.breakdown.firstWhere((l) => l.label == 'Finition / niveau d\'équipement');
+      expect(line(entry).delta, lessThan(0));
+      expect(line(full).delta, greaterThan(0));
+      expect(line(mid).delta, 0);
+    });
+
+    test('E. a sourced reference price (already anchored to one real named '
+        'trim) is never doubled by the generic finition coefficient - the '
+        'line still appears, but strictly neutral', () {
+      final astraInput = ValuationInput(
+        brand: 'Opel',
+        model: 'Astra',
+        year: 2012,
+        firstRegistrationDate: DateTime(2012, 6, 15),
+        currentMileage: 150000,
+        condition: VehicleCondition.good,
+        finishLevel: VehicleFinishLevel.fullOptions,
+      );
+      final result = engine.compute(astraInput);
+      final line = result.breakdown
+          .firstWhere((l) => l.label == 'Finition / niveau d\'équipement');
+      expect(line.delta, 0);
     });
   });
 

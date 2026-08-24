@@ -30,6 +30,13 @@ enum DatePrecision { full, monthYear, yearOnly }
 
 enum VehicleCondition { excellent, veryGood, good, average, needsWork }
 
+/// Finition / niveau d'équipement (mission 2026: precision de l'estimation
+/// de revente) - deliberately a closed, structured set rather than the
+/// free-text [Vehicles.trim] ("version" descriptor like "Cosmo", "Life"):
+/// the resale engine needs a value it can look up a generic coefficient
+/// for, not a string it would have to guess-parse.
+enum VehicleFinishLevel { entryLevel, midRange, highEnd, fullOptions }
+
 class Vehicles extends Table {
   TextColumn get id => text()();
   TextColumn get brand => text()();
@@ -46,6 +53,10 @@ class Vehicles extends Table {
   TextColumn get fuelType => text().nullable()();
   TextColumn get transmission => text().nullable()();
   TextColumn get color => text().nullable()();
+  // Finition / niveau d'équipement - structured, closed-set data the resale
+  // valuation engine can apply a generic coefficient to (see
+  // FinishLevelAdjustmentRules), distinct from the free-text [trim] above.
+  TextColumn get finishLevel => textEnum<VehicleFinishLevel>().nullable()();
   // The home dashboard's per-vehicle card-identity colour (a [VehicleCardColor]
   // key) - deliberately a distinct column from [color] above (the vehicle's
   // real paint colour, a free-text administrative field): the two must never

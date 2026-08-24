@@ -33,6 +33,7 @@ Map<String, dynamic> vehicleToRemoteRow(Vehicle v) {
     'transmission': v.transmission,
     'color': v.color,
     'card_color_key': v.cardColorKey,
+    'finish_level': v.finishLevel?.name,
     'condition': v.condition?.name,
     'comments': v.comments,
     'current_mileage': v.currentMileage,
@@ -66,6 +67,8 @@ VehiclesCompanion vehicleFromRemoteRow(Map<String, dynamic> row) {
     transmission: Value(row['transmission'] as String?),
     color: Value(row['color'] as String?),
     cardColorKey: Value(row['card_color_key'] as String?),
+    finishLevel:
+        Value(_enumFromName(VehicleFinishLevel.values, row['finish_level'] as String?)),
     condition: Value(_enumFromName(VehicleCondition.values, row['condition'] as String?)),
     comments: Value(row['comments'] as String?),
     status: Value(

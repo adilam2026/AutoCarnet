@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'condition_adjustment_rules.dart';
 import 'depreciation_rules.dart';
 import 'engine_adjustment_rules.dart';
+import 'finish_level_adjustment_rules.dart';
 import 'mileage_adjustment_rules.dart';
 import 'valuation_models.dart';
 import 'vehicle_valuation_reference.dart';
@@ -103,6 +104,23 @@ class InternalValuationProvider implements ValuationEngine {
       running = adjusted;
     }
 
+    // A sourced reference price is already anchored to one real, named
+    // trim (see SourcedNewPriceReference's own [note] field) - applying the
+    // generic finition coefficient on top of it would count the same
+    // advantage twice, so the finition step is a genuine no-op whenever the
+    // base price is sourced rather than generic. The breakdown line is
+    // always shown regardless (mission requirement), with an explicitly
+    // neutral amount in that case.
+    final finishFactor =
+        priceEstimate.sourced ? 1.0 : FinishLevelAdjustmentRules.factorFor(input.finishLevel);
+    final finishAdjusted = running * finishFactor;
+    breakdown.add(ValuationBreakdownLine(
+      label: 'Finition / niveau d\'équipement',
+      delta: finishAdjusted - running,
+      runningTotal: finishAdjusted,
+    ));
+    running = finishAdjusted;
+
     // Sanity guard: adjustments alone should never send the estimate wildly
     // outside a plausible band around the base reference.
     final central = running.clamp(base * 0.1, base * 1.3);
@@ -115,8 +133,8 @@ class InternalValuationProvider implements ValuationEngine {
       const ConfidenceFactor(label: 'Kilométrage connu', satisfied: true),
       ConfidenceFactor(label: 'Motorisation connue', satisfied: input.fuelType != null),
       ConfidenceFactor(
-        label: 'Finition/version connue',
-        satisfied: input.trim != null && input.trim!.trim().isNotEmpty,
+        label: 'Finition/niveau d\'équipement connu',
+        satisfied: input.finishLevel != null,
       ),
       ConfidenceFactor(label: 'État général renseigné', satisfied: input.condition != null),
       ConfidenceFactor(

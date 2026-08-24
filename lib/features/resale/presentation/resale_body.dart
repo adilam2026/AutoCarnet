@@ -140,6 +140,7 @@ class _ResaleSummary extends ConsumerWidget {
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
             condition: vehicle.condition,
+            finishLevel: vehicle.finishLevel,
             maintenanceEntryCount: maintenanceEntries.length,
           ),
         );

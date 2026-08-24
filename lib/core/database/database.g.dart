@@ -621,6 +621,15 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<VehicleFinishLevel?, String>
+  finishLevel = GeneratedColumn<String>(
+    'finish_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<VehicleFinishLevel?>($VehiclesTable.$converterfinishLeveln);
   static const VerificationMeta _cardColorKeyMeta = const VerificationMeta(
     'cardColorKey',
   );
@@ -803,6 +812,7 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
     fuelType,
     transmission,
     color,
+    finishLevel,
     cardColorKey,
     photoPath,
     condition,
@@ -1083,6 +1093,12 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
         DriftSqlType.string,
         data['${effectivePrefix}color'],
       ),
+      finishLevel: $VehiclesTable.$converterfinishLeveln.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}finish_level'],
+        ),
+      ),
       cardColorKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}card_color_key'],
@@ -1162,6 +1178,12 @@ class $VehiclesTable extends Vehicles with TableInfo<$VehiclesTable, Vehicle> {
   $converterfirstRegistrationDatePrecisionn = JsonTypeConverter2.asNullable(
     $converterfirstRegistrationDatePrecision,
   );
+  static JsonTypeConverter2<VehicleFinishLevel, String, String>
+  $converterfinishLevel = const EnumNameConverter<VehicleFinishLevel>(
+    VehicleFinishLevel.values,
+  );
+  static JsonTypeConverter2<VehicleFinishLevel?, String?, String?>
+  $converterfinishLeveln = JsonTypeConverter2.asNullable($converterfinishLevel);
   static JsonTypeConverter2<VehicleCondition, String, String>
   $convertercondition = const EnumNameConverter<VehicleCondition>(
     VehicleCondition.values,
@@ -1187,6 +1209,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
   final String? fuelType;
   final String? transmission;
   final String? color;
+  final VehicleFinishLevel? finishLevel;
   final String? cardColorKey;
   final String? photoPath;
   final VehicleCondition? condition;
@@ -1217,6 +1240,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     this.fuelType,
     this.transmission,
     this.color,
+    this.finishLevel,
     this.cardColorKey,
     this.photoPath,
     this.condition,
@@ -1277,6 +1301,11 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     }
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<String>(color);
+    }
+    if (!nullToAbsent || finishLevel != null) {
+      map['finish_level'] = Variable<String>(
+        $VehiclesTable.$converterfinishLeveln.toSql(finishLevel),
+      );
     }
     if (!nullToAbsent || cardColorKey != null) {
       map['card_color_key'] = Variable<String>(cardColorKey);
@@ -1351,6 +1380,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       color: color == null && nullToAbsent
           ? const Value.absent()
           : Value(color),
+      finishLevel: finishLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finishLevel),
       cardColorKey: cardColorKey == null && nullToAbsent
           ? const Value.absent()
           : Value(cardColorKey),
@@ -1413,6 +1445,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       fuelType: serializer.fromJson<String?>(json['fuelType']),
       transmission: serializer.fromJson<String?>(json['transmission']),
       color: serializer.fromJson<String?>(json['color']),
+      finishLevel: $VehiclesTable.$converterfinishLeveln.fromJson(
+        serializer.fromJson<String?>(json['finishLevel']),
+      ),
       cardColorKey: serializer.fromJson<String?>(json['cardColorKey']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       condition: $VehiclesTable.$converterconditionn.fromJson(
@@ -1458,6 +1493,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
       'fuelType': serializer.toJson<String?>(fuelType),
       'transmission': serializer.toJson<String?>(transmission),
       'color': serializer.toJson<String?>(color),
+      'finishLevel': serializer.toJson<String?>(
+        $VehiclesTable.$converterfinishLeveln.toJson(finishLevel),
+      ),
       'cardColorKey': serializer.toJson<String?>(cardColorKey),
       'photoPath': serializer.toJson<String?>(photoPath),
       'condition': serializer.toJson<String?>(
@@ -1495,6 +1533,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     Value<String?> fuelType = const Value.absent(),
     Value<String?> transmission = const Value.absent(),
     Value<String?> color = const Value.absent(),
+    Value<VehicleFinishLevel?> finishLevel = const Value.absent(),
     Value<String?> cardColorKey = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
     Value<VehicleCondition?> condition = const Value.absent(),
@@ -1529,6 +1568,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     fuelType: fuelType.present ? fuelType.value : this.fuelType,
     transmission: transmission.present ? transmission.value : this.transmission,
     color: color.present ? color.value : this.color,
+    finishLevel: finishLevel.present ? finishLevel.value : this.finishLevel,
     cardColorKey: cardColorKey.present ? cardColorKey.value : this.cardColorKey,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     condition: condition.present ? condition.value : this.condition,
@@ -1572,6 +1612,9 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           ? data.transmission.value
           : this.transmission,
       color: data.color.present ? data.color.value : this.color,
+      finishLevel: data.finishLevel.present
+          ? data.finishLevel.value
+          : this.finishLevel,
       cardColorKey: data.cardColorKey.present
           ? data.cardColorKey.value
           : this.cardColorKey,
@@ -1615,6 +1658,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           ..write('fuelType: $fuelType, ')
           ..write('transmission: $transmission, ')
           ..write('color: $color, ')
+          ..write('finishLevel: $finishLevel, ')
           ..write('cardColorKey: $cardColorKey, ')
           ..write('photoPath: $photoPath, ')
           ..write('condition: $condition, ')
@@ -1650,6 +1694,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
     fuelType,
     transmission,
     color,
+    finishLevel,
     cardColorKey,
     photoPath,
     condition,
@@ -1685,6 +1730,7 @@ class Vehicle extends DataClass implements Insertable<Vehicle> {
           other.fuelType == this.fuelType &&
           other.transmission == this.transmission &&
           other.color == this.color &&
+          other.finishLevel == this.finishLevel &&
           other.cardColorKey == this.cardColorKey &&
           other.photoPath == this.photoPath &&
           other.condition == this.condition &&
@@ -1717,6 +1763,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
   final Value<String?> fuelType;
   final Value<String?> transmission;
   final Value<String?> color;
+  final Value<VehicleFinishLevel?> finishLevel;
   final Value<String?> cardColorKey;
   final Value<String?> photoPath;
   final Value<VehicleCondition?> condition;
@@ -1748,6 +1795,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.fuelType = const Value.absent(),
     this.transmission = const Value.absent(),
     this.color = const Value.absent(),
+    this.finishLevel = const Value.absent(),
     this.cardColorKey = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.condition = const Value.absent(),
@@ -1780,6 +1828,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     this.fuelType = const Value.absent(),
     this.transmission = const Value.absent(),
     this.color = const Value.absent(),
+    this.finishLevel = const Value.absent(),
     this.cardColorKey = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.condition = const Value.absent(),
@@ -1817,6 +1866,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Expression<String>? fuelType,
     Expression<String>? transmission,
     Expression<String>? color,
+    Expression<String>? finishLevel,
     Expression<String>? cardColorKey,
     Expression<String>? photoPath,
     Expression<String>? condition,
@@ -1851,6 +1901,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       if (fuelType != null) 'fuel_type': fuelType,
       if (transmission != null) 'transmission': transmission,
       if (color != null) 'color': color,
+      if (finishLevel != null) 'finish_level': finishLevel,
       if (cardColorKey != null) 'card_color_key': cardColorKey,
       if (photoPath != null) 'photo_path': photoPath,
       if (condition != null) 'condition': condition,
@@ -1885,6 +1936,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     Value<String?>? fuelType,
     Value<String?>? transmission,
     Value<String?>? color,
+    Value<VehicleFinishLevel?>? finishLevel,
     Value<String?>? cardColorKey,
     Value<String?>? photoPath,
     Value<VehicleCondition?>? condition,
@@ -1919,6 +1971,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
       fuelType: fuelType ?? this.fuelType,
       transmission: transmission ?? this.transmission,
       color: color ?? this.color,
+      finishLevel: finishLevel ?? this.finishLevel,
       cardColorKey: cardColorKey ?? this.cardColorKey,
       photoPath: photoPath ?? this.photoPath,
       condition: condition ?? this.condition,
@@ -1988,6 +2041,11 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
     }
     if (color.present) {
       map['color'] = Variable<String>(color.value);
+    }
+    if (finishLevel.present) {
+      map['finish_level'] = Variable<String>(
+        $VehiclesTable.$converterfinishLeveln.toSql(finishLevel.value),
+      );
     }
     if (cardColorKey.present) {
       map['card_color_key'] = Variable<String>(cardColorKey.value);
@@ -2063,6 +2121,7 @@ class VehiclesCompanion extends UpdateCompanion<Vehicle> {
           ..write('fuelType: $fuelType, ')
           ..write('transmission: $transmission, ')
           ..write('color: $color, ')
+          ..write('finishLevel: $finishLevel, ')
           ..write('cardColorKey: $cardColorKey, ')
           ..write('photoPath: $photoPath, ')
           ..write('condition: $condition, ')
@@ -13814,6 +13873,7 @@ typedef $$VehiclesTableCreateCompanionBuilder =
       Value<String?> fuelType,
       Value<String?> transmission,
       Value<String?> color,
+      Value<VehicleFinishLevel?> finishLevel,
       Value<String?> cardColorKey,
       Value<String?> photoPath,
       Value<VehicleCondition?> condition,
@@ -13847,6 +13907,7 @@ typedef $$VehiclesTableUpdateCompanionBuilder =
       Value<String?> fuelType,
       Value<String?> transmission,
       Value<String?> color,
+      Value<VehicleFinishLevel?> finishLevel,
       Value<String?> cardColorKey,
       Value<String?> photoPath,
       Value<VehicleCondition?> condition,
@@ -14121,6 +14182,16 @@ class $$VehiclesTableFilterComposer
   ColumnFilters<String> get color => $composableBuilder(
     column: $table.color,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    VehicleFinishLevel?,
+    VehicleFinishLevel,
+    String
+  >
+  get finishLevel => $composableBuilder(
+    column: $table.finishLevel,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get cardColorKey => $composableBuilder(
@@ -14510,6 +14581,11 @@ class $$VehiclesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get finishLevel => $composableBuilder(
+    column: $table.finishLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get cardColorKey => $composableBuilder(
     column: $table.cardColorKey,
     builder: (column) => ColumnOrderings(column),
@@ -14647,6 +14723,12 @@ class $$VehiclesTableAnnotationComposer
 
   GeneratedColumn<String> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<VehicleFinishLevel?, String>
+  get finishLevel => $composableBuilder(
+    column: $table.finishLevel,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get cardColorKey => $composableBuilder(
     column: $table.cardColorKey,
@@ -14983,6 +15065,7 @@ class $$VehiclesTableTableManager
                 Value<String?> fuelType = const Value.absent(),
                 Value<String?> transmission = const Value.absent(),
                 Value<String?> color = const Value.absent(),
+                Value<VehicleFinishLevel?> finishLevel = const Value.absent(),
                 Value<String?> cardColorKey = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<VehicleCondition?> condition = const Value.absent(),
@@ -15014,6 +15097,7 @@ class $$VehiclesTableTableManager
                 fuelType: fuelType,
                 transmission: transmission,
                 color: color,
+                finishLevel: finishLevel,
                 cardColorKey: cardColorKey,
                 photoPath: photoPath,
                 condition: condition,
@@ -15048,6 +15132,7 @@ class $$VehiclesTableTableManager
                 Value<String?> fuelType = const Value.absent(),
                 Value<String?> transmission = const Value.absent(),
                 Value<String?> color = const Value.absent(),
+                Value<VehicleFinishLevel?> finishLevel = const Value.absent(),
                 Value<String?> cardColorKey = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<VehicleCondition?> condition = const Value.absent(),
@@ -15079,6 +15164,7 @@ class $$VehiclesTableTableManager
                 fuelType: fuelType,
                 transmission: transmission,
                 color: color,
+                finishLevel: finishLevel,
                 cardColorKey: cardColorKey,
                 photoPath: photoPath,
                 condition: condition,

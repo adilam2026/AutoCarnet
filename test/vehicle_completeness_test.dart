@@ -31,6 +31,7 @@ void main() {
         color: const Value('Noir'),
         firstRegistrationDate: Value(DateTime(2021, 3, 1)),
         condition: const Value(VehicleCondition.veryGood),
+        finishLevel: const Value(VehicleFinishLevel.highEnd),
         comments: const Value(null),
       ));
       vehicle = await repo.getOne(id);
@@ -51,6 +52,7 @@ void main() {
         color: const Value('Noir'),
         firstRegistrationDate: Value(DateTime(2021, 3, 1)),
         condition: const Value(VehicleCondition.veryGood),
+        finishLevel: const Value(VehicleFinishLevel.highEnd),
         comments: const Value('RAS'),
       ));
       vehicle = await repo.getOne(id);
