@@ -554,6 +554,12 @@ class _GrandVehicleCard extends ConsumerWidget {
                       ),
                       child: _QuickActionsRow(vehicle: vehicle),
                     ),
+                    // Breathing room before the CTA band right below (user
+                    // feedback: "le bouton kilométrage déborde sur la barre
+                    // en bas" - the "Mettre à jour le kilométrage" tile had
+                    // zero gap before the CTA's own padding started, making
+                    // the two visually crowd/touch each other).
+                    const SizedBox(height: AppSpacing.md),
                   ],
                 ),
               ),
@@ -576,12 +582,15 @@ class _GrandVehicleCard extends ConsumerWidget {
 ///
 /// Deliberately a FIXED neutral tone, never the vehicle's own [cardColor]
 /// (mission pass, 2026: the band used to reuse it and read as a near-
-/// duplicate of the identity header right above it). An elegant mid-grey -
-/// dark enough for white text/icons to stay legible, light enough to never
-/// read as near-black - keeps this CTA visually distinct from every
-/// vehicle's own colour while still standing out from the plain white card
-/// body above it.
-const Color _grandCtaBandColor = Color(0xFF4B5563);
+/// duplicate of the identity header right above it). A true middle grey
+/// (Tailwind "gray-500", luminance ~0.17, ~4.8:1 contrast with white text -
+/// comfortably above WCAG AA's 4.5:1) - lightened from an earlier, much
+/// darker slate (luminance ~0.09) that user feedback read as "bleu foncé"
+/// rather than a neutral grey. Still dark enough for white text/icons to
+/// stay legible, light enough to never read as near-black or blue-tinted -
+/// keeps this CTA visually distinct from every vehicle's own colour while
+/// still standing out from the plain white card body above it.
+const Color _grandCtaBandColor = Color(0xFF6B7280);
 
 class _GrandCtaBand extends StatelessWidget {
   const _GrandCtaBand({required this.onTap});
@@ -1153,8 +1162,13 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // User feedback pass: the tile used to fill itself with
+    // surfaceContainerLowest - literally the same pure white as the card
+    // body directly behind it, leaving only a faint 60%-alpha outline to
+    // separate the two ("les 3 boutons sont trop blancs"). A visibly
+    // tinted grey fill gives the tile real presence against the card.
     return Material(
-      color: scheme.surfaceContainerLowest,
+      color: scheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.pill),
