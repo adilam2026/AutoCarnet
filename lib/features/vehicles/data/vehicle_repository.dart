@@ -170,11 +170,18 @@ class VehicleRepository {
   /// Picks the next card colour for a vehicle being created right now:
   /// least-used among every non-deleted vehicle already on this device, so
   /// a growing garage stays visually distinct as long as the palette allows
-  /// it (spec: never a random draw, never re-picked later).
+  /// it (spec: never a random draw, never re-picked later). The most
+  /// recently created vehicle's own colour is passed as [VehicleCardColor.
+  /// nextFor]'s `avoid` so two vehicles created back-to-back never end up
+  /// with the same colour even once the palette starts repeating.
   Future<VehicleCardColor> _nextCardColor() async {
-    final existing = await (_db.select(_db.vehicles)..where((v) => v.isDeleted.equals(false)))
+    final existing = await (_db.select(_db.vehicles)
+          ..where((v) => v.isDeleted.equals(false))
+          ..orderBy([(v) => OrderingTerm.desc(v.createdAt)]))
         .get();
-    return VehicleCardColor.nextFor(existing.map((v) => v.cardColorKey));
+    final mostRecent =
+        existing.isEmpty ? null : VehicleCardColor.fromKeyOrNull(existing.first.cardColorKey);
+    return VehicleCardColor.nextFor(existing.map((v) => v.cardColorKey), avoid: mostRecent);
   }
 
   /// Manual personalisation from the fiche véhicule ("Couleur de la
@@ -209,9 +216,11 @@ class VehicleRepository {
       for (final v in all)
         if (v.cardColorKey != null) v.cardColorKey,
     ];
+    VehicleCardColor? previous;
     for (final vehicle in missing) {
-      final color = VehicleCardColor.nextFor(assignedKeys);
+      final color = VehicleCardColor.nextFor(assignedKeys, avoid: previous);
       assignedKeys.add(color.storageKey);
+      previous = color;
       await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id)))
           .write(VehiclesCompanion(cardColorKey: Value(color.storageKey)));
     }

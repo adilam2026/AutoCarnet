@@ -305,58 +305,154 @@ class _VehicleCarousel extends StatelessWidget {
   /// vehicles.length`, never by the virtual index itself.
   static const int _virtualPageCount = 200000;
 
+  void _goToPage(int delta) {
+    final current = controller.page?.round();
+    if (current == null) return;
+    controller.animateToPage(
+      current + delta,
+      duration: AppMotion.normal,
+      curve: AppMotion.curve,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         Expanded(
-          child: PageView.builder(
-            controller: controller,
-            itemCount: _virtualPageCount,
-            onPageChanged: (virtualIndex) =>
-                onChanged(virtualIndex % vehicles.length),
-            itemBuilder: (context, virtualIndex) {
-              final vehicle = vehicles[virtualIndex % vehicles.length];
-              return SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  fabSafeBottomPadding(context),
+          child: Stack(
+            children: [
+              // Full-bleed so the previous/next page's own peeking edge
+              // (viewportFraction < 1) is genuinely visible on the sides -
+              // mission point 5 ("conserver un aperçu des cartes
+              // adjacentes"). Swiping still works across the ENTIRE surface
+              // of every page underneath (identity header, à faire
+              // prochainement, opérations, actions rapides, CTA) since none
+              // of that content intercepts horizontal drags - only the
+              // chevrons below sit on top, and only at the very edges.
+              PageView.builder(
+                controller: controller,
+                itemCount: _virtualPageCount,
+                onPageChanged: (virtualIndex) =>
+                    onChanged(virtualIndex % vehicles.length),
+                itemBuilder: (context, virtualIndex) {
+                  final vehicle = vehicles[virtualIndex % vehicles.length];
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                      fabSafeBottomPadding(context),
+                    ),
+                    child: _GrandVehicleCard(
+                      vehicle: vehicle,
+                      onOpenFiche: () => context.push('/vehicles/${vehicle.id}'),
+                    ),
+                  );
+                },
+              ),
+              // Explicit swipe affordance (mission point 4): the dots alone
+              // don't tell a first-time user the card can be swiped -
+              // discreet chevrons at both edges make it obvious, and are
+              // themselves a second way to change vehicle (tap, not just
+              // swipe). Sit in the narrow peek gutter, not over the active
+              // card's own content.
+              Positioned(
+                left: 2,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _CarouselChevron(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => _goToPage(-1),
+                  ),
                 ),
-                child: _GrandVehicleCard(
-                  vehicle: vehicle,
-                  onOpenFiche: () => context.push('/vehicles/${vehicle.id}'),
+              ),
+              Positioned(
+                right: 2,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _CarouselChevron(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: () => _goToPage(1),
+                  ),
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             children: [
-              for (var i = 0; i < vehicles.length; i++)
-                AnimatedContainer(
-                  duration: AppMotion.fast,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == selectedIndex ? 16 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == selectedIndex
-                        ? VehicleCardColor.fromKey(
-                            vehicles[selectedIndex].cardColorKey,
-                          ).onLightSurface
-                        : scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < vehicles.length; i++)
+                    AnimatedContainer(
+                      duration: AppMotion.fast,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == selectedIndex ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == selectedIndex
+                            ? VehicleCardColor.fromKey(
+                                vehicles[selectedIndex].cardColorKey,
+                              ).onLightSurface
+                            : scheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // "Véhicule X sur Y" (mission point 3) - only meaningful with
+              // more than one vehicle, which this widget already only ever
+              // builds for (see _Dashboard.build's length == 1 branch).
+              Text(
+                'Véhicule ${selectedIndex + 1} sur ${vehicles.length}',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
                 ),
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Discreet, generously-tappable swipe affordance at either edge of the
+/// carousel (mission point 4) - a translucent circular surface so it reads
+/// clearly over any vehicle card colour without ever fully hiding what's
+/// underneath.
+class _CarouselChevron extends StatelessWidget {
+  const _CarouselChevron({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLowest.withValues(alpha: 0.92),
+      shape: const CircleBorder(),
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 22, color: scheme.onSurfaceVariant),
+        ),
+      ),
     );
   }
 }
@@ -380,7 +476,6 @@ class _GrandVehicleCard extends ConsumerWidget {
     final reminders =
         ref.watch(vehicleActiveRemindersProvider(vehicle.id)).value ?? const [];
     final vehicleColor = VehicleCardColor.fromKey(vehicle.cardColorKey);
-    final cardColor = vehicleColor.color;
     // The card's own identity colour as its single outer contour (mission
     // point 1-3): it must read as ONE unified block, never a frame stacked
     // on top of a separate vehicle card.
@@ -462,7 +557,7 @@ class _GrandVehicleCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              _GrandCtaBand(color: cardColor, onTap: onOpenFiche),
+              _GrandCtaBand(onTap: onOpenFiche),
             ],
           ),
         ),
@@ -472,21 +567,30 @@ class _GrandVehicleCard extends ConsumerWidget {
 }
 
 /// The accueil's single, unmissable entry point into the fiche véhicule
-/// (mission point 5-7, 2026 pass): full-bleed, solid in the vehicle's own
-/// colour, with a subtitle and a real chevron affordance - replacing the
-/// old thin, easy-to-miss "Voir la fiche du véhicule" row that a
-/// first-time user reportedly never noticed. Sits flush at the bottom of
-/// `_GrandVehicleCard`'s own ClipRRect, so its bottom corners come out
-/// rounded for free instead of needing their own radius.
+/// (mission point 5-7, 2026 pass): full-bleed, with a subtitle and a real
+/// chevron affordance - replacing the old thin, easy-to-miss "Voir la
+/// fiche du véhicule" row that a first-time user reportedly never noticed.
+/// Sits flush at the bottom of `_GrandVehicleCard`'s own ClipRRect, so its
+/// bottom corners come out rounded for free instead of needing their own
+/// radius.
+///
+/// Deliberately a FIXED neutral tone, never the vehicle's own [cardColor]
+/// (mission pass, 2026: the band used to reuse it and read as a near-
+/// duplicate of the identity header right above it). An elegant mid-grey -
+/// dark enough for white text/icons to stay legible, light enough to never
+/// read as near-black - keeps this CTA visually distinct from every
+/// vehicle's own colour while still standing out from the plain white card
+/// body above it.
+const Color _grandCtaBandColor = Color(0xFF4B5563);
+
 class _GrandCtaBand extends StatelessWidget {
-  const _GrandCtaBand({required this.color, required this.onTap});
-  final Color color;
+  const _GrandCtaBand({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color,
+      color: _grandCtaBandColor,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -509,7 +613,7 @@ class _GrandCtaBand extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Administratif, entretiens, documents, dépenses...',
+                      'Entretien, documents, dépenses et plus',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -976,50 +1080,57 @@ class _RecentOperationTile extends StatelessWidget {
 }
 
 /// Direct-tap actions - each opens its target form immediately, no
-/// intermediate sheet. Three equal tiles rather than one giant primary CTA
-/// plus a smaller pair (bloc design-review 2026, V2 pass: a full-width
-/// coloured button here duplicated the tab's own "Ajouter" FAB - "choisis
-/// une logique... pas deux CTA concurrents"). Document stays off this row:
-/// it's rarer than the other three and didn't earn a permanent slot.
+/// intermediate sheet. A 2+1 grid rather than three equal tiles crammed
+/// onto one row (mission pass, 2026: three-across always truncated
+/// "Kilométrage" to "Kilomét...", and shrinking the font to force it in
+/// was explicitly ruled out) - "Entretien" and "Plein" stay short enough
+/// to share a row at equal width, while "Mettre à jour le kilométrage"
+/// gets the full width its longer, clearer label needs. Document stays off
+/// this row: it's rarer than the other three and didn't earn a permanent
+/// slot. The three actions are functionally unchanged - this only touches
+/// layout/labels.
 class _QuickActionsRow extends ConsumerWidget {
   const _QuickActionsRow({required this.vehicle});
   final Vehicle vehicle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.build_outlined,
-            label: 'Entretien',
-            onTap: () => showMaintenanceFormSheet(
-              context,
-              vehicleId: vehicle.id,
-              currentMileage: vehicle.currentMileage,
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionTile(
+                icon: Icons.build_outlined,
+                label: 'Entretien',
+                onTap: () => showMaintenanceFormSheet(
+                  context,
+                  vehicleId: vehicle.id,
+                  currentMileage: vehicle.currentMileage,
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.speed_outlined,
-            label: 'Kilométrage',
-            onTap: () => showMileageUpdateSheet(context, ref, vehicle),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.local_gas_station_outlined,
-            label: 'Plein',
-            onTap: () => showFuelFormSheet(
-              context,
-              vehicleId: vehicle.id,
-              currentMileage: vehicle.currentMileage,
-              vehicleFuelType: vehicle.fuelType,
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: _QuickActionTile(
+                icon: Icons.local_gas_station_outlined,
+                label: 'Plein',
+                onTap: () => showFuelFormSheet(
+                  context,
+                  vehicleId: vehicle.id,
+                  currentMileage: vehicle.currentMileage,
+                  vehicleFuelType: vehicle.fuelType,
+                ),
+              ),
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _QuickActionTile(
+          icon: Icons.speed_outlined,
+          label: 'Mettre à jour le kilométrage',
+          onTap: () => showMileageUpdateSheet(context, ref, vehicle),
         ),
       ],
     );

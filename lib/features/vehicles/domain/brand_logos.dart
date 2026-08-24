@@ -54,3 +54,21 @@ const Map<String, IconData> _logosByCanonicalBrand = {
 /// [normalizeBrand]) so spelling variants (VW, Mercedes, Citroen...) still
 /// resolve correctly.
 IconData? brandLogoFor(String brand) => _logosByCanonicalBrand[normalizeBrand(brand)];
+
+/// Per-brand visual-size correction (bloc: logos plus visibles, 2026).
+/// [Icon] renders every glyph inside the same nominal square box regardless
+/// of how much of that box the brand's own mark actually fills - Audi's
+/// four rings are wide and short (authored well inside their square in the
+/// source SVG), unlike a mark that already fills its box edge to edge like
+/// Volkswagen's circular badge, so at an identical `size` the rings read as
+/// visibly smaller/weaker. This multiplies the base icon size for brands
+/// known to be under-filled this way, so every logo reads with a similar
+/// visual presence rather than the same technical point size. 1.0 (no
+/// correction) for everything not listed here - a curated calibration
+/// table rather than a claim of automatic, pixel-measured normalization,
+/// which [Icon] has no API to provide.
+const Map<String, double> _visualSizeBoost = {
+  'Audi': 1.3,
+};
+
+double brandLogoVisualBoost(String brand) => _visualSizeBoost[normalizeBrand(brand)] ?? 1.0;

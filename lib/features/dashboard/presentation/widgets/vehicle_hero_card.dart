@@ -73,6 +73,20 @@ class VehicleHeroCard extends ConsumerWidget {
     // resolves to white, but this stays correct if that ever changes.
     final onColor = vehicleColor.onColor;
 
+    // Brand logo square: base size raised (mission pass, 2026: "les logos
+    // sont actuellement trop petits") and, for a logo with a known-under-
+    // filled glyph box (see brandLogoVisualBoost - e.g. Audi's wide, short
+    // rings), boosted further so every brand reads with a similar visual
+    // presence rather than the same technical point size - clamped so a
+    // boosted glyph can never outgrow its own container.
+    final logo = brandLogoFor(vehicle.brand);
+    const logoContainerSize = 42.0;
+    const baseLogoSize = 24.0;
+    final logoSize = logo == null
+        ? baseLogoSize
+        : (baseLogoSize * brandLogoVisualBoost(vehicle.brand))
+            .clamp(baseLogoSize, logoContainerSize - 10);
+
     return Column(
       key: ValueKey('vehicleHeroCardHeader-${vehicle.id}'),
       mainAxisSize: MainAxisSize.min,
@@ -88,12 +102,13 @@ class VehicleHeroCard extends ConsumerWidget {
           child: Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: logoContainerSize,
+                height: logoContainerSize,
                 decoration: BoxDecoration(
                   color: onColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
+                alignment: Alignment.center,
                 // The brand's own logo glyph when one is available (bloc:
                 // identité visuelle) - a locally-bundled, tintable monochrome
                 // mark, never a full-colour bitmap, so it stays legible and
@@ -102,8 +117,8 @@ class VehicleHeroCard extends ConsumerWidget {
                 // the generic vehicle icon for a brand simple_icons doesn't
                 // cover - never a blank square, never a guessed logo.
                 child: Icon(
-                  brandLogoFor(vehicle.brand) ?? Icons.directions_car_filled,
-                  size: 16,
+                  logo ?? Icons.directions_car_filled,
+                  size: logoSize,
                   color: onColor,
                 ),
               ),

@@ -235,6 +235,32 @@ void main() {
         VehicleCardColor.bluePetrole,
       );
     });
+
+    test('the palette was enriched well beyond the old 8 tones, and every entry is a distinct '
+        'colour (mission 2026: "la palette actuelle est trop limitée")', () {
+      expect(VehicleCardColor.values.length, greaterThanOrEqualTo(12));
+      final hexValues = VehicleCardColor.values.map((c) => c.color.toARGB32()).toSet();
+      expect(hexValues.length, VehicleCardColor.values.length,
+          reason: 'every palette entry must be a visually distinct colour, no duplicates');
+    });
+
+    test('with `avoid` set, a tie is never resolved back to the colour just used - the '
+        'mission\'s "éviter deux véhicules successifs de même couleur", exercised once the '
+        'palette has already done a full lap and every tone ties again', () {
+      final allUsedOnce = VehicleCardColor.values.map((c) => c.storageKey).toList();
+      final withoutAvoid = VehicleCardColor.nextFor(allUsedOnce);
+      expect(withoutAvoid, VehicleCardColor.bluePetrole);
+      final withAvoid = VehicleCardColor.nextFor(allUsedOnce, avoid: VehicleCardColor.bluePetrole);
+      expect(withAvoid, isNot(VehicleCardColor.bluePetrole));
+    });
+
+    test('`avoid` is a no-op when it isn\'t actually the colour that would\'ve been picked', () {
+      final used = [VehicleCardColor.bluePetrole.storageKey];
+      expect(
+        VehicleCardColor.nextFor(used, avoid: VehicleCardColor.terracotta),
+        VehicleCardColor.blueNuit,
+      );
+    });
   });
 
   test('createVehicle auto-assigns a card colour, distinct from the paint colour field', () async {
@@ -250,6 +276,19 @@ void main() {
     final q5 = await repo.getOne(q5Id);
     final astra = await repo.getOne(astraId);
     expect(q5.cardColorKey, isNot(astra.cardColorKey));
+  });
+
+  test('mission scenario: Audi Q5, Volkswagen Tiguan, Opel Astra created in sequence each get a '
+      'DIFFERENT colour - never all three landing on bleu pétrole', () async {
+    final q5Id = await repo.createVehicle(brand: 'Audi', model: 'Q5', currentMileage: 86750);
+    final tiguanId =
+        await repo.createVehicle(brand: 'Volkswagen', model: 'Tiguan', currentMileage: 110000);
+    final astraId = await repo.createVehicle(brand: 'Opel', model: 'Astra', currentMileage: 270000);
+    final q5 = await repo.getOne(q5Id);
+    final tiguan = await repo.getOne(tiguanId);
+    final astra = await repo.getOne(astraId);
+    final keys = {q5.cardColorKey, tiguan.cardColorKey, astra.cardColorKey};
+    expect(keys.length, 3, reason: 'all three vehicles must get visibly distinct colours');
   });
 
   test('updateVehicleCardColor persists a manual choice and allows two vehicles to share it',
