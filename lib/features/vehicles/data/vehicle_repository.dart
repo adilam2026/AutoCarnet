@@ -102,12 +102,20 @@ class VehicleRepository {
     return await query.getSingleOrNull() != null;
   }
 
-  /// Quick creation (Principe 2): only brand, model and current mileage are
-  /// required, everything else can be completed later.
+  /// Quick creation (Principe 2): only brand, model, current mileage and a
+  /// card colour are required, everything else (finition included) can be
+  /// completed later from the fiche. [cardColor] is the colour the user
+  /// actually confirmed on the quick-create screen (itself pre-filled from
+  /// [nextCardColor] so the very first render already proposes a distinct,
+  /// deterministic tone, never always the same default) - passing it here
+  /// keeps the picker's live preview and the saved vehicle in sync. Left
+  /// null only by callers that never show a picker at all (e.g. tests),
+  /// in which case the deterministic auto-assignment still applies.
   Future<String> createVehicle({
     required String brand,
     required String model,
     required double currentMileage,
+    VehicleCardColor? cardColor,
     String? trim,
     int? year,
     String? vin,
@@ -122,7 +130,7 @@ class VehicleRepository {
   }) async {
     final id = newId();
     final now = DateTime.now();
-    final cardColor = await _nextCardColor();
+    final resolvedCardColor = cardColor ?? await _nextCardColor();
     await _db.into(_db.vehicles).insert(
           VehiclesCompanion.insert(
             id: id,
@@ -138,7 +146,7 @@ class VehicleRepository {
             transmission: Value(transmission),
             color: Value(color),
             finishLevel: Value(finishLevel),
-            cardColorKey: Value(cardColor.storageKey),
+            cardColorKey: Value(resolvedCardColor.storageKey),
             photoPath: Value(photoPath),
             comments: Value(comments),
             createdAt: now,
@@ -174,6 +182,14 @@ class VehicleRepository {
   /// recently created vehicle's own colour is passed as [VehicleCardColor.
   /// nextFor]'s `avoid` so two vehicles created back-to-back never end up
   /// with the same colour even once the palette starts repeating.
+  ///
+  /// Public (not just an internal [createVehicle] helper) so the
+  /// quick-create screen can pre-select the exact same colour in its
+  /// picker before the vehicle even exists - the user then sees the real
+  /// proposed colour immediately (never a hardcoded "bleu pétrole par
+  /// défaut"), and can still change it before saving.
+  Future<VehicleCardColor> nextCardColor() => _nextCardColor();
+
   Future<VehicleCardColor> _nextCardColor() async {
     final existing = await (_db.select(_db.vehicles)
           ..where((v) => v.isDeleted.equals(false))

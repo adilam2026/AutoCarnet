@@ -12,6 +12,7 @@ import '../../domain/finish_level_labels.dart';
 import '../../domain/vehicle_card_color.dart';
 import '../../domain/vehicle_reference_data.dart';
 import '../widgets/brand_model_fields.dart';
+import '../widgets/card_color_picker.dart';
 
 /// Every field beyond the 3 required at creation lives here - the fiche is
 /// completed progressively, never all at once (Principe 2).
@@ -160,7 +161,7 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
-          _CardColorPicker(
+          CardColorPicker(
             selected: _cardColor,
             vehicleLabel: '${_brand.text.trim().isEmpty ? widget.vehicle.brand : _brand.text.trim()} '
                 '${_model.text.trim().isEmpty ? widget.vehicle.model : _model.text.trim()}',
@@ -292,117 +293,4 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
         VehicleCondition.average => 'Moyen',
         VehicleCondition.needsWork => 'À prévoir',
       };
-}
-
-/// A small, self-contained "couleur de la carte" picker (bloc 9/11): a live
-/// preview of the identity band in the currently-selected colour, then the
-/// AutoCarnet palette as tappable pastilles - deliberately not a full
-/// configurator, just enough to answer "à quoi ressemblera ma carte ?".
-class _CardColorPicker extends StatelessWidget {
-  const _CardColorPicker({
-    required this.selected,
-    required this.vehicleLabel,
-    required this.onChanged,
-  });
-
-  final VehicleCardColor selected;
-  final String vehicleLabel;
-  final ValueChanged<VehicleCardColor> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AnimatedContainer(
-          duration: AppMotion.fast,
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: selected.color,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: const Icon(Icons.directions_car_filled, size: 14, color: Colors.white),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  vehicleLabel,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final c in VehicleCardColor.values)
-              _ColorSwatch(
-                color: c,
-                selected: c == selected,
-                onTap: () => onChanged(c),
-              ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          selected.label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
-
-class _ColorSwatch extends StatelessWidget {
-  const _ColorSwatch({required this.color, required this.selected, required this.onTap});
-
-  final VehicleCardColor color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: color.label,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 34,
-          height: 34,
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: selected
-                ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2)
-                : null,
-          ),
-          child: Container(
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color.color),
-            child: selected
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : null,
-          ),
-        ),
-      ),
-    );
-  }
 }

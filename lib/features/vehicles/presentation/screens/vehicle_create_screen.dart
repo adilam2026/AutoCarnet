@@ -6,15 +6,17 @@ import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/feedback.dart';
 import '../../data/vehicle_repository.dart';
-import '../../domain/finish_level_labels.dart';
+import '../../domain/vehicle_card_color.dart';
 import '../widgets/brand_model_fields.dart';
+import '../widgets/card_color_picker.dart';
 
-/// Principe 2 (saisie minimale): brand, model, current mileage and finition
-/// are asked upfront - finition is required from the start (not deferred
-/// like the rest of the sheet) because the resale valuation engine needs a
-/// real, structured value for it, never a guess (mission 2026: précision de
-/// l'estimation de revente). Everything else is completed later from the
-/// vehicle sheet.
+/// Principe 2 (saisie minimale): brand, model, current mileage and a card
+/// colour are asked upfront - four fields, a few seconds. Finition,
+/// motorisation, carburant, immatriculation, etc. (including the resale
+/// valuation engine's finition input) all stay reachable from the fiche
+/// complète and can be filled in later ("palette plus vive" pass, 2026:
+/// finition removed from this quick-create screen on purpose, never from
+/// the data model - see [Vehicle.finishLevel]).
 class VehicleCreateScreen extends ConsumerStatefulWidget {
   const VehicleCreateScreen({super.key});
 
@@ -29,8 +31,23 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
   final _modelCtrl = TextEditingController();
   final _mileageCtrl = TextEditingController();
   String _brand = '';
-  VehicleFinishLevel? _finishLevel;
+  // Pre-filled from the same deterministic, least-used-first assignment
+  // createVehicle would otherwise apply on its own (spec point 7: "ne pas
+  // toujours attribuer le bleu pétrole par défaut") - this placeholder is
+  // only ever shown for the instant before that lookup resolves.
+  VehicleCardColor _cardColor = VehicleCardColor.bluePetrole;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProposedColor();
+  }
+
+  Future<void> _loadProposedColor() async {
+    final proposed = await ref.read(vehicleRepositoryProvider).nextCardColor();
+    if (mounted) setState(() => _cardColor = proposed);
+  }
 
   @override
   void dispose() {
@@ -48,7 +65,7 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
             brand: _brandCtrl.text.trim(),
             model: _modelCtrl.text.trim(),
             currentMileage: double.parse(_mileageCtrl.text.trim()),
-            finishLevel: _finishLevel,
+            cardColor: _cardColor,
           );
       if (!mounted) return;
       showAppSnackBar(context, 'Véhicule ajouté', icon: Icons.check_circle_outline);
@@ -103,7 +120,7 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
             ModelField(
               controller: _modelCtrl,
               brand: _brand,
-              onChanged: (_) {},
+              onChanged: (_) => setState(() {}),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
             ),
@@ -125,18 +142,15 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<VehicleFinishLevel>(
-              initialValue: _finishLevel,
-              decoration: const InputDecoration(labelText: 'Finition / niveau d\'équipement *'),
-              hint: const Text('Sélectionner'),
-              isExpanded: true,
-              items: [
-                for (final f in VehicleFinishLevel.values)
-                  DropdownMenuItem(value: f, child: Text(finishLevelLabel(f))),
-              ],
-              onChanged: (v) => setState(() => _finishLevel = v),
-              validator: (v) => v == null ? 'Champ requis' : null,
+            const SizedBox(height: AppSpacing.lg),
+            Text('Couleur de la carte', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.sm),
+            CardColorPicker(
+              selected: _cardColor,
+              vehicleLabel: _brandCtrl.text.trim().isEmpty && _modelCtrl.text.trim().isEmpty
+                  ? 'Votre véhicule'
+                  : '${_brandCtrl.text.trim()} ${_modelCtrl.text.trim()}'.trim(),
+              onChanged: (c) => setState(() => _cardColor = c),
             ),
             const SizedBox(height: AppSpacing.xl),
             FilledButton(

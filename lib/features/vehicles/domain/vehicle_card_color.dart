@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 
 /// AutoCarnet's curated palette for the home dashboard's vehicle-card
 /// identity (design-review pass, 2026: "carte identité du véhicule",
-/// Variante A retenue; enriched in a later pass to 17 tones - "palette trop
-/// limitée"). Every tone is dark and similarly-desaturated - never a
-/// bright/saturated hue - so white text/icons are legible on every single
-/// one of them by construction: there is no per-colour text-contrast
-/// branch anywhere in the UI, because none is ever needed.
+/// Variante A retenue; enriched to 17 tones; then rebalanced in the
+/// "palette plus vive" pass - the original 17-dark-and-desaturated set read
+/// as too uniform once a garage held several vehicles). Tones now span
+/// three brightness tiers on purpose (deep premium / intermediate / vivid
+/// expressive) across real automotive colour families - blues, greens,
+/// reds, oranges/copper, violets, neutrals - so [onColor] genuinely
+/// branches: most tiles still resolve to white, but the lightest ("Argent")
+/// resolves to dark content, which is exactly why that branch exists rather
+/// than an assumption that white always works.
 ///
-/// The original 8 members keep their exact enum name (and therefore their
-/// [storageKey]) even where a newer, closely-related tone was added next to
-/// them (e.g. `grisGraphite` alongside the new `grisBleute`) - renaming or
-/// removing one would silently reinterpret every vehicle already saved with
-/// that key, which the mission explicitly forbids ("une couleur enregistrée
-/// reste enregistrée").
+/// Every member keeps its exact enum name (and therefore its
+/// [storageKey]) across palette passes, even when the tone or [label]
+/// behind it changes (e.g. `aubergine` now renders as a vivid violet,
+/// `grisBleute` as a light silver) - renaming or removing a member would
+/// silently reinterpret every vehicle already saved with that key, which
+/// the mission explicitly forbids ("une couleur enregistrée reste
+/// enregistrée"). Rebalancing the colour a key maps to is fine; changing
+/// what the key itself is is not.
 ///
 /// This is a distinct property from [Vehicle.color] (the vehicle's real
 /// paint colour, a free-text administrative field on the fiche) - the two
@@ -38,58 +44,61 @@ enum VehicleCardColor {
   grisBleute;
 
   Color get color => switch (this) {
-        VehicleCardColor.bluePetrole => const Color(0xFF123B54),
+        VehicleCardColor.bluePetrole => const Color(0xFF0E5C82),
         VehicleCardColor.blueNuit => const Color(0xFF16233D),
-        VehicleCardColor.blueArdoise => const Color(0xFF33475B),
-        VehicleCardColor.blueAcier => const Color(0xFF2C5C7A),
-        VehicleCardColor.vertForet => const Color(0xFF1E4638),
-        VehicleCardColor.vertSapin => const Color(0xFF11332A),
-        VehicleCardColor.vertSaugeFonce => const Color(0xFF4A5A44),
-        VehicleCardColor.bordeaux => const Color(0xFF6B2432),
-        VehicleCardColor.rougeGrenat => const Color(0xFF7E1B26),
-        VehicleCardColor.terracotta => const Color(0xFF9C5033),
-        VehicleCardColor.cuivre => const Color(0xFFA15A2A),
-        VehicleCardColor.prune => const Color(0xFF55305A),
-        VehicleCardColor.aubergine => const Color(0xFF34193B),
-        VehicleCardColor.roseVieux => const Color(0xFF7C4A56),
-        VehicleCardColor.taupe => const Color(0xFF5E5449),
+        VehicleCardColor.blueArdoise => const Color(0xFF2A52BE),
+        VehicleCardColor.blueAcier => const Color(0xFF2E74C2),
+        VehicleCardColor.vertForet => const Color(0xFF1B4332),
+        VehicleCardColor.vertSapin => const Color(0xFF0E8F5E),
+        VehicleCardColor.vertSaugeFonce => const Color(0xFF6E8B5E),
+        VehicleCardColor.bordeaux => const Color(0xFF6B1F2A),
+        VehicleCardColor.rougeGrenat => const Color(0xFF9B1B30),
+        VehicleCardColor.terracotta => const Color(0xFFC1613B),
+        VehicleCardColor.cuivre => const Color(0xFFB06B34),
+        VehicleCardColor.prune => const Color(0xFF5B3161),
+        VehicleCardColor.aubergine => const Color(0xFF7B4FB5),
+        VehicleCardColor.roseVieux => const Color(0xFFC0293D),
+        VehicleCardColor.taupe => const Color(0xFF6B5F52),
         VehicleCardColor.grisGraphite => const Color(0xFF3B4048),
-        VehicleCardColor.grisBleute => const Color(0xFF54606B),
+        VehicleCardColor.grisBleute => const Color(0xFFA9B2BC),
       };
 
   /// Content painted directly ON [color] (icons, labels in a filled band):
   /// real luminance-based contrast, not an assumption that white always
-  /// works - every entry above happens to be dark enough that this
-  /// resolves to white today, but an edited/added palette entry stays
-  /// protected automatically (mission point 4/14: "ne jamais supposer que
+  /// works - most entries above are dark enough that this resolves to
+  /// white, but the lightest one ("Argent") genuinely resolves to dark
+  /// content, so an edited/added palette entry stays protected
+  /// automatically either way (mission point 4/14: "ne jamais supposer que
   /// le blanc sera lisible sur toutes les couleurs disponibles").
   Color get onColor => contrastingOnColor(color);
 
   /// [color] itself, used AS a foreground/border/accent on the app's white
   /// or near-white surfaces (a card's contour, an identity chip's border
-  /// and icon chip) - darkened just enough to stay readable if a future
-  /// palette entry were ever light, otherwise identical to [color]. Every
-  /// current entry is already dark enough that this is a no-op.
+  /// and icon chip) - darkened just enough to stay readable if a palette
+  /// entry is too light for that role, otherwise identical to [color]. Even
+  /// the lightest current entry ("Argent", ~0.44 luminance) still stays
+  /// under the 0.5 darkening threshold, so this remains a no-op today, but
+  /// the branch is real and exercised by tests, not an assumption.
   Color get onLightSurface => safeAccentOnLightSurface(color);
 
   String get label => switch (this) {
         VehicleCardColor.bluePetrole => 'Bleu pétrole',
-        VehicleCardColor.blueNuit => 'Bleu nuit',
-        VehicleCardColor.blueArdoise => 'Bleu ardoise',
-        VehicleCardColor.blueAcier => 'Bleu acier',
+        VehicleCardColor.blueNuit => 'Bleu marine',
+        VehicleCardColor.blueArdoise => 'Bleu royal',
+        VehicleCardColor.blueAcier => 'Bleu azur',
         VehicleCardColor.vertForet => 'Vert forêt',
-        VehicleCardColor.vertSapin => 'Vert sapin',
-        VehicleCardColor.vertSaugeFonce => 'Vert sauge foncé',
+        VehicleCardColor.vertSapin => 'Vert émeraude',
+        VehicleCardColor.vertSaugeFonce => 'Vert sauge soutenu',
         VehicleCardColor.bordeaux => 'Bordeaux',
         VehicleCardColor.rougeGrenat => 'Rouge grenat',
         VehicleCardColor.terracotta => 'Terracotta',
         VehicleCardColor.cuivre => 'Cuivre',
         VehicleCardColor.prune => 'Prune',
-        VehicleCardColor.aubergine => 'Aubergine',
-        VehicleCardColor.roseVieux => 'Rose vieux',
+        VehicleCardColor.aubergine => 'Violet',
+        VehicleCardColor.roseVieux => 'Rouge automobile',
         VehicleCardColor.taupe => 'Taupe',
         VehicleCardColor.grisGraphite => 'Gris graphite',
-        VehicleCardColor.grisBleute => 'Gris bleuté',
+        VehicleCardColor.grisBleute => 'Argent',
       };
 
   /// The stored key (persisted as-is in [Vehicle.cardColorKey] and synced
