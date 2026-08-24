@@ -8,6 +8,7 @@ import '../../../core/utils/layout.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/loading_error_views.dart';
+import '../../documents/presentation/personal_documents_screen.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../reminders/domain/reminder_urgency.dart';
 import '../../vehicles/data/vehicle_repository.dart';
@@ -101,7 +102,12 @@ class _AlertsBodyState extends ConsumerState<AlertsBody> {
               urgency: urgencyOf[r.id]!,
               onTap: vehicles[r.vehicleId] != null
                   ? () => context.push('/vehicles/${vehicles[r.vehicleId]!.id}')
-                  : null,
+                  // A personal reminder (permis de conduire...) has no
+                  // vehicle to open - it belongs to the profile instead.
+                  : r.vehicleId == null
+                      ? () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PersonalDocumentsScreen()))
+                      : null,
             );
 
         return Column(

@@ -141,6 +141,10 @@ void main() {
       );
       await tester.pump();
 
+      // "Mes documents personnels" (mission 2026) pushes "Sécurité" further
+      // down the page - scroll to it rather than assuming it's on-screen.
+      await tester.ensureVisible(find.text('Verrouiller maintenant'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Verrouiller maintenant'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Verrouiller'));

@@ -11459,9 +11459,9 @@ class $RemindersTable extends Reminders
   late final GeneratedColumn<String> vehicleId = GeneratedColumn<String>(
     'vehicle_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES vehicles (id)',
     ),
@@ -11661,8 +11661,6 @@ class $RemindersTable extends Reminders
         _vehicleIdMeta,
         vehicleId.isAcceptableOrUnknown(data['vehicle_id']!, _vehicleIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_vehicleIdMeta);
     }
     if (data.containsKey('source_type')) {
       context.handle(
@@ -11771,7 +11769,7 @@ class $RemindersTable extends Reminders
       vehicleId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}vehicle_id'],
-      )!,
+      ),
       sourceType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
@@ -11844,7 +11842,7 @@ class $RemindersTable extends Reminders
 
 class Reminder extends DataClass implements Insertable<Reminder> {
   final String id;
-  final String vehicleId;
+  final String? vehicleId;
   final String sourceType;
   final String sourceId;
   final String title;
@@ -11861,7 +11859,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
   final String? updatedBy;
   const Reminder({
     required this.id,
-    required this.vehicleId,
+    this.vehicleId,
     required this.sourceType,
     required this.sourceId,
     required this.title,
@@ -11881,7 +11879,9 @@ class Reminder extends DataClass implements Insertable<Reminder> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['vehicle_id'] = Variable<String>(vehicleId);
+    if (!nullToAbsent || vehicleId != null) {
+      map['vehicle_id'] = Variable<String>(vehicleId);
+    }
     map['source_type'] = Variable<String>(sourceType);
     map['source_id'] = Variable<String>(sourceId);
     map['title'] = Variable<String>(title);
@@ -11916,7 +11916,9 @@ class Reminder extends DataClass implements Insertable<Reminder> {
   RemindersCompanion toCompanion(bool nullToAbsent) {
     return RemindersCompanion(
       id: Value(id),
-      vehicleId: Value(vehicleId),
+      vehicleId: vehicleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vehicleId),
       sourceType: Value(sourceType),
       sourceId: Value(sourceId),
       title: Value(title),
@@ -11951,7 +11953,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Reminder(
       id: serializer.fromJson<String>(json['id']),
-      vehicleId: serializer.fromJson<String>(json['vehicleId']),
+      vehicleId: serializer.fromJson<String?>(json['vehicleId']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
       sourceId: serializer.fromJson<String>(json['sourceId']),
       title: serializer.fromJson<String>(json['title']),
@@ -11975,7 +11977,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'vehicleId': serializer.toJson<String>(vehicleId),
+      'vehicleId': serializer.toJson<String?>(vehicleId),
       'sourceType': serializer.toJson<String>(sourceType),
       'sourceId': serializer.toJson<String>(sourceId),
       'title': serializer.toJson<String>(title),
@@ -11997,7 +11999,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
 
   Reminder copyWith({
     String? id,
-    String? vehicleId,
+    Value<String?> vehicleId = const Value.absent(),
     String? sourceType,
     String? sourceId,
     String? title,
@@ -12014,7 +12016,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     Value<String?> updatedBy = const Value.absent(),
   }) => Reminder(
     id: id ?? this.id,
-    vehicleId: vehicleId ?? this.vehicleId,
+    vehicleId: vehicleId.present ? vehicleId.value : this.vehicleId,
     sourceType: sourceType ?? this.sourceType,
     sourceId: sourceId ?? this.sourceId,
     title: title ?? this.title,
@@ -12125,7 +12127,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
 
 class RemindersCompanion extends UpdateCompanion<Reminder> {
   final Value<String> id;
-  final Value<String> vehicleId;
+  final Value<String?> vehicleId;
   final Value<String> sourceType;
   final Value<String> sourceId;
   final Value<String> title;
@@ -12162,7 +12164,7 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
   });
   RemindersCompanion.insert({
     required String id,
-    required String vehicleId,
+    this.vehicleId = const Value.absent(),
     required String sourceType,
     required String sourceId,
     required String title,
@@ -12179,7 +12181,6 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
     this.updatedBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       vehicleId = Value(vehicleId),
        sourceType = Value(sourceType),
        sourceId = Value(sourceId),
        title = Value(title),
@@ -12227,7 +12228,7 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
 
   RemindersCompanion copyWith({
     Value<String>? id,
-    Value<String>? vehicleId,
+    Value<String?>? vehicleId,
     Value<String>? sourceType,
     Value<String>? sourceId,
     Value<String>? title,
@@ -22593,7 +22594,7 @@ typedef $$OperationFrequencyPreferencesTableProcessedTableManager =
 typedef $$RemindersTableCreateCompanionBuilder =
     RemindersCompanion Function({
       required String id,
-      required String vehicleId,
+      Value<String?> vehicleId,
       required String sourceType,
       required String sourceId,
       required String title,
@@ -22613,7 +22614,7 @@ typedef $$RemindersTableCreateCompanionBuilder =
 typedef $$RemindersTableUpdateCompanionBuilder =
     RemindersCompanion Function({
       Value<String> id,
-      Value<String> vehicleId,
+      Value<String?> vehicleId,
       Value<String> sourceType,
       Value<String> sourceId,
       Value<String> title,
@@ -22638,9 +22639,9 @@ final class $$RemindersTableReferences
   static $VehiclesTable _vehicleIdTable(_$AppDatabase db) =>
       db.vehicles.createAlias('reminders__vehicle_id__vehicles__id');
 
-  $$VehiclesTableProcessedTableManager get vehicleId {
-    final $_column = $_itemColumn<String>('vehicle_id')!;
-
+  $$VehiclesTableProcessedTableManager? get vehicleId {
+    final $_column = $_itemColumn<String>('vehicle_id');
+    if ($_column == null) return null;
     final manager = $$VehiclesTableTableManager(
       $_db,
       $_db.vehicles,
@@ -22985,7 +22986,7 @@ class $$RemindersTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> vehicleId = const Value.absent(),
+                Value<String?> vehicleId = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String> sourceId = const Value.absent(),
                 Value<String> title = const Value.absent(),
@@ -23023,7 +23024,7 @@ class $$RemindersTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                required String vehicleId,
+                Value<String?> vehicleId = const Value.absent(),
                 required String sourceType,
                 required String sourceId,
                 required String title,

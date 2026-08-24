@@ -16,14 +16,21 @@ class ReminderRepository {
   /// (a document version, a maintenance entry...). Renewing a document or
   /// editing a maintenance's next-due simply calls this again - the old
   /// reminder is superseded automatically (RG-ALR-005).
+  ///
+  /// [vehicleId] is null for a personal (driver-level) reminder - a permis
+  /// de conduire, not tied to any one vehicle. [createdBy] is required in
+  /// that case (there's no vehicle-ownership join to scope it by instead -
+  /// see [_scopedQuery]); for a vehicle-scoped reminder it's optional and
+  /// left to sync to fill in on push, exactly as before.
   Future<void> upsertForSource({
-    required String vehicleId,
+    required String? vehicleId,
     required String sourceType,
     required String sourceId,
     required String title,
     DateTime? dueDate,
     double? dueMileage,
     String priority = 'normal',
+    String? createdBy,
   }) async {
     final existing = await (_db.select(_db.reminders)
           ..where((r) =>
@@ -51,13 +58,14 @@ class ReminderRepository {
       await _db.into(_db.reminders).insert(
             RemindersCompanion.insert(
               id: newId(),
-              vehicleId: vehicleId,
+              vehicleId: Value(vehicleId),
               sourceType: sourceType,
               sourceId: sourceId,
               title: title,
               dueDate: Value(dueDate),
               dueMileage: Value(dueMileage),
               priority: Value(priority),
+              createdBy: Value(createdBy),
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             ),
@@ -137,15 +145,25 @@ class ReminderRepository {
     return query.watch().map((rows) => rows.map((r) => r.readTable(_db.reminders)).toList());
   }
 
+  /// Left join (not inner): a personal reminder (vehicleId null - permis de
+  /// conduire) has no matching vehicle row at all, and must still surface
+  /// here rather than silently vanishing. It's scoped by [createdBy]
+  /// instead of vehicle ownership - the same "unowned/mine" pattern every
+  /// other per-account table in this app uses (see VehicleRepository.
+  /// watchAll, DocumentRepository.watchDriverDocuments).
   JoinedSelectStatement _scopedQuery(String? currentUserId) {
     final query = _db.select(_db.reminders).join([
-      innerJoin(_db.vehicles, _db.vehicles.id.equalsExp(_db.reminders.vehicleId)),
+      leftOuterJoin(_db.vehicles, _db.vehicles.id.equalsExp(_db.reminders.vehicleId)),
     ]);
     if (currentUserId != null) {
       query.where(
-        _db.vehicles.ownerId.isNull() |
-            _db.vehicles.ownerId.equals(currentUserId) |
-            _db.vehicles.myRole.isNotNull(),
+        (_db.reminders.vehicleId.isNull() &
+                (_db.reminders.createdBy.isNull() |
+                    _db.reminders.createdBy.equals(currentUserId))) |
+            (_db.reminders.vehicleId.isNotNull() &
+                (_db.vehicles.ownerId.isNull() |
+                    _db.vehicles.ownerId.equals(currentUserId) |
+                    _db.vehicles.myRole.isNotNull())),
       );
     }
     return query;

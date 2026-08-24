@@ -1,13 +1,63 @@
+import 'package:autocarnet/core/database/database.dart';
+import 'package:autocarnet/core/database/providers.dart';
 import 'package:autocarnet/features/account/data/account_repository.dart';
 import 'package:autocarnet/features/onboarding_lock/data/biometric_service.dart';
+import 'package:autocarnet/features/onboarding_lock/data/local_profile_repository.dart';
 import 'package:autocarnet/features/onboarding_lock/data/pin_service.dart';
 import 'package:autocarnet/features/onboarding_lock/presentation/lock_screen.dart';
 import 'package:autocarnet/features/onboarding_lock/presentation/pin_recovery_screen.dart';
 import 'package:autocarnet/features/onboarding_lock/presentation/pin_setup_screen.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+class _FakeSignedInAccountRepository implements AccountRepository {
+  _FakeSignedInAccountRepository(this._userId);
+  final String _userId;
+  @override
+  User? get currentUser => User(
+        id: _userId,
+        appMetadata: const {},
+        userMetadata: null,
+        aud: 'authenticated',
+        email: 'a@example.com',
+        createdAt: DateTime.now().toIso8601String(),
+      );
+  @override
+  Session? get currentSession => null;
+  @override
+  bool get isSignedIn => true;
+  @override
+  Stream<AuthState> get onAuthStateChange => const Stream.empty();
+  @override
+  Future<String?> tryRestoreDeviceSession(String email) async => null;
+  @override
+  Future<void> sendEmailCode(String email) async {}
+  @override
+  Future<void> verifyEmailCode({required String email, required String code}) async {}
+  @override
+  Future<String> installationId() async => 'test-device';
+  @override
+  Future<String?> deviceAuthorizedUserId() async => _userId;
+  @override
+  Future<String?> lastDeviceUserId() async => _userId;
+  @override
+  Future<String?> deviceAuthorizedEmail() async => 'a@example.com';
+  @override
+  Future<void> registerThisDevice() async {}
+  @override
+  Future<bool> isDeviceStillAuthorized({required String userId}) async => true;
+  @override
+  Future<List<AuthorizedDevice>> listMyDevices() async => const [];
+  @override
+  Future<void> revokeDevice(String deviceRowId) async {}
+  @override
+  Future<void> disconnectFromThisDevice() async {}
+  @override
+  Future<void> disconnectFromAllDevices() async {}
+}
 
 /// Per-account, in-memory - mirrors the real PinService's contract (spec
 /// TEST F: account A's PIN must never open account B's data).
@@ -176,6 +226,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(unlocked, isTrue);
+    });
+
+    testWidgets(
+        'mission regression: once a displayName is set for this account, the lock screen '
+        'greets by name, never by raw email', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final profiles = LocalProfileRepository(db);
+      await profiles.create(displayName: 'Adil', ownerId: 'user-1');
+
+      final pinService = FakePinService();
+      await pinService.setPin('user-1', '9999');
+      final container = ProviderContainer(overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        accountRepositoryProvider.overrideWithValue(_FakeSignedInAccountRepository('user-1')),
+        pinServiceProvider.overrideWithValue(pinService),
+        biometricServiceProvider.overrideWithValue(FakeBiometricService()),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: LockScreen(
+              accountId: 'user-1',
+              email: 'a@example.com',
+              onUnlocked: () {},
+              onForgotCode: () {},
+              onSwitchAccount: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adil'), findsOneWidget);
+      expect(find.text('a@example.com'), findsNothing);
     });
 
     testWidgets('a wrong PIN shows an error and never unlocks', (tester) async {

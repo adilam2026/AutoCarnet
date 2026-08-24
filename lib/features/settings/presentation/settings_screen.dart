@@ -8,6 +8,7 @@ import '../../../core/widgets/icon_chip.dart';
 import '../../../core/widgets/list_surface.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../account/data/account_repository.dart';
+import '../../documents/presentation/personal_documents_screen.dart';
 import '../../onboarding_lock/data/biometric_service.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../onboarding_lock/presentation/app_gate.dart';
@@ -250,6 +251,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
             orElse: () => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('Mes documents personnels'),
+          const SizedBox(height: AppSpacing.sm),
+          ListSurface(
+            children: [
+              ListTile(
+                leading: const IconChip(Icons.badge_outlined),
+                title: const Text('Permis de conduire, pièce d\'identité...'),
+                subtitle: const Text('Valables pour tous vos véhicules - jamais redemandés par voiture'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const PersonalDocumentsScreen())),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Sécurité'),

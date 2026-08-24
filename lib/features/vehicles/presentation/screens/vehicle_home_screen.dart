@@ -181,7 +181,6 @@ class _VehicleHomeBody extends ConsumerWidget {
     final maintenanceEntries =
         ref.watch(vehicleMaintenanceProvider(vehicle.id)).value ?? const [];
     final documents = ref.watch(vehicleDocumentsProvider(vehicle.id)).value ?? const [];
-    final driverDocuments = ref.watch(driverDocumentsProvider).value ?? const [];
     final mileageHistory =
         ref.watch(vehicleMileageHistoryProvider(vehicle.id)).value ?? const [];
     final recentOperations = [...maintenanceEntries]..sort((a, b) => b.date.compareTo(a.date));
@@ -340,7 +339,6 @@ class _VehicleHomeBody extends ConsumerWidget {
             vehicleId: vehicle.id,
             firstRegistrationDate: vehicle.firstRegistrationDate,
             vehicleDocuments: documents,
-            driverDocuments: driverDocuments,
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Modules'),
@@ -1066,19 +1064,16 @@ class _AdministrativeCard extends StatelessWidget {
     required this.vehicleId,
     required this.firstRegistrationDate,
     required this.vehicleDocuments,
-    required this.driverDocuments,
   });
   final String vehicleId;
   final DateTime? firstRegistrationDate;
   final List<DocumentWithVersion> vehicleDocuments;
-  final List<DocumentWithVersion> driverDocuments;
 
-  static const _rows = [
-    ('Assurance', false),
-    ('Visite technique', false),
-    ('Vignette', false),
-    ('Permis de conduire', true),
-  ];
+  // Only documents genuinely tied to this vehicle - le permis de conduire
+  // appartient au profil, pas à une voiture (mission 2026), et vit
+  // désormais dans "Mes documents personnels" (Compte & sécurité), jamais
+  // ici : ne pas mélanger documents personnels et documents du véhicule.
+  static const _rows = ['Assurance', 'Visite technique', 'Vignette'];
 
   @override
   Widget build(BuildContext context) {
@@ -1086,7 +1081,7 @@ class _AdministrativeCard extends StatelessWidget {
       child: Column(
         children: [
           for (var i = 0; i < _rows.length; i++) ...[
-            _buildRow(context, _rows[i].$1, _rows[i].$2),
+            _buildRow(context, _rows[i]),
             if (i < _rows.length - 1) const Divider(height: 1),
           ],
         ],
@@ -1094,10 +1089,9 @@ class _AdministrativeCard extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(BuildContext context, String type, bool isDriverDoc) {
-    final pool = isDriverDoc ? driverDocuments : vehicleDocuments;
+  Widget _buildRow(BuildContext context, String type) {
     DocumentWithVersion? match;
-    for (final d in pool) {
+    for (final d in vehicleDocuments) {
       if (d.document.type == type) {
         match = d;
         break;
@@ -1121,7 +1115,7 @@ class _AdministrativeCard extends StatelessWidget {
         title: Text('Ajouter $type'),
         onTap: () => showDocumentFormSheet(
           context,
-          vehicleId: isDriverDoc ? null : vehicleId,
+          vehicleId: vehicleId,
           initialType: type,
         ),
       );
@@ -1137,7 +1131,7 @@ class _AdministrativeCard extends StatelessWidget {
       trailing: DocumentStatusChip(status: match.computedStatus),
       onTap: () => showDocumentFormSheet(
         context,
-        vehicleId: isDriverDoc ? null : vehicleId,
+        vehicleId: vehicleId,
         renewing: match!.document,
         renewingVersion: match.version,
       ),

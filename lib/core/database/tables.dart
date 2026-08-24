@@ -397,7 +397,11 @@ enum ReminderStatus { active, snoozed, done, dismissed }
 /// here instead of managing its own notifications.
 class Reminders extends Table {
   TextColumn get id => text()();
-  TextColumn get vehicleId => text().references(Vehicles, #id)();
+  // Nullable since the mission 2026 "permis de conduire" pass: a personal
+  // (driver-level, not vehicle-level) reminder has no single vehicle to
+  // belong to - see ReminderRepository's scoped queries, which fall back
+  // to [createdBy] for these instead of the vehicle-ownership join.
+  TextColumn get vehicleId => text().nullable().references(Vehicles, #id)();
   TextColumn get sourceType => text()(); // document, maintenance, custom
   TextColumn get sourceId => text()();
   TextColumn get title => text()();

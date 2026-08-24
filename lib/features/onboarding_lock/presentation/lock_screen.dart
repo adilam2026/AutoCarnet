@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/biometric_service.dart';
+import '../data/local_profile_repository.dart';
 import '../data/pin_service.dart';
 
 /// The local access-code screen (spec bloc 5/19 - DEVICE_AUTHORIZED_LOCKED):
@@ -27,8 +28,12 @@ class LockScreen extends ConsumerStatefulWidget {
   /// (spec TEST F).
   final String accountId;
 
-  /// The account this device is currently authorized for (spec bloc 5 -
-  /// "Bienvenue {email}") - purely cosmetic, never used for any decision.
+  /// The account this device is currently authorized for - purely cosmetic
+  /// (never used for any decision), and only ever shown as a fallback: the
+  /// profile's own displayName is the single source of truth for greeting
+  /// the user everywhere in the app (mission: no raw email standing in for
+  /// a name once one is set), this is used only when no displayName exists
+  /// yet for this account.
   final String? email;
   final VoidCallback onUnlocked;
   final VoidCallback onForgotCode;
@@ -149,6 +154,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final locked = _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
+    // The profile's displayName is the single source of truth for greeting
+    // the user (mission: never a raw email once a name is set) - falls
+    // back to the account's email only when no name has been set yet.
+    final displayName = ref.watch(localProfileProvider).valueOrNull?.displayName.trim();
+    final greetingName = (displayName != null && displayName.isNotEmpty) ? displayName : widget.email;
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -181,9 +191,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  if (widget.email != null && widget.email!.isNotEmpty)
+                  if (greetingName != null && greetingName.isNotEmpty)
                     Text(
-                      widget.email!,
+                      greetingName,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),

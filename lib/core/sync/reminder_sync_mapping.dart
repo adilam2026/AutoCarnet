@@ -26,7 +26,7 @@ RemindersCompanion reminderFromRemoteRow(Map<String, dynamic> row) {
 
   return RemindersCompanion.insert(
     id: row['id'] as String,
-    vehicleId: row['vehicle_id'] as String,
+    vehicleId: Value(row['vehicle_id'] as String?),
     sourceType: row['source_type'] as String,
     sourceId: row['source_id'] as String,
     title: row['title'] as String,

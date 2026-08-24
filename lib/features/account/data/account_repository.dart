@@ -90,8 +90,10 @@ class AccountRepository {
   /// became active.
   Future<String?> lastDeviceUserId() => _storage.read(key: _lastDeviceUserIdKey);
 
-  /// Cosmetic only (shown as "Bienvenue {email}" on the PIN screen, spec
-  /// bloc 5) - never used for any authorization decision.
+  /// Cosmetic only - never used for any authorization decision. Shown on
+  /// the PIN screen (spec bloc 5) only as a fallback greeting for an
+  /// account with no profile displayName set yet; once one exists, that
+  /// name is used instead (mission: never a raw email once a name exists).
   Future<String?> deviceAuthorizedEmail() => _storage.read(key: _deviceAuthEmailKey);
 
   Future<void> _rememberDeviceAuthorization({required String userId, required String email}) async {

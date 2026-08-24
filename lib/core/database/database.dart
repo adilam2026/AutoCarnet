@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -130,6 +130,15 @@ class AppDatabase extends _$AppDatabase {
             // resale valuation engine (mission 2026). Existing rows simply
             // have none (nullable) rather than a guessed level.
             await m.addColumn(vehicles, vehicles.finishLevel);
+          }
+          if (from < 11) {
+            // Permis de conduire (mission 2026): a personal reminder has
+            // no single vehicle to belong to, so Reminders.vehicleId must
+            // become nullable - SQLite can't ALTER a column's NOT NULL
+            // constraint in place, so this rebuilds the table (drift's
+            // standard alterTable procedure). Every existing row keeps its
+            // real vehicleId unchanged; only future rows may leave it null.
+            await m.alterTable(TableMigration(reminders));
           }
         },
       );

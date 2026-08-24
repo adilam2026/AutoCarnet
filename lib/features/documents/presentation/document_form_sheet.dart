@@ -178,6 +178,7 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
           comments: _commentsCtrl.text.trim().isEmpty
               ? null
               : _commentsCtrl.text.trim(),
+          currentUserId: ref.read(accountRepositoryProvider).currentUser?.id,
         );
       } else {
         await repo.createDocument(

@@ -149,6 +149,9 @@ class DocumentRepository {
           ),
         );
     if (vehicleId != null) {
+      // A driver document (permis...) never appears in a vehicle's own
+      // timeline - it doesn't belong to one, so there's nothing to log
+      // here for that case.
       await _timeline.logEvent(
         vehicleId: vehicleId,
         moduleOrigin: 'documents',
@@ -158,15 +161,20 @@ class DocumentRepository {
         linkedEntityType: 'document',
         occurredAt: now,
       );
-      if (expiryDate != null) {
-        await _reminders.upsertForSource(
-          vehicleId: vehicleId,
-          sourceType: 'document',
-          sourceId: versionId,
-          title: _reminderTitle(type, expiryDate),
-          dueDate: expiryDate,
-        );
-      }
+    }
+    if (expiryDate != null) {
+      // A driver document's reminder is personal (no vehicleId), scoped by
+      // its creator instead - see ReminderRepository._scopedQuery. This is
+      // the ONE reminder for this document regardless of how many vehicles
+      // the owner has (mission: never duplicated per vehicle).
+      await _reminders.upsertForSource(
+        vehicleId: vehicleId,
+        sourceType: 'document',
+        sourceId: versionId,
+        title: _reminderTitle(type, expiryDate),
+        dueDate: expiryDate,
+        createdBy: currentUserId,
+      );
     }
     return docId;
   }
@@ -192,6 +200,7 @@ class DocumentRepository {
     double? cost,
     String? providerId,
     String? comments,
+    String? currentUserId,
   }) async {
     final doc = await (_db.select(_db.documents)
           ..where((d) => d.id.equals(documentId)))
@@ -204,9 +213,7 @@ class DocumentRepository {
           .write(const DocumentVersionsCompanion(
         status: Value(DocumentVersionStatus.replaced),
       ));
-      if (doc.vehicleId != null) {
-        await _reminders.disableForSource('document', doc.currentVersionId!);
-      }
+      await _reminders.disableForSource('document', doc.currentVersionId!);
     }
 
     final newVersionId = newId();
@@ -239,15 +246,16 @@ class DocumentRepository {
         linkedEntityType: 'document',
         occurredAt: now,
       );
-      if (expiryDate != null) {
-        await _reminders.upsertForSource(
-          vehicleId: doc.vehicleId!,
-          sourceType: 'document',
-          sourceId: newVersionId,
-          title: _reminderTitle(doc.type, expiryDate),
-          dueDate: expiryDate,
-        );
-      }
+    }
+    if (expiryDate != null) {
+      await _reminders.upsertForSource(
+        vehicleId: doc.vehicleId,
+        sourceType: 'document',
+        sourceId: newVersionId,
+        title: _reminderTitle(doc.type, expiryDate),
+        dueDate: expiryDate,
+        createdBy: currentUserId ?? doc.ownerId,
+      );
     }
   }
 
