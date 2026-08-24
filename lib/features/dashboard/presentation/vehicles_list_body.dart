@@ -248,22 +248,52 @@ class _Dashboard extends ConsumerWidget {
   }
 }
 
+/// A section title inside the grande carte (hiérarchie visuelle pass,
+/// 2026: the previous all-caps, 11px, pale-grey label read as barely
+/// distinct from the body text around it - "l'œil doit faire un effort").
+/// Sentence case, larger, bold and near-black now carries the hierarchy on
+/// its own - no background, no extra frame - plus a small vertical
+/// [markerColor] tick that borrows the vehicle's own personalised card
+/// colour, echoing that identity down into the sections without ever
+/// repeating the header's own full-block colour.
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label, {this.trailing});
+  const _SectionLabel(this.label, {required this.markerColor, this.trailing});
   final String label;
+  final Color markerColor;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final text = Text(
-      label.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.6,
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
-      ),
+    // The label itself must be able to shrink (narrow 320px screens, a
+    // "Voir tout ›" trailing action taking its own room) - a plain Row
+    // with an intrinsically-sized Text would overflow instead of eliding.
+    final text = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 3.5,
+          height: 14,
+          decoration: BoxDecoration(
+            color: markerColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+              color: scheme.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -271,7 +301,8 @@ class _SectionLabel extends StatelessWidget {
           ? text
           : Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [text, trailing!],
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [Flexible(child: text), trailing!],
             ),
     );
   }
@@ -523,7 +554,10 @@ class _GrandVehicleCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _SectionLabel('À faire prochainement'),
+                    _SectionLabel(
+                      'À faire prochainement',
+                      markerColor: vehicleColor.color,
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -531,9 +565,16 @@ class _GrandVehicleCard extends ConsumerWidget {
                       ),
                       child: _TodoSection(vehicle: vehicle),
                     ),
-                    const SizedBox(height: AppSpacing.md),
+                    // A section's title stays tight against its own content
+                    // (AppSpacing.xs above) but gets more room before the
+                    // NEXT title (hiérarchie pass: "l'œil doit comprendre
+                    // TITRE / CONTENU / espace / TITRE") - no named token
+                    // sits between md and lg, so this is a deliberate
+                    // literal rather than a new one-off design token.
+                    const SizedBox(height: 20),
                     _SectionLabel(
                       'Dernières opérations',
+                      markerColor: vehicleColor.color,
                       trailing: _RecentOperationsSeeAllButton(
                         vehicleId: vehicle.id,
                       ),
@@ -545,8 +586,11 @@ class _GrandVehicleCard extends ConsumerWidget {
                       ),
                       child: _RecentOperationsSection(vehicle: vehicle),
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    _SectionLabel('Actions rapides'),
+                    const SizedBox(height: 20),
+                    _SectionLabel(
+                      'Actions rapides',
+                      markerColor: vehicleColor.color,
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -947,6 +991,7 @@ class _RecentOperationsSeeAllButton extends ConsumerWidget {
         (ref.watch(vehicleMaintenanceProvider(vehicleId)).value ?? const [])
             .isNotEmpty;
     if (!hasEntries) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
     return TextButton(
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -954,9 +999,17 @@ class _RecentOperationsSeeAllButton extends ConsumerWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onPressed: () => context.push('/vehicles/$vehicleId/timeline'),
-      child: const Text(
-        'Voir tout',
-        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+      // Deliberately smaller and lighter than the "Dernières opérations"
+      // title it sits beside (hiérarchie pass: a secondary action must
+      // never visually compete with the section title) - AutoCarnet's own
+      // brand colour marks it as an action, not more section text.
+      child: Text(
+        'Voir tout ›',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: scheme.primary,
+        ),
       ),
     );
   }

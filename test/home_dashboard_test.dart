@@ -510,7 +510,7 @@ void main() {
           reason:
               'only the 2 most recent operations should show on the home dashboard',
         );
-        expect(find.text('Voir tout'), findsOneWidget);
+        expect(find.text('Voir tout ›'), findsOneWidget);
       },
     );
 
@@ -531,7 +531,7 @@ void main() {
         await pumpDashboard(tester);
         await tester.pump();
 
-        expect(find.text('Voir tout'), findsNothing);
+        expect(find.text('Voir tout ›'), findsNothing);
         expect(
           find.textContaining('Aucune opération enregistrée'),
           findsOneWidget,

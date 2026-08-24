@@ -287,7 +287,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.text('Voir tout'));
+    await tester.tap(find.text('Voir tout ›'));
     await tester.pumpAndSettle();
 
     expect(find.text('TIMELINE-$astraId'), findsOneWidget);
