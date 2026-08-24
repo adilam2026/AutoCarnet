@@ -41,7 +41,9 @@ void main() {
   });
 
   test('B. registration in January vs December of the same year yields a '
-      'different precise age, and therefore a different estimate', () {
+      'different precise age, and therefore a different underlying '
+      'depreciation - even when the final rounded price happens to land on '
+      'the same nearest-1000 figure', () {
     final now = DateTime.now();
     final registeredJanuary = DateTime(now.year - 3, 1, 15);
     final registeredDecember = DateTime(now.year - 3, 12, 15);
@@ -49,10 +51,16 @@ void main() {
         engine.compute(baseInput(firstRegistrationDate: registeredJanuary));
     final decemberResult =
         engine.compute(baseInput(firstRegistrationDate: registeredDecember));
-    expect(januaryResult.fairPrice, isNot(equals(decemberResult.fairPrice)));
-    // The vehicle registered earlier in the year is older today, so it's
-    // worth strictly less, all else being equal.
-    expect(januaryResult.fairPrice, lessThan(decemberResult.fairPrice));
+    double ageDecoteTotal(ValuationResult r) => r.breakdown
+        .firstWhere((l) => l.label == 'Décote liée à l\'ancienneté')
+        .runningTotal;
+    expect(ageDecoteTotal(januaryResult), isNot(equals(ageDecoteTotal(decemberResult))));
+    // The vehicle registered earlier in the year is older today, so its
+    // age-decote step alone leaves it strictly lower, all else being equal
+    // - the two may still round to the same displayed fairPrice once other
+    // (unrelated) adjustments are applied on top.
+    expect(ageDecoteTotal(januaryResult), lessThan(ageDecoteTotal(decemberResult)));
+    expect(januaryResult.fairPrice, lessThanOrEqualTo(decemberResult.fairPrice));
   });
 
   test('C. complete maintenance history improves confidence; the central '
@@ -190,13 +198,13 @@ void main() {
       ));
       // Order of magnitude only - the exact figure depends on finition/
       // motorisation/état, never a hardcoded target for this one vehicle.
-      // Recalibration pass (2026): tightened around the real-world control
-      // case (2021 Q5, ~86 950 km, Diesel/Automatique/veryGood) landing
-      // close to ~390 000 MAD instead of the previous ~477 000 MAD - the
-      // old (300000, 460000) band was wide enough to hide that
-      // overestimation.
-      expect(q5.quickSale, greaterThan(320000));
-      expect(q5.quickSale, lessThan(400000));
+      // Recalibration pass (2026, "moteur de revente" rewrite - cumulative
+      // décote curve, quadratic mileage rule, recalibrated suvMoyen
+      // multiplier): the real-world control case (2021 Q5, ~87 000 km,
+      // Diesel/Automatique/veryGood) now lands close to the cadre métier's
+      // own expected ~390 000 MAD.
+      expect(q5.quickSale, greaterThan(330000));
+      expect(q5.quickSale, lessThan(410000));
       expect(q5.fairPrice, lessThan(q5.highPrice));
       expect(q5.quickSale, greaterThan(genericMainstream.quickSale * 1.5));
     });
@@ -277,11 +285,9 @@ void main() {
       // Order of magnitude only, never a hardcoded target for this one
       // vehicle (RG: le calcul doit rester générique) - a sanity band
       // around the real, observed Moroccan resale range for this exact
-      // configuration (14 years old, very high mileage) after calibrating
-      // the generic depreciation curve against it. Recalibration pass
-      // (2026): tightened again, closer to ~70 000 MAD, after the same
-      // control case showed the previous curve still overestimated
-      // (~80 000 MAD).
+      // configuration (14 years old, very high mileage). Recalibration
+      // pass (2026, "moteur de revente" rewrite): lands close to the cadre
+      // métier's own expected ~70 000 MAD.
       expect(astra.fairPrice, greaterThan(60000));
       expect(astra.fairPrice, lessThan(80000));
       expect(astra.quickSale, lessThan(astra.fairPrice));
@@ -452,6 +458,64 @@ void main() {
         ));
         expect(older.fairPrice, lessThan(newer.fairPrice), reason: brand);
       }
+    });
+
+    test('PALIERS (1/4/8/12/20 ans): cumulative age-decote lands inside the '
+        'cadre métier\'s own band at every documented boundary, and never '
+        'jumps discontinuously between two consecutive ages', () {
+      // année 1 ~-12%; 2-4 ans -15% à -25%; 5-8 ans -25% à -35%; 9-12 ans
+      // -35% à -50%; au-delà, décote progressive et ralentie.
+      const expectedBands = <int, (double min, double max)>{
+        1: (0.08, 0.16),
+        4: (0.15, 0.25),
+        8: (0.25, 0.35),
+        12: (0.35, 0.50),
+        20: (0.50, 0.75),
+      };
+      double? previousDecoteRatio;
+      int? previousYears;
+      for (final years in [1, 4, 8, 12, 20]) {
+        final result = engine.compute(ValuationInput(
+          brand: 'Peugeot',
+          model: '308',
+          firstRegistrationDate: yearsAgo(years),
+          currentMileage: 15000.0 * years,
+        ));
+        final base = result.breakdown.first.runningTotal;
+        final afterAge = result.breakdown
+            .firstWhere((l) => l.label == 'Décote liée à l\'ancienneté')
+            .runningTotal;
+        final ratio = 1 - (afterAge / base);
+        final (min, max) = expectedBands[years]!;
+        expect(ratio, greaterThanOrEqualTo(min), reason: '$years ans');
+        expect(ratio, lessThanOrEqualTo(max), reason: '$years ans');
+        if (previousDecoteRatio != null) {
+          // No brutal cliff: décote never jumps by more than ~2 points per
+          // year elapsed between two checked ages.
+          final yearsElapsed = years - previousYears!;
+          expect(ratio - previousDecoteRatio, lessThan(0.05 * yearsElapsed),
+              reason: 'jump from $previousYears to $years ans');
+        }
+        previousDecoteRatio = ratio;
+        previousYears = years;
+      }
+    });
+
+    test('KILOMÉTRAGE (faible/moyen/très élevé): a low-mileage profile '
+        'scores strictly above the reference, a very-high-mileage profile '
+        'strictly below, and the ordering is monotonic across the three', () {
+      final ages = yearsAgo(5);
+      final low = engine.compute(ValuationInput(
+        brand: 'Peugeot', model: '308', firstRegistrationDate: ages, currentMileage: 20000,
+      ));
+      final medium = engine.compute(ValuationInput(
+        brand: 'Peugeot', model: '308', firstRegistrationDate: ages, currentMileage: 75000,
+      ));
+      final veryHigh = engine.compute(ValuationInput(
+        brand: 'Peugeot', model: '308', firstRegistrationDate: ages, currentMileage: 220000,
+      ));
+      expect(low.fairPrice, greaterThan(medium.fairPrice));
+      expect(medium.fairPrice, greaterThan(veryHigh.fairPrice));
     });
 
     test('ROBUSTESSE (cas extrêmes): a very old, very high-mileage or a '

@@ -40,11 +40,19 @@ class InternalValuationProvider implements ValuationEngine {
     ));
     var running = base;
 
+    final ageDays = input.firstRegistrationDate != null
+        ? DateTime.now().difference(input.firstRegistrationDate!).inDays
+        : null;
+    // Still needed for the mileage reference (expressed per year of age) -
+    // kept alongside ageDays (exact, used for the décote curve itself) so a
+    // January and a December registration in the same year never land on
+    // the same point on the curve while the kilométrage reference stays a
+    // simple, round per-year figure.
     final ageMonths = input.firstRegistrationDate != null
         ? _monthsBetween(input.firstRegistrationDate!, DateTime.now())
         : null;
-    if (ageMonths != null && ageMonths > 0) {
-      final factor = DepreciationRules.factorForAgeMonths(ageMonths);
+    if (ageDays != null && ageDays > 0) {
+      final factor = DepreciationRules.factorForAgeDays(ageDays);
       final depreciated = running * factor;
       breakdown.add(ValuationBreakdownLine(
         label: 'Décote liée à l\'ancienneté',

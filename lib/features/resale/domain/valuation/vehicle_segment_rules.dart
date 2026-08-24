@@ -24,22 +24,26 @@ class VehicleSegmentRules {
 
   /// Multiplicative adjustment applied to a brand tier's generic new-price
   /// midpoint - a mid-size SUV costs meaningfully more new than a city car
-  /// of the same brand, regardless of which brand it is. `suvMoyen` was
-  /// lowered from 1.75 to 1.46 (recalibration pass, 2026): for an
-  /// unsourced premium model (e.g. a 2021 Audi Q5, whose real generation
-  /// wasn't in the sourced référentiel) the old multiplier pushed the
-  /// generic reference price to ~831 000 MAD - well above what that model
-  /// actually cost new - which then cascaded into a resale estimate near
-  /// 477 000 MAD instead of the expected ~390 000 MAD. Still a single
-  /// generic multiplier shared by every brand/model in this segment, never
-  /// tuned for one specific vehicle.
+  /// of the same brand, regardless of which brand it is.
+  ///
+  /// `suvMoyen` lowered again, 1.46 -> 1.13 (moteur de revente recalibration
+  /// pass, 2026): the depreciation curve itself (depreciation_rules.dart)
+  /// was rewritten to be far less punitive per the explicit cadre métier -
+  /// which means the SAME generic reference price that used to land an
+  /// unsourced premium SUV (e.g. a 2021 Audi Q5, whose real generation
+  /// isn't in the sourced référentiel) near the expected ~390 000 MAD under
+  /// the old, steeper curve now overshoots to ~500 000+ MAD once that curve
+  /// stops eating the difference on its own. This multiplier is still a
+  /// single generic value shared by every brand/model in this segment
+  /// (BMW X3, Mercedes GLC, Volvo XC60, Peugeot 3008, Hyundai Tucson,
+  /// etc.) - never a Q5-specific tweak.
   static const Map<VehicleSegment, double> _multipliers = {
     VehicleSegment.citadine: 0.65,
     VehicleSegment.compacte: 0.90,
     VehicleSegment.berline: 1.10,
     VehicleSegment.monospace: 1.00,
     VehicleSegment.suvCompact: 1.30,
-    VehicleSegment.suvMoyen: 1.46,
+    VehicleSegment.suvMoyen: 1.13,
     VehicleSegment.suvGrand: 2.10,
     VehicleSegment.coupeCabriolet: 1.30,
     VehicleSegment.pickup: 1.20,
