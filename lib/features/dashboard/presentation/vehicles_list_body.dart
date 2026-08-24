@@ -1017,6 +1017,7 @@ class _QuickActionsRow extends ConsumerWidget {
               context,
               vehicleId: vehicle.id,
               currentMileage: vehicle.currentMileage,
+              vehicleFuelType: vehicle.fuelType,
             ),
           ),
         ),

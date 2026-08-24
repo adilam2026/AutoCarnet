@@ -13,11 +13,16 @@ import '../data/fuel_repository.dart';
 import '../domain/fuel_types.dart';
 
 /// Used both to create a new fill-up and to open/edit/duplicate an existing
-/// one - the same form serves as the "detail" view.
+/// one - the same form serves as the "detail" view. [vehicleFuelType] is
+/// the selected vehicle's own fuel type (the fiche's source of truth,
+/// mission: never re-ask what AutoCarnet already knows) - it only pre-fills
+/// a genuinely new entry, never overrides [editing]/[duplicateFrom]'s own
+/// recorded value.
 Future<void> showFuelFormSheet(
   BuildContext context, {
   required String vehicleId,
   required double currentMileage,
+  String? vehicleFuelType,
   FuelEntry? editing,
   FuelEntry? duplicateFrom,
 }) {
@@ -28,6 +33,7 @@ Future<void> showFuelFormSheet(
     builder: (_) => _FuelFormSheet(
       vehicleId: vehicleId,
       currentMileage: currentMileage,
+      vehicleFuelType: vehicleFuelType,
       editing: editing,
       duplicateFrom: duplicateFrom,
     ),
@@ -38,11 +44,13 @@ class _FuelFormSheet extends ConsumerStatefulWidget {
   const _FuelFormSheet({
     required this.vehicleId,
     required this.currentMileage,
+    this.vehicleFuelType,
     this.editing,
     this.duplicateFrom,
   });
   final String vehicleId;
   final double currentMileage;
+  final String? vehicleFuelType;
   final FuelEntry? editing;
   final FuelEntry? duplicateFrom;
 
@@ -54,7 +62,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
   final _formKey = GlobalKey<FormState>();
   DateTime _date = DateTime.now();
   final _mileageCtrl = TextEditingController();
-  String _fuelType = fuelTypes.first;
+  String? _fuelType;
   final _quantityCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   bool _isFullTank = true;
@@ -72,6 +80,15 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
   void initState() {
     super.initState();
     _mileageCtrl.text = widget.currentMileage.toStringAsFixed(0);
+    // The vehicle's own fuel type is the source of truth (mission: never
+    // ask again for something AutoCarnet already knows, and never invent
+    // one either) - pre-filled only when the vehicle's fuel type is set
+    // and is one of the values this picker offers (free-text legacy data
+    // aside); left unset otherwise, forcing an explicit choice rather than
+    // silently defaulting to "Essence".
+    _fuelType = (widget.vehicleFuelType != null && fuelTypes.contains(widget.vehicleFuelType))
+        ? widget.vehicleFuelType
+        : null;
     _init();
   }
 
@@ -122,7 +139,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
           date: _date,
           currency: ref.read(defaultCurrencyProvider),
           mileage: double.parse(_mileageCtrl.text.trim()),
-          fuelType: _fuelType,
+          fuelType: _fuelType!,
           quantityLiters: double.parse(_quantityCtrl.text.trim()),
           pricePerLiter: double.parse(_priceCtrl.text.trim()),
           providerId: providerId,
@@ -134,7 +151,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
           date: _date,
           currency: ref.read(defaultCurrencyProvider),
           mileage: double.parse(_mileageCtrl.text.trim()),
-          fuelType: _fuelType,
+          fuelType: _fuelType!,
           quantityLiters: double.parse(_quantityCtrl.text.trim()),
           pricePerLiter: double.parse(_priceCtrl.text.trim()),
           providerId: providerId,
@@ -274,11 +291,14 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: _fuelType,
-                    decoration: const InputDecoration(labelText: 'Carburant'),
+                    decoration: const InputDecoration(labelText: 'Carburant *'),
+                    hint: const Text('Sélectionner'),
+                    isExpanded: true,
                     items: fuelTypes
                         .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                         .toList(),
-                    onChanged: (v) => setState(() => _fuelType = v!),
+                    onChanged: (v) => setState(() => _fuelType = v),
+                    validator: (v) => v == null ? 'Champ requis' : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Row(

@@ -41,6 +41,11 @@ dependencies:
   connectivity_plus: ^6.1.0
   share_plus: ^12.0.2
 
+  # Vehicle brand logos (bloc: identité visuelle) - CC0-licensed simplified
+  # brand glyphs (simple-icons.org port), never hotlinked/fetched at
+  # runtime - see lib/features/vehicles/domain/brand_logos.dart.
+  simple_icons: ^16.23.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

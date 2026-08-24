@@ -62,6 +62,7 @@ Future<void> showAddOperationSheet(
                   context,
                   vehicleId: vehicle.id,
                   currentMileage: vehicle.currentMileage,
+                  vehicleFuelType: vehicle.fuelType,
                 );
               },
             ),

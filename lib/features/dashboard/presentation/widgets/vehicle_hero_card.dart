@@ -5,6 +5,7 @@ import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_format.dart';
 import '../../../reminders/domain/reminder_urgency.dart';
+import '../../../vehicles/domain/brand_logos.dart';
 import '../../../vehicles/domain/vehicle_card_color.dart';
 import '../../../vehicles/domain/vehicle_health.dart';
 
@@ -93,8 +94,15 @@ class VehicleHeroCard extends ConsumerWidget {
                   color: onColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
+                // The brand's own logo glyph when one is available (bloc:
+                // identité visuelle) - a locally-bundled, tintable monochrome
+                // mark, never a full-colour bitmap, so it stays legible and
+                // undistorted against this band's own arbitrary colour
+                // exactly like the generic icon it replaces. Falls back to
+                // the generic vehicle icon for a brand simple_icons doesn't
+                // cover - never a blank square, never a guessed logo.
                 child: Icon(
-                  Icons.directions_car_filled,
+                  brandLogoFor(vehicle.brand) ?? Icons.directions_car_filled,
                   size: 16,
                   color: onColor,
                 ),

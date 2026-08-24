@@ -175,17 +175,33 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(
-            onPressed: _pickFirstRegistrationDate,
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
-            ),
-            child: Text(
-              _firstRegistrationDate == null
-                  ? 'Date de première mise en circulation'
-                  : 'Mise en circulation le ${_fmt(_firstRegistrationDate!)}',
+          InkWell(
+            onTap: _pickFirstRegistrationDate,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Première mise en circulation',
+                suffixIconConstraints: BoxConstraints(minWidth: 64, minHeight: 24),
+                suffixIcon: Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 20),
+                      SizedBox(width: 6),
+                      Icon(Icons.chevron_right, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              child: Text(
+                _firstRegistrationDate == null
+                    ? 'Sélectionner une date'
+                    : _fmt(_firstRegistrationDate!),
+                style: _firstRegistrationDate == null
+                    ? TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)
+                    : null,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
