@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +11,7 @@ import '../utils/connectivity.dart';
 import 'conflict_repository.dart';
 import 'document_sync_mapping.dart';
 import 'occ_sync.dart';
+import 'sync_outbox_repository.dart';
 
 /// Same optimistic-concurrency shape as [VehicleSyncService], for
 /// `documents` + `document_versions`. A personal driver document
@@ -17,11 +20,18 @@ import 'occ_sync.dart';
 /// migration) - it just never produces a timeline entry, mirroring
 /// DocumentRepository.createDocument's own `if (vehicleId != null)` guard.
 class DocumentSyncService {
-  DocumentSyncService(this._db, this._client, this._conflicts, this._timeline);
+  DocumentSyncService(this._db, this._clientFn, this._conflicts, this._timeline, [this._outbox]);
   final AppDatabase _db;
-  final SupabaseClient _client;
+  // A closure, not a resolved value - see ProviderSyncService's identical
+  // field for why (merely constructing this service must never touch
+  // Supabase.instance before syncNow() actually needs it).
+  final SupabaseClient Function() _clientFn;
+  SupabaseClient get _client => _clientFn();
   final ConflictRepository _conflicts;
   final TimelineRepository _timeline;
+  // Optional (sync-hardening pass) - see VehicleSyncService's identical
+  // field for the full rationale.
+  final SyncOutboxRepository? _outbox;
 
   bool _syncing = false;
 
@@ -35,8 +45,9 @@ class DocumentSyncService {
       await _pushVersions();
       await _pullDocuments();
       await _pullVersions();
-    } catch (_) {
-      // Best-effort - a failed pass is silently retried on the next trigger.
+      unawaited(_outbox?.recordSuccess());
+    } catch (e) {
+      unawaited(_outbox?.recordError('documents: $e'));
     } finally {
       _syncing = false;
     }
@@ -49,22 +60,30 @@ class DocumentSyncService {
         .get();
     if (pending.isEmpty) return;
 
-    final result = await pushWithOcc(
-      client: _client,
-      table: 'documents',
-      rows: [
-        for (final d in pending)
-          PendingOccRow(
-            id: d.id,
-            expectedVersion: d.version,
-            remoteRow: {
-              ...documentToRemoteRow(d),
-              'updated_by': myUserId,
-              if (d.version == 0) 'created_by': d.ownerId ?? myUserId,
-            },
-          ),
-      ],
-    );
+    final OccPushResult result;
+    try {
+      result = await pushWithOcc(
+        client: _client,
+        table: 'documents',
+        rows: [
+          for (final d in pending)
+            PendingOccRow(
+              id: d.id,
+              expectedVersion: d.version,
+              remoteRow: {
+                ...documentToRemoteRow(d),
+                'updated_by': myUserId,
+                if (d.version == 0) 'created_by': d.ownerId ?? myUserId,
+              },
+            ),
+        ],
+      );
+    } catch (e) {
+      for (final doc in pending) {
+        unawaited(_outbox?.markFailed('document', doc.id, e.toString()));
+      }
+      rethrow;
+    }
 
     for (final d in pending) {
       final newVersion = result.newVersionByPushedId[d.id];
@@ -76,6 +95,7 @@ class DocumentSyncService {
             updatedBy: Value(myUserId),
           ),
         );
+        unawaited(_outbox?.markSynced('document', d.id));
       } else if (result.conflictedIds.contains(d.id)) {
         final remoteRows = await _client.from('documents').select().eq('id', d.id).limit(1);
         if (remoteRows.isEmpty) continue;
@@ -87,6 +107,7 @@ class DocumentSyncService {
           remoteSnapshot: remoteRows.first,
           remoteUpdatedBy: remoteRows.first['updated_by'] as String?,
         );
+        unawaited(_outbox?.clearForConflict('document', d.id));
       }
     }
   }
@@ -98,22 +119,30 @@ class DocumentSyncService {
         .get();
     if (pending.isEmpty) return;
 
-    final result = await pushWithOcc(
-      client: _client,
-      table: 'document_versions',
-      rows: [
-        for (final v in pending)
-          PendingOccRow(
-            id: v.id,
-            expectedVersion: v.version,
-            remoteRow: {
-              ...documentVersionToRemoteRow(v),
-              'updated_by': myUserId,
-              if (v.version == 0) 'created_by': myUserId,
-            },
-          ),
-      ],
-    );
+    final OccPushResult result;
+    try {
+      result = await pushWithOcc(
+        client: _client,
+        table: 'document_versions',
+        rows: [
+          for (final v in pending)
+            PendingOccRow(
+              id: v.id,
+              expectedVersion: v.version,
+              remoteRow: {
+                ...documentVersionToRemoteRow(v),
+                'updated_by': myUserId,
+                if (v.version == 0) 'created_by': myUserId,
+              },
+            ),
+        ],
+      );
+    } catch (e) {
+      for (final version in pending) {
+        unawaited(_outbox?.markFailed('document_version', version.id, e.toString()));
+      }
+      rethrow;
+    }
 
     for (final v in pending) {
       final newVersion = result.newVersionByPushedId[v.id];
@@ -126,6 +155,7 @@ class DocumentSyncService {
             createdBy: v.createdBy == null ? Value(myUserId) : const Value.absent(),
           ),
         );
+        unawaited(_outbox?.markSynced('document_version', v.id));
       } else if (result.conflictedIds.contains(v.id)) {
         final remoteRows =
             await _client.from('document_versions').select().eq('id', v.id).limit(1);
@@ -141,6 +171,7 @@ class DocumentSyncService {
           remoteSnapshot: remoteRows.first,
           remoteUpdatedBy: remoteRows.first['updated_by'] as String?,
         );
+        unawaited(_outbox?.clearForConflict('document_version', v.id));
       }
     }
   }
@@ -215,8 +246,9 @@ class DocumentSyncService {
 final documentSyncServiceProvider = Provider<DocumentSyncService>((ref) {
   return DocumentSyncService(
     ref.watch(appDatabaseProvider),
-    Supabase.instance.client,
+    () => Supabase.instance.client,
     ref.watch(conflictRepositoryProvider),
     ref.watch(timelineRepositoryProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });

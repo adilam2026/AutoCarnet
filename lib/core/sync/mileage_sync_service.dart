@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +8,7 @@ import '../database/database.dart';
 import '../database/providers.dart';
 import '../utils/connectivity.dart';
 import 'mileage_sync_mapping.dart';
+import 'sync_outbox_repository.dart';
 
 /// `mileage_entries` is append-only (RG-VEH-005/006/007: a reading is
 /// versioned, never overwritten in place - see the table's own class doc),
@@ -14,9 +17,16 @@ import 'mileage_sync_mapping.dart';
 /// different facts, not a conflict, and a row already pushed is simply
 /// never touched again.
 class MileageSyncService {
-  MileageSyncService(this._db, this._client);
+  MileageSyncService(this._db, this._clientFn, [this._outbox]);
   final AppDatabase _db;
-  final SupabaseClient _client;
+  // A closure, not a resolved value - see ProviderSyncService's identical
+  // field for why (merely constructing this service must never touch
+  // Supabase.instance before syncNow() actually needs it).
+  final SupabaseClient Function() _clientFn;
+  SupabaseClient get _client => _clientFn();
+  // Optional (sync-hardening pass) - see VehicleSyncService's identical
+  // field for the full rationale.
+  final SyncOutboxRepository? _outbox;
 
   static const _table = 'mileage_entries';
   bool _syncing = false;
@@ -29,8 +39,9 @@ class MileageSyncService {
     try {
       await _push();
       await _pull();
-    } catch (_) {
-      // Best-effort - a failed pass is silently retried on the next trigger.
+      unawaited(_outbox?.recordSuccess());
+    } catch (e) {
+      unawaited(_outbox?.recordError('mileage: $e'));
     } finally {
       _syncing = false;
     }
@@ -42,12 +53,20 @@ class MileageSyncService {
           ..where((m) => m.syncStatus.equals('pendingSync')))
         .get();
     if (pending.isEmpty) return;
-    await _client.from(_table).upsert([
-      for (final m in pending) {...mileageEntryToRemoteRow(m), 'created_by': myUserId},
-    ]);
+    try {
+      await _client.from(_table).upsert([
+        for (final m in pending) {...mileageEntryToRemoteRow(m), 'created_by': myUserId},
+      ]);
+    } catch (e) {
+      for (final m in pending) {
+        unawaited(_outbox?.markFailed('mileage', m.id, e.toString()));
+      }
+      rethrow;
+    }
     for (final m in pending) {
       await (_db.update(_db.mileageEntries)..where((t) => t.id.equals(m.id)))
           .write(const MileageEntriesCompanion(syncStatus: Value('synced')));
+      unawaited(_outbox?.markSynced('mileage', m.id));
     }
   }
 
@@ -65,5 +84,9 @@ class MileageSyncService {
 }
 
 final mileageSyncServiceProvider = Provider<MileageSyncService>((ref) {
-  return MileageSyncService(ref.watch(appDatabaseProvider), Supabase.instance.client);
+  return MileageSyncService(
+    ref.watch(appDatabaseProvider),
+    () => Supabase.instance.client,
+    ref.watch(syncOutboxRepositoryProvider),
+  );
 });

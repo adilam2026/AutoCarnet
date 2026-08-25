@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,7 @@ import 'frequency_pref_sync_service.dart';
 import 'fuel_sync_service.dart';
 import 'maintenance_sync_service.dart';
 import 'mileage_sync_service.dart';
+import 'provider_sync_service.dart';
 import 'reminder_sync_service.dart';
 import 'vehicle_sync_service.dart';
 
@@ -36,7 +38,7 @@ import 'vehicle_sync_service.dart';
 class SyncCoordinator {
   SyncCoordinator({
     required this._db,
-    required this._client,
+    required this._clientFn,
     required this.vehicles,
     required this.maintenance,
     required this.expenses,
@@ -45,12 +47,18 @@ class SyncCoordinator {
     required this.reminders,
     required this.mileage,
     required this.frequencyPrefs,
+    required this.providers,
     required this.notifications,
     required this.conflicts,
   });
 
   final AppDatabase _db;
-  final SupabaseClient _client;
+  // A closure, not a resolved value - see e.g. ProviderSyncService's
+  // identical field for why (merely constructing this coordinator - which
+  // happens the moment ANY repository provider watches it - must never
+  // touch Supabase.instance before start()/syncAll() actually needs it).
+  final SupabaseClient Function() _clientFn;
+  SupabaseClient get _client => _clientFn();
   final VehicleSyncService vehicles;
   final MaintenanceSyncService maintenance;
   final ExpenseSyncService expenses;
@@ -59,6 +67,7 @@ class SyncCoordinator {
   final ReminderSyncService reminders;
   final MileageSyncService mileage;
   final FrequencyPrefSyncService frequencyPrefs;
+  final ProviderSyncService providers;
   final NotificationRepository notifications;
   final ConflictRepository conflicts;
 
@@ -70,6 +79,8 @@ class SyncCoordinator {
   Timer? _timer;
   final List<RealtimeChannel> _channels = [];
   bool _started = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _hadConnectivity = true;
 
   // Short enough that a collaborator's change reliably shows up well before
   // anyone would think to ask "did that actually save?", long enough to
@@ -98,6 +109,7 @@ class SyncCoordinator {
     await reminders.syncNow();
     await mileage.syncNow();
     await frequencyPrefs.syncNow();
+    await providers.syncNow();
     await _notifyNewConflicts();
   }
 
@@ -133,6 +145,21 @@ class SyncCoordinator {
     unawaited(syncAll());
     _timer = Timer.periodic(_pollInterval, (_) => syncAll());
 
+    // Mission: "dès que la connexion revient, l'application relance
+    // automatiquement la file d'attente" - the 30s timer alone already
+    // gets there eventually, but a device that just regained signal after
+    // being offline shouldn't have to wait up to 30s for its pending
+    // queue to drain; react to the none -> some transition immediately
+    // instead. Guarded so a device oscillating between two "connected"
+    // radio types (wifi -> mobile data) doesn't refire on every hop.
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final hasConnectivity = !results.contains(ConnectivityResult.none);
+      if (hasConnectivity && !_hadConnectivity) {
+        unawaited(syncAll());
+      }
+      _hadConnectivity = hasConnectivity;
+    });
+
     final vehiclesChannel = _client
         .channel('vehicles-sync')
         .onPostgresChanges(
@@ -154,6 +181,20 @@ class SyncCoordinator {
         )
         .subscribe();
     _channels.add(vehiclesChannel);
+
+    // Prestataires aren't vehicle-scoped (no vehicle_id, never shared with a
+    // collaborator) - a plain resync trigger is enough, no _maybeNotify
+    // vehicle lookup applies here.
+    final providersChannel = _client
+        .channel('service_providers-sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'service_providers',
+          callback: (_) => syncAll(),
+        )
+        .subscribe();
+    _channels.add(providersChannel);
 
     for (final table in _collaborativeTables) {
       final channel = _client
@@ -224,6 +265,8 @@ class SyncCoordinator {
   void stop() {
     _timer?.cancel();
     _timer = null;
+    unawaited(_connectivitySub?.cancel());
+    _connectivitySub = null;
     for (final channel in _channels) {
       unawaited(_client.removeChannel(channel));
     }
@@ -235,7 +278,7 @@ class SyncCoordinator {
 final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
   final coordinator = SyncCoordinator(
     db: ref.watch(appDatabaseProvider),
-    client: Supabase.instance.client,
+    clientFn: () => Supabase.instance.client,
     vehicles: ref.watch(vehicleSyncServiceProvider),
     maintenance: ref.watch(maintenanceSyncServiceProvider),
     expenses: ref.watch(expenseSyncServiceProvider),
@@ -244,6 +287,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
     reminders: ref.watch(reminderSyncServiceProvider),
     mileage: ref.watch(mileageSyncServiceProvider),
     frequencyPrefs: ref.watch(frequencyPrefSyncServiceProvider),
+    providers: ref.watch(providerSyncServiceProvider),
     notifications: ref.watch(notificationRepositoryProvider),
     conflicts: ref.watch(conflictRepositoryProvider),
   );

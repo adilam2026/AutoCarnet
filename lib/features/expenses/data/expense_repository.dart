@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../timeline/data/timeline_repository.dart';
@@ -28,9 +32,24 @@ class ExpenseStats {
 }
 
 class ExpenseRepository {
-  ExpenseRepository(this._db, this._timeline);
+  ExpenseRepository(this._db, this._timeline, [this._sync, this._outbox]);
   final AppDatabase _db;
   final TimelineRepository _timeline;
+  // Optional (sync-hardening pass, after the GLC data-loss report) - see
+  // VehicleRepository's identical fields for the full rationale.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String expenseId, String operation) {
+    return _outbox?.enqueue(entityType: 'expense', entityId: expenseId, operation: operation) ??
+        Future.value();
+  }
 
   Future<Expense?> getById(String id) {
     return (_db.select(_db.expenses)..where((e) => e.id.equals(id))).getSingleOrNull();
@@ -81,6 +100,8 @@ class ExpenseRepository {
       linkedEntityType: 'expense',
       occurredAt: date,
     );
+    await _enqueueOutbox(id, 'create');
+    _nudgeSync();
     return id;
   }
 
@@ -110,6 +131,9 @@ class ExpenseRepository {
         paymentMethod: Value(paymentMethod),
         comments: Value(comments),
         updatedAt: Value(DateTime.now()),
+        // Sync-hardening pass: without this, editing an already-synced
+        // expense would silently never reach the cloud again.
+        syncStatus: const Value('pendingSync'),
       ),
     );
     // Same eventType/linkedEntityId as creation: logEvent upserts in place.
@@ -122,6 +146,8 @@ class ExpenseRepository {
       linkedEntityType: 'expense',
       occurredAt: date,
     );
+    await _enqueueOutbox(id, 'update');
+    _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
@@ -129,9 +155,12 @@ class ExpenseRepository {
       ExpensesCompanion(
         isDeleted: const Value(true),
         updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
       ),
     );
     await _timeline.removeForEntity('expense', id);
+    await _enqueueOutbox(id, 'delete');
+    _nudgeSync();
   }
 
   /// RG-DEP-003: statistics are always scoped to a single vehicle, never
@@ -163,6 +192,8 @@ final expenseRepositoryProvider = Provider<ExpenseRepository>((ref) {
   return ExpenseRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(timelineRepositoryProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });
 

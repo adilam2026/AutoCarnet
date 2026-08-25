@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
-import '../../../core/sync/vehicle_sync_service.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../../core/utils/mileage_result.dart';
 import '../../account/data/account_repository.dart';
@@ -14,17 +15,47 @@ import '../../reminders/data/reminder_repository.dart';
 import '../domain/vehicle_card_color.dart';
 
 class VehicleRepository {
-  VehicleRepository(this._db, this._audit, this._reminders, [this._sync]);
+  VehicleRepository(this._db, this._audit, this._reminders, [this._sync, this._outbox]);
   final AppDatabase _db;
   final AuditRepository _audit;
   final ReminderRepository _reminders;
   // Optional: absent in unit tests (no Supabase session to sync to). When
   // present, every local write nudges a fire-and-forget cloud sync pass -
   // never awaited, so a slow/offline network can never delay a local save.
-  final VehicleSyncService? _sync;
+  //
+  // Nudges the whole [SyncCoordinator] (every table, FK order), not just
+  // this table's own *SyncService: creating a vehicle also writes its
+  // initial mileage entry, so a vehicle-only push would leave that first
+  // mileage row waiting for the next 30s tick - sync-hardening pass.
+  final SyncCoordinator? _sync;
+  // Optional (same reasoning as [_sync]): the local outbox ledger a
+  // pendingSync write is immediately recorded into - step 2 of the
+  // mission's flow, deliberately separate from and surviving independently
+  // of whether [_sync]'s own push attempt (step 3) ever gets to run before
+  // the app closes.
+  final SyncOutboxRepository? _outbox;
 
   void _nudgeSync() {
-    unawaited(_sync?.syncNow());
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync: this is a local SQLite write (fast,
+  // same-device), not a network call, so there is no offline/slow-network
+  // reason to fire-and-forget it - doing so left a real window where
+  // pendingCount() could read 0 immediately after a write that had, in
+  // fact, already been saved (sync-hardening pass).
+  Future<void> _enqueueOutbox(String vehicleId, String operation) {
+    return _outbox?.enqueue(entityType: 'vehicle', entityId: vehicleId, operation: operation) ??
+        Future.value();
+  }
+
+  Future<void> _enqueueMileageOutbox(String mileageEntryId, String operation) {
+    return _outbox?.enqueue(
+          entityType: 'mileage',
+          entityId: mileageEntryId,
+          operation: operation,
+        ) ??
+        Future.value();
   }
 
   /// [currentUserId] scopes the list to the signed-in account: a vehicle is
@@ -129,6 +160,7 @@ class VehicleRepository {
     String? comments,
   }) async {
     final id = newId();
+    final initialMileageEntryId = newId();
     final now = DateTime.now();
     final resolvedCardColor = cardColor ?? await _nextCardColor();
     await _db.into(_db.vehicles).insert(
@@ -155,7 +187,7 @@ class VehicleRepository {
         );
     await _db.into(_db.mileageEntries).insert(
           MileageEntriesCompanion.insert(
-            id: newId(),
+            id: initialMileageEntryId,
             vehicleId: id,
             value: currentMileage,
             recordedAt: now,
@@ -171,6 +203,12 @@ class VehicleRepository {
       summary: '$brand $model ajouté au carnet',
       occurredAt: now,
     );
+    // Step 2 of the mission's own flow: the outbox entry is created in the
+    // very same call as the local write, before step 3 (the fire-and-
+    // forget push attempt right below) even starts - so it survives
+    // regardless of whether that attempt gets to run before the app closes.
+    await _enqueueOutbox(id, 'create');
+    await _enqueueMileageOutbox(initialMileageEntryId, 'create');
     _nudgeSync();
     return id;
   }
@@ -213,6 +251,7 @@ class VehicleRepository {
         syncStatus: const Value('pendingSync'),
       ),
     );
+    await _enqueueOutbox(vehicleId, 'update');
     _nudgeSync();
   }
 
@@ -237,9 +276,19 @@ class VehicleRepository {
       final color = VehicleCardColor.nextFor(assignedKeys, avoid: previous);
       assignedKeys.add(color.storageKey);
       previous = color;
-      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id)))
-          .write(VehiclesCompanion(cardColorKey: Value(color.storageKey)));
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
+        VehiclesCompanion(
+          cardColorKey: Value(color.storageKey),
+          // Was previously missing here too: a backfilled colour never
+          // re-flagged the vehicle for sync (fixed as part of the
+          // sync-hardening pass), so it would have stayed local-only
+          // forever on an existing vehicle.
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      await _enqueueOutbox(vehicle.id, 'update');
     }
+    _nudgeSync();
   }
 
   Future<void> updateVehicle(Vehicle vehicle, {String? changeSummary}) async {
@@ -256,6 +305,7 @@ class VehicleRepository {
       action: 'updated',
       summary: changeSummary ?? 'Fiche véhicule modifiée',
     );
+    await _enqueueOutbox(vehicle.id, 'update');
     _nudgeSync();
   }
 
@@ -278,6 +328,7 @@ class VehicleRepository {
     if (status != VehicleStatus.active) {
       await _reminders.disableAllForVehicle(vehicleId);
     }
+    await _enqueueOutbox(vehicleId, 'update');
     _nudgeSync();
   }
 
@@ -294,6 +345,7 @@ class VehicleRepository {
       syncStatus: const Value('pendingSync'),
     ));
     await _reminders.disableAllForVehicle(vehicleId);
+    await _enqueueOutbox(vehicleId, 'delete');
     _nudgeSync();
   }
 
@@ -355,9 +407,10 @@ class VehicleRepository {
     String? note,
   }) async {
     final now = DateTime.now();
+    final mileageEntryId = newId();
     await _db.into(_db.mileageEntries).insert(
           MileageEntriesCompanion.insert(
-            id: newId(),
+            id: mileageEntryId,
             vehicleId: vehicleId,
             value: newValue,
             recordedAt: now,
@@ -379,6 +432,8 @@ class VehicleRepository {
       action: 'mileage_corrected',
       summary: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
     );
+    await _enqueueOutbox(vehicleId, 'update');
+    await _enqueueMileageOutbox(mileageEntryId, 'create');
     _nudgeSync();
   }
 
@@ -394,9 +449,10 @@ class VehicleRepository {
     required String sourceId,
   }) async {
     final now = DateTime.now();
+    final mileageEntryId = newId();
     await _db.into(_db.mileageEntries).insert(
           MileageEntriesCompanion.insert(
-            id: newId(),
+            id: mileageEntryId,
             vehicleId: vehicleId,
             value: value,
             recordedAt: now,
@@ -405,6 +461,7 @@ class VehicleRepository {
             createdAt: now,
           ),
         );
+    await _enqueueMileageOutbox(mileageEntryId, 'create');
     final vehicle = await getOne(vehicleId);
     if (value > vehicle.currentMileage) {
       await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
@@ -413,6 +470,7 @@ class VehicleRepository {
         updatedAt: Value(now),
         syncStatus: const Value('pendingSync'),
       ));
+      await _enqueueOutbox(vehicleId, 'update');
     }
     _nudgeSync();
   }
@@ -438,11 +496,18 @@ class VehicleRepository {
           .write(MileageEntriesCompanion(
         value: Value(newValue),
         recordedAt: Value(now),
+        // Was previously missing here: a correction to an already-synced
+        // reading left its syncStatus at 'synced', so the corrected value
+        // was silently never re-pushed to the cloud (fixed as part of the
+        // sync-hardening pass).
+        syncStatus: const Value('pendingSync'),
       ));
+      await _enqueueMileageOutbox(existing.id, 'update');
     } else {
+      final mileageEntryId = newId();
       await _db.into(_db.mileageEntries).insert(
             MileageEntriesCompanion.insert(
-              id: newId(),
+              id: mileageEntryId,
               vehicleId: vehicleId,
               value: newValue,
               recordedAt: now,
@@ -451,6 +516,7 @@ class VehicleRepository {
               createdAt: now,
             ),
           );
+      await _enqueueMileageOutbox(mileageEntryId, 'create');
     }
     final all = await (_db.select(_db.mileageEntries)
           ..where((m) => m.vehicleId.equals(vehicleId)))
@@ -461,8 +527,18 @@ class VehicleRepository {
           .write(VehiclesCompanion(
         currentMileage: Value(maxValue),
         updatedAt: Value(now),
+        // Also previously missing: a recomputed currentMileage never
+        // re-flagged the vehicle itself for sync (fixed as part of the
+        // sync-hardening pass).
+        syncStatus: const Value('pendingSync'),
       ));
+      await _enqueueOutbox(vehicleId, 'update');
     }
+    // Also previously missing entirely: this method never nudged sync at
+    // all, so a mileage correction only ever reached the cloud once some
+    // OTHER write happened to trigger a pass (fixed as part of the
+    // sync-hardening pass).
+    _nudgeSync();
   }
 
   /// Completeness score (RG-VEH-004): purely about how filled-in the sheet
@@ -496,7 +572,8 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(auditRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
-    ref.watch(vehicleSyncServiceProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });
 

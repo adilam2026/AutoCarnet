@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../timeline/data/timeline_repository.dart';
@@ -28,12 +32,31 @@ class MaintenanceRepository {
     this._db,
     this._timeline,
     this._reminders,
-    this._vehicles,
-  );
+    this._vehicles, [
+    this._sync,
+    this._outbox,
+  ]);
   final AppDatabase _db;
   final TimelineRepository _timeline;
   final ReminderRepository _reminders;
   final VehicleRepository _vehicles;
+  // Optional (sync-hardening pass, after the GLC data-loss report) - see
+  // VehicleRepository's identical fields for the full rationale. Nudges the
+  // whole coordinator, not just maintenance_entries: an operation almost
+  // always writes a linked expense too.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String entityId, String operation, {String entityType = 'maintenance'}) {
+    return _outbox?.enqueue(entityType: entityType, entityId: entityId, operation: operation) ??
+        Future.value();
+  }
 
   Stream<List<MaintenanceEntry>> watchForVehicle(String vehicleId) {
     final query = _db.select(_db.maintenanceEntries)
@@ -165,6 +188,9 @@ class MaintenanceRepository {
 
     await _reconcileCategoryReminders(vehicleId, category);
 
+    await _enqueueOutbox(id, 'create');
+    if (linkedExpenseId != null) await _enqueueOutbox(linkedExpenseId, 'create', entityType: 'expense');
+    _nudgeSync();
     return id;
   }
 
@@ -298,6 +324,9 @@ class MaintenanceRepository {
       nextDueMileage: Value(nextDueMileage),
       linkedExpenseId: Value(linkedExpenseId),
       updatedAt: Value(now),
+      // Sync-hardening pass: without this, editing an already-synced
+      // operation would silently never reach the cloud again.
+      syncStatus: const Value('pendingSync'),
     ));
 
     await (_db.delete(_db.maintenanceParts)
@@ -357,6 +386,10 @@ class MaintenanceRepository {
       await _reconcileCategoryReminders(vehicleId, existing.category);
     }
     await _reconcileCategoryReminders(vehicleId, category);
+
+    await _enqueueOutbox(id, 'update');
+    if (linkedExpenseId != null) await _enqueueOutbox(linkedExpenseId, 'update', entityType: 'expense');
+    _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
@@ -368,6 +401,7 @@ class MaintenanceRepository {
         .write(MaintenanceEntriesCompanion(
       isDeleted: const Value(true),
       updatedAt: Value(now),
+      syncStatus: const Value('pendingSync'),
     ));
     if (entry?.linkedExpenseId != null) {
       // Never leave the auto-generated expense behind pointing at a
@@ -375,13 +409,20 @@ class MaintenanceRepository {
       // shouldn't be independently deletable-and-forgotten either.
       await (_db.update(_db.expenses)
             ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
-          .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
+          .write(ExpensesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _enqueueOutbox(entry!.linkedExpenseId!, 'delete', entityType: 'expense');
     }
     await _reminders.disableForSource('maintenance', id);
     await _timeline.removeForEntity('maintenance', id);
     if (entry != null) {
       await _reconcileCategoryReminders(entry.vehicleId, entry.category);
     }
+    await _enqueueOutbox(id, 'delete');
+    _nudgeSync();
   }
 }
 
@@ -391,6 +432,8 @@ final maintenanceRepositoryProvider = Provider<MaintenanceRepository>((ref) {
     ref.watch(timelineRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
     ref.watch(vehicleRepositoryProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });
 

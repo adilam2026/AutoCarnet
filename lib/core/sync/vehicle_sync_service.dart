@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +9,7 @@ import '../database/providers.dart';
 import '../utils/connectivity.dart';
 import 'conflict_repository.dart';
 import 'occ_sync.dart';
+import 'sync_outbox_repository.dart';
 import 'vehicle_sync_mapping.dart';
 
 /// Keeps the local `vehicles` table and the cloud `vehicles` table in sync
@@ -23,10 +26,20 @@ import 'vehicle_sync_mapping.dart';
 /// is retried automatically once the owner resolves it (ConflictResolution
 /// screen) rather than needing a fresh edit.
 class VehicleSyncService {
-  VehicleSyncService(this._db, this._client, this._conflicts);
+  VehicleSyncService(this._db, this._clientFn, this._conflicts, [this._outbox]);
   final AppDatabase _db;
-  final SupabaseClient _client;
+  // A closure, not a resolved value - see ProviderSyncService's identical
+  // field for why (merely constructing this service must never touch
+  // Supabase.instance before syncNow() actually needs it).
+  final SupabaseClient Function() _clientFn;
+  SupabaseClient get _client => _clientFn();
   final ConflictRepository _conflicts;
+  // Optional (sync-hardening pass, after the GLC data-loss report): records
+  // this push's outcome in the outbox ledger - retry_count/last_error per
+  // row, and the global last success/error for the technical sync
+  // indicator (mission: "dernière synchronisation réussie / dernière
+  // erreur"). Absent in tests that construct this service directly.
+  final SyncOutboxRepository? _outbox;
 
   bool _syncing = false;
 
@@ -38,8 +51,9 @@ class VehicleSyncService {
     try {
       await _push();
       await _pull();
-    } catch (_) {
-      // Best-effort - see class doc.
+      unawaited(_outbox?.recordSuccess());
+    } catch (e) {
+      unawaited(_outbox?.recordError('vehicles: $e'));
     } finally {
       _syncing = false;
     }
@@ -52,22 +66,30 @@ class VehicleSyncService {
         .get();
     if (pending.isEmpty) return;
 
-    final result = await pushWithOcc(
-      client: _client,
-      table: 'vehicles',
-      rows: [
-        for (final v in pending)
-          PendingOccRow(
-            id: v.id,
-            expectedVersion: v.version,
-            remoteRow: {
-              ...vehicleToRemoteRow(v),
-              'updated_by': myUserId,
-              if (v.version == 0) 'created_by': myUserId,
-            },
-          ),
-      ],
-    );
+    final OccPushResult result;
+    try {
+      result = await pushWithOcc(
+        client: _client,
+        table: 'vehicles',
+        rows: [
+          for (final v in pending)
+            PendingOccRow(
+              id: v.id,
+              expectedVersion: v.version,
+              remoteRow: {
+                ...vehicleToRemoteRow(v),
+                'updated_by': myUserId,
+                if (v.version == 0) 'created_by': myUserId,
+              },
+            ),
+        ],
+      );
+    } catch (e) {
+      for (final v in pending) {
+        unawaited(_outbox?.markFailed('vehicle', v.id, e.toString()));
+      }
+      rethrow;
+    }
 
     for (final v in pending) {
       final newVersion = result.newVersionByPushedId[v.id];
@@ -80,6 +102,7 @@ class VehicleSyncService {
             createdBy: v.createdBy == null ? Value(myUserId) : const Value.absent(),
           ),
         );
+        unawaited(_outbox?.markSynced('vehicle', v.id));
       } else if (result.conflictedIds.contains(v.id)) {
         final remoteRows =
             await _client.from('vehicles').select().eq('id', v.id).limit(1);
@@ -92,6 +115,7 @@ class VehicleSyncService {
           remoteSnapshot: remoteRows.first,
           remoteUpdatedBy: remoteRows.first['updated_by'] as String?,
         );
+        unawaited(_outbox?.clearForConflict('vehicle', v.id));
       }
     }
   }
@@ -162,7 +186,8 @@ class VehicleSyncService {
 final vehicleSyncServiceProvider = Provider<VehicleSyncService>((ref) {
   return VehicleSyncService(
     ref.watch(appDatabaseProvider),
-    Supabase.instance.client,
+    () => Supabase.instance.client,
     ref.watch(conflictRepositoryProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });

@@ -151,14 +151,22 @@ class ServiceProviders extends Table {
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
-  // The cloud account id signed in when this provider was created - this
-  // référentiel has no cloud sync of its own (purely local), so unlike
-  // Vehicles.ownerId this is set directly at creation time, never by a
-  // pull. Null for a provider created with no cloud account at all. Used
-  // to keep two different accounts that have used the same physical
+  // The cloud account id signed in when this provider was created - set
+  // directly at creation time (never by a pull, unlike Vehicles.ownerId),
+  // used to keep two different accounts that have used the same physical
   // device from seeing each other's private contacts (RG audit - see
   // ProviderRepository.watchAll).
   TextColumn get ownerId => text().nullable()();
+  // Real cloud sync (mission 2026, sync-hardening pass): a prestataire
+  // used to be "purely local" by explicit prior design - exactly the same
+  // class of risk that lost the GLC (an uninstall before the very first
+  // sync pass erases it with nothing to recover). Same shape as every
+  // other synced table (see VehicleSyncService's OCC pattern).
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pendingSync'))();
+  IntColumn get version => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -462,6 +470,52 @@ class AppNotifications extends Table {
   TextColumn get linkedEntityId => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get readAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A real, inspectable local sync queue (mission 2026, "défaut de la
+/// stratégie de synchronisation" pass): one row per (entityType, entityId)
+/// still owed to the cloud, updated in place rather than duplicated on
+/// every retry. This is a diagnostic/retry ledger layered ON TOP of each
+/// synced table's own `syncStatus`/`version` columns (still the actual
+/// source of truth for what gets pushed - see SyncOutboxRepository's class
+/// doc) - it exists so the app can answer "how many changes are waiting?",
+/// "when did we last succeed?", "why did the last attempt fail?" without
+/// querying nine different tables, and so a failed push accumulates a real
+/// retry_count/last_attempt_at/last_error trail instead of silently
+/// retrying forever with no visible history.
+class SyncOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get entityType => text()(); // 'vehicle', 'maintenance', 'fuel', ...
+  TextColumn get entityId => text()();
+  TextColumn get operation => text()(); // 'create' | 'update' | 'delete'
+  /// Free-form context for diagnostics only (e.g. "Peugeot 3008") - never
+  /// the actual row payload sent to Supabase (that's re-read fresh from the
+  /// entity table at push time, so this can never go stale/duplicate it).
+  TextColumn get payload => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  IntColumn get retryCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastAttemptAt => dateTime().nullable()();
+  TextColumn get lastError => text().nullable()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('pending'))(); // pending|syncing|failed
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Single-row table (id is always 'singleton') tracking the sync engine's
+/// own last-known-good/last-failure state across every table at once - the
+/// "dernière synchronisation réussie" / "dernière erreur" half of the
+/// technical indicator (SyncOutbox.pendingCount covers the other half,
+/// "combien en attente").
+class SyncMeta extends Table {
+  TextColumn get id => text()();
+  DateTimeColumn get lastSuccessAt => dateTime().nullable()();
+  DateTimeColumn get lastErrorAt => dateTime().nullable()();
+  TextColumn get lastErrorMessage => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

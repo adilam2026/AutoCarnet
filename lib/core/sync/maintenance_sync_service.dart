@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +11,7 @@ import '../utils/connectivity.dart';
 import 'conflict_repository.dart';
 import 'maintenance_sync_mapping.dart';
 import 'occ_sync.dart';
+import 'sync_outbox_repository.dart';
 
 /// Same optimistic-concurrency shape as [VehicleSyncService], for
 /// `maintenance_entries` (+ its `maintenance_parts` children, which always
@@ -24,11 +27,19 @@ import 'occ_sync.dart';
 /// without this a collaborator's own device would never show the addition
 /// in "Historique".
 class MaintenanceSyncService {
-  MaintenanceSyncService(this._db, this._client, this._conflicts, this._timeline);
+  MaintenanceSyncService(this._db, this._clientFn, this._conflicts, this._timeline,
+      [this._outbox]);
   final AppDatabase _db;
-  final SupabaseClient _client;
+  // A closure, not a resolved value - see ProviderSyncService's identical
+  // field for why (merely constructing this service must never touch
+  // Supabase.instance before syncNow() actually needs it).
+  final SupabaseClient Function() _clientFn;
+  SupabaseClient get _client => _clientFn();
   final ConflictRepository _conflicts;
   final TimelineRepository _timeline;
+  // Optional (sync-hardening pass) - see VehicleSyncService's identical
+  // field for the full rationale.
+  final SyncOutboxRepository? _outbox;
 
   static const _table = 'maintenance_entries';
   bool _syncing = false;
@@ -41,8 +52,9 @@ class MaintenanceSyncService {
     try {
       await _push();
       await _pull();
-    } catch (_) {
-      // Best-effort - a failed pass is silently retried on the next trigger.
+      unawaited(_outbox?.recordSuccess());
+    } catch (e) {
+      unawaited(_outbox?.recordError('maintenance: $e'));
     } finally {
       _syncing = false;
     }
@@ -55,22 +67,30 @@ class MaintenanceSyncService {
         .get();
     if (pending.isEmpty) return;
 
-    final result = await pushWithOcc(
-      client: _client,
-      table: _table,
-      rows: [
-        for (final e in pending)
-          PendingOccRow(
-            id: e.id,
-            expectedVersion: e.version,
-            remoteRow: {
-              ...maintenanceEntryToRemoteRow(e),
-              'updated_by': myUserId,
-              if (e.version == 0) 'created_by': myUserId,
-            },
-          ),
-      ],
-    );
+    final OccPushResult result;
+    try {
+      result = await pushWithOcc(
+        client: _client,
+        table: _table,
+        rows: [
+          for (final e in pending)
+            PendingOccRow(
+              id: e.id,
+              expectedVersion: e.version,
+              remoteRow: {
+                ...maintenanceEntryToRemoteRow(e),
+                'updated_by': myUserId,
+                if (e.version == 0) 'created_by': myUserId,
+              },
+            ),
+        ],
+      );
+    } catch (e) {
+      for (final entry in pending) {
+        unawaited(_outbox?.markFailed('maintenance', entry.id, e.toString()));
+      }
+      rethrow;
+    }
 
     for (final e in pending) {
       final newVersion = result.newVersionByPushedId[e.id];
@@ -84,6 +104,7 @@ class MaintenanceSyncService {
           ),
         );
         await _pushParts(e.id);
+        unawaited(_outbox?.markSynced('maintenance', e.id));
       } else if (result.conflictedIds.contains(e.id)) {
         final remoteRows = await _client.from(_table).select().eq('id', e.id).limit(1);
         if (remoteRows.isEmpty) continue;
@@ -95,6 +116,7 @@ class MaintenanceSyncService {
           remoteSnapshot: remoteRows.first,
           remoteUpdatedBy: remoteRows.first['updated_by'] as String?,
         );
+        unawaited(_outbox?.clearForConflict('maintenance', e.id));
       }
     }
   }
@@ -168,8 +190,9 @@ class MaintenanceSyncService {
 final maintenanceSyncServiceProvider = Provider<MaintenanceSyncService>((ref) {
   return MaintenanceSyncService(
     ref.watch(appDatabaseProvider),
-    Supabase.instance.client,
+    () => Supabase.instance.client,
     ref.watch(conflictRepositoryProvider),
     ref.watch(timelineRepositoryProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });

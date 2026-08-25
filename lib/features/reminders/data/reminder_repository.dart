@@ -1,16 +1,35 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../account/data/account_repository.dart';
 
 /// Central reminder engine (RG-ALR-001): documents, maintenance, etc. never
 /// manage their own notifications, they call [upsertForSource] instead.
 class ReminderRepository {
-  ReminderRepository(this._db);
+  ReminderRepository(this._db, [this._sync, this._outbox]);
   final AppDatabase _db;
+  // Optional (sync-hardening pass, after the GLC data-loss report) - see
+  // VehicleRepository's identical fields for the full rationale.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String reminderId, String operation) {
+    return _outbox?.enqueue(entityType: 'reminder', entityId: reminderId, operation: operation) ??
+        Future.value();
+  }
 
   /// Creates or replaces the single reminder tied to a given source
   /// (a document version, a maintenance entry...). Renewing a document or
@@ -53,11 +72,16 @@ class ReminderRepository {
         priority: Value(priority),
         status: const Value(ReminderStatus.active),
         updatedAt: Value(DateTime.now()),
+        // Sync-hardening pass: without this, an updated échéance on an
+        // already-synced reminder would silently never re-reach the cloud.
+        syncStatus: const Value('pendingSync'),
       ));
+      await _enqueueOutbox(existing.id, 'update');
     } else {
+      final id = newId();
       await _db.into(_db.reminders).insert(
             RemindersCompanion.insert(
-              id: newId(),
+              id: id,
               vehicleId: Value(vehicleId),
               sourceType: sourceType,
               sourceId: sourceId,
@@ -70,47 +94,70 @@ class ReminderRepository {
               updatedAt: DateTime.now(),
             ),
           );
+      await _enqueueOutbox(id, 'create');
     }
+    _nudgeSync();
   }
 
-  Future<void> disable(String reminderId) {
-    return (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
+  Future<void> disable(String reminderId) async {
+    await (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
         .write(RemindersCompanion(
       status: const Value(ReminderStatus.dismissed),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
+    await _enqueueOutbox(reminderId, 'update');
+    _nudgeSync();
   }
 
   /// Disables whichever reminder is tied to a given source (a document
   /// version, a maintenance entry...) without the caller needing to know
   /// the reminder's own id.
-  Future<void> disableForSource(String sourceType, String sourceId) {
-    return (_db.update(_db.reminders)
+  Future<void> disableForSource(String sourceType, String sourceId) async {
+    final existing = await (_db.select(_db.reminders)
+          ..where((r) =>
+              r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
+        .getSingleOrNull();
+    await (_db.update(_db.reminders)
           ..where((r) =>
               r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
         .write(RemindersCompanion(
       status: const Value(ReminderStatus.dismissed),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
+    if (existing != null) await _enqueueOutbox(existing.id, 'update');
+    _nudgeSync();
   }
 
   /// RG-ALR-007: a sold/archived/destroyed vehicle no longer needs future
   /// reminders.
-  Future<void> disableAllForVehicle(String vehicleId) {
-    return (_db.update(_db.reminders)..where((r) => r.vehicleId.equals(vehicleId)))
+  Future<void> disableAllForVehicle(String vehicleId) async {
+    final affected = await (_db.select(_db.reminders)
+          ..where((r) => r.vehicleId.equals(vehicleId)))
+        .get();
+    await (_db.update(_db.reminders)..where((r) => r.vehicleId.equals(vehicleId)))
         .write(RemindersCompanion(
       status: const Value(ReminderStatus.dismissed),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
+    for (final r in affected) {
+      await _enqueueOutbox(r.id, 'update');
+    }
+    _nudgeSync();
   }
 
-  Future<void> snooze(String reminderId, DateTime until) {
-    return (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
+  Future<void> snooze(String reminderId, DateTime until) async {
+    await (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
         .write(RemindersCompanion(
       status: const Value(ReminderStatus.snoozed),
       snoozedUntil: Value(until),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
+    await _enqueueOutbox(reminderId, 'update');
+    _nudgeSync();
   }
 
   Stream<List<Reminder>> watchActiveForVehicle(String vehicleId) {
@@ -171,7 +218,11 @@ class ReminderRepository {
 }
 
 final reminderRepositoryProvider = Provider<ReminderRepository>((ref) {
-  return ReminderRepository(ref.watch(appDatabaseProvider));
+  return ReminderRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
+  );
 });
 
 final vehicleActiveRemindersProvider =

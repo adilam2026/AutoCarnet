@@ -1,20 +1,42 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart' as core_db;
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../account/data/account_repository.dart';
 import '../domain/provider_matching.dart';
 
 /// Single referential of professionals reused by every module instead of
-/// retyping a garage/station name each time (Principe 3). Purely local -
-/// no cloud sync of its own - so unlike Vehicles.ownerId, [ServiceProvider]
+/// retyping a garage/station name each time (Principe 3). [ServiceProvider]
 /// rows carry their creator's account id directly from the moment they're
-/// created (see [createProvider]), never populated by a later pull.
+/// created (see [createProvider]), never populated by a later pull - same
+/// as before. Real cloud sync (mission 2026, sync-hardening pass): this
+/// référentiel used to be "purely local by design", exactly the same class
+/// of risk that lost the GLC vehicle (an uninstall before the very first
+/// sync pass erases it with nothing to recover) - see ProviderSyncService.
 class ProviderRepository {
-  ProviderRepository(this._db);
+  ProviderRepository(this._db, [this._sync, this._outbox]);
   final AppDatabase _db;
+  // Optional (sync-hardening pass) - see VehicleRepository's identical
+  // fields for the full rationale.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String providerId, String operation) {
+    return _outbox?.enqueue(entityType: 'provider', entityId: providerId, operation: operation) ??
+        Future.value();
+  }
 
   /// [currentUserId] keeps two different accounts that have used the same
   /// physical device from ever seeing each other's private contacts - a
@@ -104,6 +126,8 @@ class ProviderRepository {
             updatedAt: now,
           ),
         );
+    await _enqueueOutbox(id, 'create');
+    _nudgeSync();
     return id;
   }
 
@@ -119,8 +143,8 @@ class ProviderRepository {
     Value<String?> city = const Value.absent(),
     Value<String?> phone = const Value.absent(),
     Value<String?> comments = const Value.absent(),
-  }) {
-    return (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id))).write(
+  }) async {
+    await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id))).write(
       ServiceProvidersCompanion(
         name: Value(name),
         category: category,
@@ -129,8 +153,13 @@ class ProviderRepository {
         phone: phone,
         comments: comments,
         updatedAt: Value(DateTime.now()),
+        // Sync-hardening pass: without this, editing an already-synced
+        // prestataire would silently never reach the cloud again.
+        syncStatus: const Value('pendingSync'),
       ),
     );
+    await _enqueueOutbox(id, 'update');
+    _nudgeSync();
   }
 
   /// Account-switch safety net, same pattern as
@@ -143,14 +172,17 @@ class ProviderRepository {
         .write(ServiceProvidersCompanion(ownerId: Value(previousOwnerId)));
   }
 
-  Future<void> archive(String id) {
-    return (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id)))
+  Future<void> archive(String id) async {
+    await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id)))
         .write(
       ServiceProvidersCompanion(
         isArchived: const Value(true),
         updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
       ),
     );
+    await _enqueueOutbox(id, 'update');
+    _nudgeSync();
   }
 
   /// The Prestataires screen's "Supprimer" action - a soft delete (same
@@ -162,7 +194,11 @@ class ProviderRepository {
 }
 
 final providerRepositoryProvider = Provider<ProviderRepository>((ref) {
-  return ProviderRepository(ref.watch(core_db.appDatabaseProvider));
+  return ProviderRepository(
+    ref.watch(core_db.appDatabaseProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
+  );
 });
 
 final providersListProvider = StreamProvider<List<ServiceProvider>>((ref) {

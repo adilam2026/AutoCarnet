@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../reminders/data/reminder_repository.dart';
 import '../../timeline/data/timeline_repository.dart';
@@ -22,11 +26,40 @@ class FuelStats {
 }
 
 class FuelRepository {
-  FuelRepository(this._db, this._timeline, this._vehicles, this._reminders);
+  FuelRepository(
+    this._db,
+    this._timeline,
+    this._vehicles,
+    this._reminders, [
+    this._sync,
+    this._outbox,
+  ]);
   final AppDatabase _db;
   final TimelineRepository _timeline;
   final VehicleRepository _vehicles;
   final ReminderRepository _reminders;
+  // Optional so every existing test constructing FuelRepository without a
+  // sync service keeps compiling (same reasoning as VehicleRepository) -
+  // sync-hardening pass, after the GLC data-loss report: a fill-up/AdBlue
+  // entry previously only reached the cloud on the next 30s timer tick or
+  // app restart, never immediately after being saved.
+  //
+  // Nudges the whole [SyncCoordinator], not just fuel_entries: a fill-up
+  // almost always writes a linked expense too, which needs pushing in the
+  // same immediate pass rather than waiting for the next 30s tick.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String fuelEntryId, String operation) {
+    return _outbox?.enqueue(entityType: 'fuel', entityId: fuelEntryId, operation: operation) ??
+        Future.value();
+  }
 
   Stream<List<FuelEntry>> watchForVehicle(String vehicleId) {
     final query = _db.select(_db.fuelEntries)
@@ -127,6 +160,8 @@ class FuelRepository {
 
     if (isAdblue) await _reconcileAdblueReminder(vehicleId);
 
+    await _enqueueOutbox(id, 'create');
+    _nudgeSync();
     return id;
   }
 
@@ -257,6 +292,10 @@ class FuelRepository {
         comments: Value(comments),
         linkedExpenseId: Value(linkedExpenseId),
         updatedAt: Value(now),
+        // Sync-hardening pass: without this, editing an already-synced
+        // fill-up would silently never reach the cloud again (the push
+        // query only ever looks at rows still flagged pendingSync).
+        syncStatus: const Value('pendingSync'),
       ),
     );
 
@@ -281,6 +320,9 @@ class FuelRepository {
     if (isAdblue || existing.fuelType == adblueFuelType) {
       await _reconcileAdblueReminder(vehicleId);
     }
+
+    await _enqueueOutbox(id, 'update');
+    _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
@@ -288,19 +330,30 @@ class FuelRepository {
         await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingleOrNull();
     final now = DateTime.now();
     await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
-      FuelEntriesCompanion(isDeleted: const Value(true), updatedAt: Value(now)),
+      FuelEntriesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
+      ),
     );
     if (entry?.linkedExpenseId != null) {
       // Never leave the auto-generated expense behind pointing at a
       // deleted fill-up.
       await (_db.update(_db.expenses)
             ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
-          .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
+          .write(ExpensesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
+      ));
     }
     await _timeline.removeForEntity('fuel', id);
     if (entry != null && entry.fuelType == adblueFuelType) {
       await _reconcileAdblueReminder(entry.vehicleId);
     }
+
+    await _enqueueOutbox(id, 'delete');
+    _nudgeSync();
   }
 
   /// RG-CARB-005: consumption is only computed between two consecutive full
@@ -362,6 +415,8 @@ final fuelRepositoryProvider = Provider<FuelRepository>((ref) {
     ref.watch(timelineRepositoryProvider),
     ref.watch(vehicleRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });
 

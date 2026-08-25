@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/utils/id_generator.dart';
 import '../../account/data/account_repository.dart';
 import '../../reminders/data/reminder_repository.dart';
@@ -36,10 +40,31 @@ class DocumentWithVersion {
 }
 
 class DocumentRepository {
-  DocumentRepository(this._db, this._timeline, this._reminders);
+  DocumentRepository(
+    this._db,
+    this._timeline,
+    this._reminders, [
+    this._sync,
+    this._outbox,
+  ]);
   final AppDatabase _db;
   final TimelineRepository _timeline;
   final ReminderRepository _reminders;
+  // Optional (sync-hardening pass, after the GLC data-loss report) - see
+  // VehicleRepository's identical fields for the full rationale.
+  final SyncCoordinator? _sync;
+  final SyncOutboxRepository? _outbox;
+
+  void _nudgeSync() {
+    unawaited(_sync?.syncAll());
+  }
+
+  // Awaited, unlike _nudgeSync - see VehicleRepository's identical helper
+  // for why (a local SQLite write, not a network call).
+  Future<void> _enqueueOutbox(String entityId, String operation, {String entityType = 'document'}) {
+    return _outbox?.enqueue(entityType: entityType, entityId: entityId, operation: operation) ??
+        Future.value();
+  }
 
   Future<DocumentWithVersion?> getById(String id) async {
     final doc = await (_db.select(_db.documents)..where((d) => d.id.equals(id)))
@@ -176,6 +201,9 @@ class DocumentRepository {
         createdBy: currentUserId,
       );
     }
+    await _enqueueOutbox(docId, 'create');
+    await _enqueueOutbox(versionId, 'create', entityType: 'document_version');
+    _nudgeSync();
     return docId;
   }
 
@@ -212,8 +240,12 @@ class DocumentRepository {
             ..where((v) => v.id.equals(doc.currentVersionId!)))
           .write(const DocumentVersionsCompanion(
         status: Value(DocumentVersionStatus.replaced),
+        // Sync-hardening pass: without this, replacing an already-synced
+        // version would silently never push that "replaced" status.
+        syncStatus: Value('pendingSync'),
       ));
       await _reminders.disableForSource('document', doc.currentVersionId!);
+      await _enqueueOutbox(doc.currentVersionId!, 'update', entityType: 'document_version');
     }
 
     final newVersionId = newId();
@@ -234,6 +266,7 @@ class DocumentRepository {
         .write(DocumentsCompanion(
       currentVersionId: Value(newVersionId),
       updatedAt: Value(now),
+      syncStatus: const Value('pendingSync'),
     ));
 
     if (doc.vehicleId != null) {
@@ -257,6 +290,10 @@ class DocumentRepository {
         createdBy: currentUserId ?? doc.ownerId,
       );
     }
+
+    await _enqueueOutbox(documentId, 'update');
+    await _enqueueOutbox(newVersionId, 'create', entityType: 'document_version');
+    _nudgeSync();
   }
 
   Future<void> softDelete(String documentId) async {
@@ -264,8 +301,11 @@ class DocumentRepository {
         .write(DocumentsCompanion(
       isDeleted: const Value(true),
       updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('pendingSync'),
     ));
     await _timeline.removeForEntity('document', documentId);
+    await _enqueueOutbox(documentId, 'delete');
+    _nudgeSync();
   }
 }
 
@@ -274,6 +314,8 @@ final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(timelineRepositoryProvider),
     ref.watch(reminderRepositoryProvider),
+    ref.watch(syncCoordinatorProvider),
+    ref.watch(syncOutboxRepositoryProvider),
   );
 });
 

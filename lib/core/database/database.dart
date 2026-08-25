@@ -30,13 +30,15 @@ part 'database.g.dart';
     Reminders,
     SyncConflicts,
     AppNotifications,
+    SyncOutbox,
+    SyncMeta,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -139,6 +141,25 @@ class AppDatabase extends _$AppDatabase {
             // standard alterTable procedure). Every existing row keeps its
             // real vehicleId unchanged; only future rows may leave it null.
             await m.alterTable(TableMigration(reminders));
+          }
+          if (from < 12) {
+            // Sync-hardening pass (mission 2026, after the GLC data-loss
+            // report): a real local outbox ledger, plus giving prestataires
+            // (previously "purely local by design") the same real cloud
+            // sync every other table already has - see
+            // lib/core/sync/provider_sync_service.dart.
+            await m.createTable(syncOutbox);
+            await m.createTable(syncMeta);
+            await m.addColumn(serviceProviders, serviceProviders.syncStatus);
+            await m.addColumn(serviceProviders, serviceProviders.version);
+            await m.addColumn(serviceProviders, serviceProviders.createdBy);
+            await m.addColumn(serviceProviders, serviceProviders.updatedBy);
+            // Every existing prestataire has never been pushed anywhere -
+            // addColumn already defaults syncStatus to 'pendingSync' for
+            // them (matching a brand new row), so the very next sync pass
+            // uploads the owner's whole existing référentiel for the first
+            // time rather than only protecting prestataires created from
+            // now on.
           }
         },
       );
