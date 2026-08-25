@@ -112,21 +112,23 @@ class ProviderRepository {
   }) async {
     final id = newId();
     final now = DateTime.now();
-    await _db.into(_db.serviceProviders).insert(
-          ServiceProvidersCompanion.insert(
-            id: id,
-            name: name,
-            category: Value(category),
-            address: Value(address),
-            city: Value(city),
-            phone: Value(phone),
-            comments: Value(comments),
-            ownerId: Value(currentUserId),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await _enqueueOutbox(id, 'create');
+    await _db.transaction(() async {
+      await _db.into(_db.serviceProviders).insert(
+            ServiceProvidersCompanion.insert(
+              id: id,
+              name: name,
+              category: Value(category),
+              address: Value(address),
+              city: Value(city),
+              phone: Value(phone),
+              comments: Value(comments),
+              ownerId: Value(currentUserId),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _enqueueOutbox(id, 'create');
+    });
     _nudgeSync();
     return id;
   }
@@ -144,21 +146,23 @@ class ProviderRepository {
     Value<String?> phone = const Value.absent(),
     Value<String?> comments = const Value.absent(),
   }) async {
-    await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id))).write(
-      ServiceProvidersCompanion(
-        name: Value(name),
-        category: category,
-        address: address,
-        city: city,
-        phone: phone,
-        comments: comments,
-        updatedAt: Value(DateTime.now()),
-        // Sync-hardening pass: without this, editing an already-synced
-        // prestataire would silently never reach the cloud again.
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    await _enqueueOutbox(id, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id))).write(
+        ServiceProvidersCompanion(
+          name: Value(name),
+          category: category,
+          address: address,
+          city: city,
+          phone: phone,
+          comments: comments,
+          updatedAt: Value(DateTime.now()),
+          // Sync-hardening pass: without this, editing an already-synced
+          // prestataire would silently never reach the cloud again.
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      await _enqueueOutbox(id, 'update');
+    });
     _nudgeSync();
   }
 
@@ -173,15 +177,17 @@ class ProviderRepository {
   }
 
   Future<void> archive(String id) async {
-    await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id)))
-        .write(
-      ServiceProvidersCompanion(
-        isArchived: const Value(true),
-        updatedAt: Value(DateTime.now()),
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    await _enqueueOutbox(id, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.serviceProviders)..where((p) => p.id.equals(id)))
+          .write(
+        ServiceProvidersCompanion(
+          isArchived: const Value(true),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      await _enqueueOutbox(id, 'update');
+    });
     _nudgeSync();
   }
 

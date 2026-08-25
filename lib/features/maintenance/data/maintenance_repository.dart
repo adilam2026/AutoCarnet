@@ -104,92 +104,100 @@ class MaintenanceRepository {
       linkedExpenseId = newId();
     }
 
-    await _db.into(_db.maintenanceEntries).insert(
-          MaintenanceEntriesCompanion.insert(
-            id: id,
-            vehicleId: vehicleId,
-            category: category,
-            date: date,
-            mileage: mileage,
-            providerId: Value(providerId),
-            partsCost: Value(partsCost),
-            laborCost: Value(laborCost),
-            currency: Value(currency),
-            comments: Value(comments),
-            nextDueDate: Value(nextDueDate),
-            nextDueMileage: Value(nextDueMileage),
-            linkedExpenseId: Value(linkedExpenseId),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-
-    for (final part in parts) {
-      await _db.into(_db.maintenanceParts).insert(
-            MaintenancePartsCompanion.insert(
-              id: newId(),
-              maintenanceEntryId: id,
-              designation: part.designation,
-              reference: Value(part.reference),
-              brand: Value(part.brand),
-              quantity: Value(part.quantity),
-              unitPrice: Value(part.unitPrice),
-            ),
-          );
-    }
-
-    if (linkedExpenseId != null) {
-      await _db.into(_db.expenses).insert(
-            ExpensesCompanion.insert(
-              id: linkedExpenseId,
+    // Atomic: the entry, its parts, the linked expense, the mileage entry
+    // it feeds, the reminder and both outbox entries commit together or
+    // not at all - see VehicleRepository.createVehicle's identical
+    // rationale.
+    await _db.transaction(() async {
+      await _db.into(_db.maintenanceEntries).insert(
+            MaintenanceEntriesCompanion.insert(
+              id: id,
               vehicleId: vehicleId,
               category: category,
               date: date,
-              amount: totalCost,
-              currency: Value(currency),
+              mileage: mileage,
               providerId: Value(providerId),
-              mileage: Value(mileage),
-              comments: Value('Généré depuis l\'entretien'),
-              linkedMaintenanceId: Value(id),
+              partsCost: Value(partsCost),
+              laborCost: Value(laborCost),
+              currency: Value(currency),
+              comments: Value(comments),
+              nextDueDate: Value(nextDueDate),
+              nextDueMileage: Value(nextDueMileage),
+              linkedExpenseId: Value(linkedExpenseId),
               createdAt: now,
               updatedAt: now,
             ),
           );
-    }
 
-    await _vehicles.recordOperationMileage(
-      vehicleId: vehicleId,
-      value: mileage,
-      source: 'maintenance',
-      sourceId: id,
-    );
+      for (final part in parts) {
+        await _db.into(_db.maintenanceParts).insert(
+              MaintenancePartsCompanion.insert(
+                id: newId(),
+                maintenanceEntryId: id,
+                designation: part.designation,
+                reference: Value(part.reference),
+                brand: Value(part.brand),
+                quantity: Value(part.quantity),
+                unitPrice: Value(part.unitPrice),
+              ),
+            );
+      }
 
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'maintenance',
-      eventType: 'maintenance_added',
-      title: category,
-      description: comments,
-      linkedEntityId: id,
-      linkedEntityType: 'maintenance',
-      occurredAt: date,
-    );
+      if (linkedExpenseId != null) {
+        await _db.into(_db.expenses).insert(
+              ExpensesCompanion.insert(
+                id: linkedExpenseId,
+                vehicleId: vehicleId,
+                category: category,
+                date: date,
+                amount: totalCost,
+                currency: Value(currency),
+                providerId: Value(providerId),
+                mileage: Value(mileage),
+                comments: Value('Généré depuis l\'entretien'),
+                linkedMaintenanceId: Value(id),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
 
-    if (nextDueDate != null || nextDueMileage != null) {
-      await _reminders.upsertForSource(
+      await _vehicles.recordOperationMileage(
         vehicleId: vehicleId,
-        sourceType: 'maintenance',
+        value: mileage,
+        source: 'maintenance',
         sourceId: id,
-        title: '$category à prévoir',
-        dueDate: nextDueDate,
-        dueMileage: nextDueMileage,
       );
-    }
 
-    await _reconcileCategoryReminders(vehicleId, category);
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'maintenance',
+        eventType: 'maintenance_added',
+        title: category,
+        description: comments,
+        linkedEntityId: id,
+        linkedEntityType: 'maintenance',
+        occurredAt: date,
+      );
 
-    await _enqueueOutbox(id, 'create');
-    if (linkedExpenseId != null) await _enqueueOutbox(linkedExpenseId, 'create', entityType: 'expense');
+      if (nextDueDate != null || nextDueMileage != null) {
+        await _reminders.upsertForSource(
+          vehicleId: vehicleId,
+          sourceType: 'maintenance',
+          sourceId: id,
+          title: '$category à prévoir',
+          dueDate: nextDueDate,
+          dueMileage: nextDueMileage,
+        );
+      }
+
+      await _reconcileCategoryReminders(vehicleId, category);
+
+      await _enqueueOutbox(id, 'create');
+      if (linkedExpenseId != null) {
+        await _enqueueOutbox(linkedExpenseId, 'create', entityType: 'expense');
+      }
+    });
     _nudgeSync();
     return id;
   }
@@ -203,7 +211,7 @@ class MaintenanceRepository {
   /// never consulted here - it's an audit detail, not automotive truth.
   ///
   /// Every other entry of that category keeps enriching historique,
-  /// intervalles observés and statistiques, but its reminder (if any) is
+  /// intervalles observés et statistiques, but its reminder (if any) is
   /// closed so it can never coexist with, or contradict, the current one.
   Future<void> _reconcileCategoryReminders(
     String vehicleId,
@@ -262,166 +270,172 @@ class MaintenanceRepository {
     bool createLinkedExpense = true,
   }) async {
     final now = DateTime.now();
-    final existing = await (_db.select(_db.maintenanceEntries)
-          ..where((m) => m.id.equals(id)))
-        .getSingle();
-    final partsCost =
-        parts.fold<double>(0, (sum, p) => sum + p.quantity * p.unitPrice);
-    final totalCost = partsCost + laborCost;
+    await _db.transaction(() async {
+      final existing = await (_db.select(_db.maintenanceEntries)
+            ..where((m) => m.id.equals(id)))
+          .getSingle();
+      final partsCost =
+          parts.fold<double>(0, (sum, p) => sum + p.quantity * p.unitPrice);
+      final totalCost = partsCost + laborCost;
 
-    var linkedExpenseId = existing.linkedExpenseId;
-    if (createLinkedExpense && totalCost > 0) {
-      if (linkedExpenseId != null) {
+      var linkedExpenseId = existing.linkedExpenseId;
+      if (createLinkedExpense && totalCost > 0) {
+        if (linkedExpenseId != null) {
+          await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+              .write(ExpensesCompanion(
+            category: Value(category),
+            date: Value(date),
+            amount: Value(totalCost),
+            currency: Value(currency),
+            providerId: Value(providerId),
+            mileage: Value(mileage),
+            updatedAt: Value(now),
+          ));
+        } else {
+          linkedExpenseId = newId();
+          await _db.into(_db.expenses).insert(
+                ExpensesCompanion.insert(
+                  id: linkedExpenseId,
+                  vehicleId: vehicleId,
+                  category: category,
+                  date: date,
+                  amount: totalCost,
+                  currency: Value(currency),
+                  providerId: Value(providerId),
+                  mileage: Value(mileage),
+                  comments: const Value('Généré depuis l\'entretien'),
+                  linkedMaintenanceId: Value(id),
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
+        }
+      } else if (linkedExpenseId != null) {
         await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
             .write(ExpensesCompanion(
-          category: Value(category),
-          date: Value(date),
-          amount: Value(totalCost),
-          currency: Value(currency),
-          providerId: Value(providerId),
-          mileage: Value(mileage),
+          isDeleted: const Value(true),
           updatedAt: Value(now),
         ));
-      } else {
-        linkedExpenseId = newId();
-        await _db.into(_db.expenses).insert(
-              ExpensesCompanion.insert(
-                id: linkedExpenseId,
-                vehicleId: vehicleId,
-                category: category,
-                date: date,
-                amount: totalCost,
-                currency: Value(currency),
-                providerId: Value(providerId),
-                mileage: Value(mileage),
-                comments: const Value('Généré depuis l\'entretien'),
-                linkedMaintenanceId: Value(id),
-                createdAt: now,
-                updatedAt: now,
+        linkedExpenseId = null;
+      }
+
+      await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+          .write(MaintenanceEntriesCompanion(
+        category: Value(category),
+        date: Value(date),
+        mileage: Value(mileage),
+        providerId: Value(providerId),
+        partsCost: Value(partsCost),
+        laborCost: Value(laborCost),
+        currency: Value(currency),
+        comments: Value(comments),
+        nextDueDate: Value(nextDueDate),
+        nextDueMileage: Value(nextDueMileage),
+        linkedExpenseId: Value(linkedExpenseId),
+        updatedAt: Value(now),
+        // Sync-hardening pass: without this, editing an already-synced
+        // operation would silently never reach the cloud again.
+        syncStatus: const Value('pendingSync'),
+      ));
+
+      await (_db.delete(_db.maintenanceParts)
+            ..where((p) => p.maintenanceEntryId.equals(id)))
+          .go();
+      for (final part in parts) {
+        await _db.into(_db.maintenanceParts).insert(
+              MaintenancePartsCompanion.insert(
+                id: newId(),
+                maintenanceEntryId: id,
+                designation: part.designation,
+                reference: Value(part.reference),
+                brand: Value(part.brand),
+                quantity: Value(part.quantity),
+                unitPrice: Value(part.unitPrice),
               ),
             );
       }
-    } else if (linkedExpenseId != null) {
-      await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
-          .write(ExpensesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(now),
-      ));
-      linkedExpenseId = null;
-    }
 
-    await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
-        .write(MaintenanceEntriesCompanion(
-      category: Value(category),
-      date: Value(date),
-      mileage: Value(mileage),
-      providerId: Value(providerId),
-      partsCost: Value(partsCost),
-      laborCost: Value(laborCost),
-      currency: Value(currency),
-      comments: Value(comments),
-      nextDueDate: Value(nextDueDate),
-      nextDueMileage: Value(nextDueMileage),
-      linkedExpenseId: Value(linkedExpenseId),
-      updatedAt: Value(now),
-      // Sync-hardening pass: without this, editing an already-synced
-      // operation would silently never reach the cloud again.
-      syncStatus: const Value('pendingSync'),
-    ));
-
-    await (_db.delete(_db.maintenanceParts)
-          ..where((p) => p.maintenanceEntryId.equals(id)))
-        .go();
-    for (final part in parts) {
-      await _db.into(_db.maintenanceParts).insert(
-            MaintenancePartsCompanion.insert(
-              id: newId(),
-              maintenanceEntryId: id,
-              designation: part.designation,
-              reference: Value(part.reference),
-              brand: Value(part.brand),
-              quantity: Value(part.quantity),
-              unitPrice: Value(part.unitPrice),
-            ),
-          );
-    }
-
-    await _vehicles.updateOperationMileage(
-      vehicleId: vehicleId,
-      source: 'maintenance',
-      sourceId: id,
-      newValue: mileage,
-    );
-
-    // Same eventType/linkedEntityId as creation: logEvent upserts in place,
-    // so the operation still appears as a single "$category" line reflecting
-    // its current data, never a second "modifié" entry next to the original.
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'maintenance',
-      eventType: 'maintenance_added',
-      title: category,
-      description: comments,
-      linkedEntityId: id,
-      linkedEntityType: 'maintenance',
-      occurredAt: date,
-    );
-
-    if (nextDueDate != null || nextDueMileage != null) {
-      await _reminders.upsertForSource(
+      await _vehicles.updateOperationMileage(
         vehicleId: vehicleId,
-        sourceType: 'maintenance',
+        source: 'maintenance',
         sourceId: id,
-        title: '$category à prévoir',
-        dueDate: nextDueDate,
-        dueMileage: nextDueMileage,
+        newValue: mileage,
       );
-    } else {
-      await _reminders.disableForSource('maintenance', id);
-    }
 
-    // The category (or the reference operation within it) may have just
-    // changed - re-derive which entry is the true reference before leaving.
-    if (existing.category != category) {
-      await _reconcileCategoryReminders(vehicleId, existing.category);
-    }
-    await _reconcileCategoryReminders(vehicleId, category);
+      // Same eventType/linkedEntityId as creation: logEvent upserts in place,
+      // so the operation still appears as a single "$category" line reflecting
+      // its current data, never a second "modifié" entry next to the original.
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'maintenance',
+        eventType: 'maintenance_added',
+        title: category,
+        description: comments,
+        linkedEntityId: id,
+        linkedEntityType: 'maintenance',
+        occurredAt: date,
+      );
 
-    await _enqueueOutbox(id, 'update');
-    if (linkedExpenseId != null) await _enqueueOutbox(linkedExpenseId, 'update', entityType: 'expense');
+      if (nextDueDate != null || nextDueMileage != null) {
+        await _reminders.upsertForSource(
+          vehicleId: vehicleId,
+          sourceType: 'maintenance',
+          sourceId: id,
+          title: '$category à prévoir',
+          dueDate: nextDueDate,
+          dueMileage: nextDueMileage,
+        );
+      } else {
+        await _reminders.disableForSource('maintenance', id);
+      }
+
+      // The category (or the reference operation within it) may have just
+      // changed - re-derive which entry is the true reference before leaving.
+      if (existing.category != category) {
+        await _reconcileCategoryReminders(vehicleId, existing.category);
+      }
+      await _reconcileCategoryReminders(vehicleId, category);
+
+      await _enqueueOutbox(id, 'update');
+      if (linkedExpenseId != null) {
+        await _enqueueOutbox(linkedExpenseId, 'update', entityType: 'expense');
+      }
+    });
     _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
-    final entry =
-        await (_db.select(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
-            .getSingleOrNull();
     final now = DateTime.now();
-    await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
-        .write(MaintenanceEntriesCompanion(
-      isDeleted: const Value(true),
-      updatedAt: Value(now),
-      syncStatus: const Value('pendingSync'),
-    ));
-    if (entry?.linkedExpenseId != null) {
-      // Never leave the auto-generated expense behind pointing at a
-      // deleted operation - it was never independently editable, it
-      // shouldn't be independently deletable-and-forgotten either.
-      await (_db.update(_db.expenses)
-            ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
-          .write(ExpensesCompanion(
+    await _db.transaction(() async {
+      final entry =
+          await (_db.select(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+              .getSingleOrNull();
+      await (_db.update(_db.maintenanceEntries)..where((m) => m.id.equals(id)))
+          .write(MaintenanceEntriesCompanion(
         isDeleted: const Value(true),
         updatedAt: Value(now),
         syncStatus: const Value('pendingSync'),
       ));
-      await _enqueueOutbox(entry!.linkedExpenseId!, 'delete', entityType: 'expense');
-    }
-    await _reminders.disableForSource('maintenance', id);
-    await _timeline.removeForEntity('maintenance', id);
-    if (entry != null) {
-      await _reconcileCategoryReminders(entry.vehicleId, entry.category);
-    }
-    await _enqueueOutbox(id, 'delete');
+      if (entry?.linkedExpenseId != null) {
+        // Never leave the auto-generated expense behind pointing at a
+        // deleted operation - it was never independently editable, it
+        // shouldn't be independently deletable-and-forgotten either.
+        await (_db.update(_db.expenses)
+              ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
+            .write(ExpensesCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+          syncStatus: const Value('pendingSync'),
+        ));
+        await _enqueueOutbox(entry!.linkedExpenseId!, 'delete', entityType: 'expense');
+      }
+      await _reminders.disableForSource('maintenance', id);
+      await _timeline.removeForEntity('maintenance', id);
+      if (entry != null) {
+        await _reconcileCategoryReminders(entry.vehicleId, entry.category);
+      }
+      await _enqueueOutbox(id, 'delete');
+    });
     _nudgeSync();
   }
 }

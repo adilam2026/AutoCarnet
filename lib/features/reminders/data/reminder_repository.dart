@@ -51,55 +51,62 @@ class ReminderRepository {
     String priority = 'normal',
     String? createdBy,
   }) async {
-    final existing = await (_db.select(_db.reminders)
-          ..where((r) =>
-              r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
-        .getSingleOrNull();
+    await _db.transaction(() async {
+      final existing = await (_db.select(_db.reminders)
+            ..where((r) =>
+                r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
+          .getSingleOrNull();
 
-    if (dueDate == null && dueMileage == null) {
-      if (existing != null) {
-        await disable(existing.id);
+      if (dueDate == null && dueMileage == null) {
+        if (existing != null) {
+          await _disable(existing.id);
+        }
+        return;
       }
-      return;
-    }
 
-    if (existing != null) {
-      await (_db.update(_db.reminders)..where((r) => r.id.equals(existing.id)))
-          .write(RemindersCompanion(
-        title: Value(title),
-        dueDate: Value(dueDate),
-        dueMileage: Value(dueMileage),
-        priority: Value(priority),
-        status: const Value(ReminderStatus.active),
-        updatedAt: Value(DateTime.now()),
-        // Sync-hardening pass: without this, an updated échéance on an
-        // already-synced reminder would silently never re-reach the cloud.
-        syncStatus: const Value('pendingSync'),
-      ));
-      await _enqueueOutbox(existing.id, 'update');
-    } else {
-      final id = newId();
-      await _db.into(_db.reminders).insert(
-            RemindersCompanion.insert(
-              id: id,
-              vehicleId: Value(vehicleId),
-              sourceType: sourceType,
-              sourceId: sourceId,
-              title: title,
-              dueDate: Value(dueDate),
-              dueMileage: Value(dueMileage),
-              priority: Value(priority),
-              createdBy: Value(createdBy),
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          );
-      await _enqueueOutbox(id, 'create');
-    }
+      if (existing != null) {
+        await (_db.update(_db.reminders)..where((r) => r.id.equals(existing.id)))
+            .write(RemindersCompanion(
+          title: Value(title),
+          dueDate: Value(dueDate),
+          dueMileage: Value(dueMileage),
+          priority: Value(priority),
+          status: const Value(ReminderStatus.active),
+          updatedAt: Value(DateTime.now()),
+          // Sync-hardening pass: without this, an updated échéance on an
+          // already-synced reminder would silently never re-reach the cloud.
+          syncStatus: const Value('pendingSync'),
+        ));
+        await _enqueueOutbox(existing.id, 'update');
+      } else {
+        final id = newId();
+        await _db.into(_db.reminders).insert(
+              RemindersCompanion.insert(
+                id: id,
+                vehicleId: Value(vehicleId),
+                sourceType: sourceType,
+                sourceId: sourceId,
+                title: title,
+                dueDate: Value(dueDate),
+                dueMileage: Value(dueMileage),
+                priority: Value(priority),
+                createdBy: Value(createdBy),
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+            );
+        await _enqueueOutbox(id, 'create');
+      }
+    });
     _nudgeSync();
   }
 
   Future<void> disable(String reminderId) async {
+    await _db.transaction(() => _disable(reminderId));
+    _nudgeSync();
+  }
+
+  Future<void> _disable(String reminderId) async {
     await (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
         .write(RemindersCompanion(
       status: const Value(ReminderStatus.dismissed),
@@ -107,56 +114,61 @@ class ReminderRepository {
       syncStatus: const Value('pendingSync'),
     ));
     await _enqueueOutbox(reminderId, 'update');
-    _nudgeSync();
   }
 
   /// Disables whichever reminder is tied to a given source (a document
   /// version, a maintenance entry...) without the caller needing to know
   /// the reminder's own id.
   Future<void> disableForSource(String sourceType, String sourceId) async {
-    final existing = await (_db.select(_db.reminders)
-          ..where((r) =>
-              r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
-        .getSingleOrNull();
-    await (_db.update(_db.reminders)
-          ..where((r) =>
-              r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
-        .write(RemindersCompanion(
-      status: const Value(ReminderStatus.dismissed),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    if (existing != null) await _enqueueOutbox(existing.id, 'update');
+    await _db.transaction(() async {
+      final existing = await (_db.select(_db.reminders)
+            ..where((r) =>
+                r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
+          .getSingleOrNull();
+      await (_db.update(_db.reminders)
+            ..where((r) =>
+                r.sourceType.equals(sourceType) & r.sourceId.equals(sourceId)))
+          .write(RemindersCompanion(
+        status: const Value(ReminderStatus.dismissed),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      if (existing != null) await _enqueueOutbox(existing.id, 'update');
+    });
     _nudgeSync();
   }
 
   /// RG-ALR-007: a sold/archived/destroyed vehicle no longer needs future
   /// reminders.
   Future<void> disableAllForVehicle(String vehicleId) async {
-    final affected = await (_db.select(_db.reminders)
-          ..where((r) => r.vehicleId.equals(vehicleId)))
-        .get();
-    await (_db.update(_db.reminders)..where((r) => r.vehicleId.equals(vehicleId)))
-        .write(RemindersCompanion(
-      status: const Value(ReminderStatus.dismissed),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    for (final r in affected) {
-      await _enqueueOutbox(r.id, 'update');
-    }
+    await _db.transaction(() async {
+      final affected = await (_db.select(_db.reminders)
+            ..where((r) => r.vehicleId.equals(vehicleId)))
+          .get();
+      await (_db.update(_db.reminders)..where((r) => r.vehicleId.equals(vehicleId)))
+          .write(RemindersCompanion(
+        status: const Value(ReminderStatus.dismissed),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      for (final r in affected) {
+        await _enqueueOutbox(r.id, 'update');
+      }
+    });
     _nudgeSync();
   }
 
   Future<void> snooze(String reminderId, DateTime until) async {
-    await (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
-        .write(RemindersCompanion(
-      status: const Value(ReminderStatus.snoozed),
-      snoozedUntil: Value(until),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    await _enqueueOutbox(reminderId, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.reminders)..where((r) => r.id.equals(reminderId)))
+          .write(RemindersCompanion(
+        status: const Value(ReminderStatus.snoozed),
+        snoozedUntil: Value(until),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _enqueueOutbox(reminderId, 'update');
+    });
     _nudgeSync();
   }
 

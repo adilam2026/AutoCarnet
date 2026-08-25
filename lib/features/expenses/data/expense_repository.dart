@@ -75,32 +75,34 @@ class ExpenseRepository {
   }) async {
     final id = newId();
     final now = DateTime.now();
-    await _db.into(_db.expenses).insert(
-          ExpensesCompanion.insert(
-            id: id,
-            vehicleId: vehicleId,
-            category: category,
-            date: date,
-            amount: amount,
-            currency: Value(currency),
-            providerId: Value(providerId),
-            mileage: Value(mileage),
-            paymentMethod: Value(paymentMethod),
-            comments: Value(comments),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'expenses',
-      eventType: 'expense_added',
-      title: '$category — ${formatAmount(amount)} $currency',
-      linkedEntityId: id,
-      linkedEntityType: 'expense',
-      occurredAt: date,
-    );
-    await _enqueueOutbox(id, 'create');
+    await _db.transaction(() async {
+      await _db.into(_db.expenses).insert(
+            ExpensesCompanion.insert(
+              id: id,
+              vehicleId: vehicleId,
+              category: category,
+              date: date,
+              amount: amount,
+              currency: Value(currency),
+              providerId: Value(providerId),
+              mileage: Value(mileage),
+              paymentMethod: Value(paymentMethod),
+              comments: Value(comments),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'expenses',
+        eventType: 'expense_added',
+        title: '$category — ${formatAmount(amount)} $currency',
+        linkedEntityId: id,
+        linkedEntityType: 'expense',
+        occurredAt: date,
+      );
+      await _enqueueOutbox(id, 'create');
+    });
     _nudgeSync();
     return id;
   }
@@ -120,46 +122,50 @@ class ExpenseRepository {
     String? paymentMethod,
     String? comments,
   }) async {
-    await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
-      ExpensesCompanion(
-        category: Value(category),
-        date: Value(date),
-        amount: Value(amount),
-        currency: Value(currency),
-        providerId: Value(providerId),
-        mileage: Value(mileage),
-        paymentMethod: Value(paymentMethod),
-        comments: Value(comments),
-        updatedAt: Value(DateTime.now()),
-        // Sync-hardening pass: without this, editing an already-synced
-        // expense would silently never reach the cloud again.
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    // Same eventType/linkedEntityId as creation: logEvent upserts in place.
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'expenses',
-      eventType: 'expense_added',
-      title: '$category — ${formatAmount(amount)} $currency',
-      linkedEntityId: id,
-      linkedEntityType: 'expense',
-      occurredAt: date,
-    );
-    await _enqueueOutbox(id, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
+        ExpensesCompanion(
+          category: Value(category),
+          date: Value(date),
+          amount: Value(amount),
+          currency: Value(currency),
+          providerId: Value(providerId),
+          mileage: Value(mileage),
+          paymentMethod: Value(paymentMethod),
+          comments: Value(comments),
+          updatedAt: Value(DateTime.now()),
+          // Sync-hardening pass: without this, editing an already-synced
+          // expense would silently never reach the cloud again.
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      // Same eventType/linkedEntityId as creation: logEvent upserts in place.
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'expenses',
+        eventType: 'expense_added',
+        title: '$category — ${formatAmount(amount)} $currency',
+        linkedEntityId: id,
+        linkedEntityType: 'expense',
+        occurredAt: date,
+      );
+      await _enqueueOutbox(id, 'update');
+    });
     _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
-    await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
-      ExpensesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(DateTime.now()),
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    await _timeline.removeForEntity('expense', id);
-    await _enqueueOutbox(id, 'delete');
+    await _db.transaction(() async {
+      await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
+        ExpensesCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      await _timeline.removeForEntity('expense', id);
+      await _enqueueOutbox(id, 'delete');
+    });
     _nudgeSync();
   }
 

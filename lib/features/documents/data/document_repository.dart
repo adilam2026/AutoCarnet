@@ -148,61 +148,63 @@ class DocumentRepository {
     final docId = newId();
     final versionId = newId();
     final now = DateTime.now();
-    await _db.into(_db.documents).insert(
-          DocumentsCompanion.insert(
-            id: docId,
-            vehicleId: Value(vehicleId),
-            type: type,
-            holder: Value(holder),
-            currentVersionId: Value(versionId),
-            ownerId: Value(currentUserId),
-            createdAt: now,
-            updatedAt: now,
-          ),
+    await _db.transaction(() async {
+      await _db.into(_db.documents).insert(
+            DocumentsCompanion.insert(
+              id: docId,
+              vehicleId: Value(vehicleId),
+              type: type,
+              holder: Value(holder),
+              currentVersionId: Value(versionId),
+              ownerId: Value(currentUserId),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _db.into(_db.documentVersions).insert(
+            DocumentVersionsCompanion.insert(
+              id: versionId,
+              documentId: docId,
+              documentNumber: Value(documentNumber),
+              issueDate: Value(issueDate),
+              expiryDate: Value(expiryDate),
+              cost: Value(cost),
+              providerId: Value(providerId),
+              comments: Value(comments),
+              createdAt: now,
+            ),
+          );
+      if (vehicleId != null) {
+        // A driver document (permis...) never appears in a vehicle's own
+        // timeline - it doesn't belong to one, so there's nothing to log
+        // here for that case.
+        await _timeline.logEvent(
+          vehicleId: vehicleId,
+          moduleOrigin: 'documents',
+          eventType: 'document_added',
+          title: '$type ajouté',
+          linkedEntityId: docId,
+          linkedEntityType: 'document',
+          occurredAt: now,
         );
-    await _db.into(_db.documentVersions).insert(
-          DocumentVersionsCompanion.insert(
-            id: versionId,
-            documentId: docId,
-            documentNumber: Value(documentNumber),
-            issueDate: Value(issueDate),
-            expiryDate: Value(expiryDate),
-            cost: Value(cost),
-            providerId: Value(providerId),
-            comments: Value(comments),
-            createdAt: now,
-          ),
+      }
+      if (expiryDate != null) {
+        // A driver document's reminder is personal (no vehicleId), scoped by
+        // its creator instead - see ReminderRepository._scopedQuery. This is
+        // the ONE reminder for this document regardless of how many vehicles
+        // the owner has (mission: never duplicated per vehicle).
+        await _reminders.upsertForSource(
+          vehicleId: vehicleId,
+          sourceType: 'document',
+          sourceId: versionId,
+          title: _reminderTitle(type, expiryDate),
+          dueDate: expiryDate,
+          createdBy: currentUserId,
         );
-    if (vehicleId != null) {
-      // A driver document (permis...) never appears in a vehicle's own
-      // timeline - it doesn't belong to one, so there's nothing to log
-      // here for that case.
-      await _timeline.logEvent(
-        vehicleId: vehicleId,
-        moduleOrigin: 'documents',
-        eventType: 'document_added',
-        title: '$type ajouté',
-        linkedEntityId: docId,
-        linkedEntityType: 'document',
-        occurredAt: now,
-      );
-    }
-    if (expiryDate != null) {
-      // A driver document's reminder is personal (no vehicleId), scoped by
-      // its creator instead - see ReminderRepository._scopedQuery. This is
-      // the ONE reminder for this document regardless of how many vehicles
-      // the owner has (mission: never duplicated per vehicle).
-      await _reminders.upsertForSource(
-        vehicleId: vehicleId,
-        sourceType: 'document',
-        sourceId: versionId,
-        title: _reminderTitle(type, expiryDate),
-        dueDate: expiryDate,
-        createdBy: currentUserId,
-      );
-    }
-    await _enqueueOutbox(docId, 'create');
-    await _enqueueOutbox(versionId, 'create', entityType: 'document_version');
+      }
+      await _enqueueOutbox(docId, 'create');
+      await _enqueueOutbox(versionId, 'create', entityType: 'document_version');
+    });
     _nudgeSync();
     return docId;
   }
@@ -230,81 +232,85 @@ class DocumentRepository {
     String? comments,
     String? currentUserId,
   }) async {
-    final doc = await (_db.select(_db.documents)
-          ..where((d) => d.id.equals(documentId)))
-        .getSingle();
     final now = DateTime.now();
-
-    if (doc.currentVersionId != null) {
-      await (_db.update(_db.documentVersions)
-            ..where((v) => v.id.equals(doc.currentVersionId!)))
-          .write(const DocumentVersionsCompanion(
-        status: Value(DocumentVersionStatus.replaced),
-        // Sync-hardening pass: without this, replacing an already-synced
-        // version would silently never push that "replaced" status.
-        syncStatus: Value('pendingSync'),
-      ));
-      await _reminders.disableForSource('document', doc.currentVersionId!);
-      await _enqueueOutbox(doc.currentVersionId!, 'update', entityType: 'document_version');
-    }
-
     final newVersionId = newId();
-    await _db.into(_db.documentVersions).insert(
-          DocumentVersionsCompanion.insert(
-            id: newVersionId,
-            documentId: documentId,
-            documentNumber: Value(documentNumber),
-            issueDate: Value(issueDate),
-            expiryDate: Value(expiryDate),
-            cost: Value(cost),
-            providerId: Value(providerId),
-            comments: Value(comments),
-            createdAt: now,
-          ),
+    await _db.transaction(() async {
+      final doc = await (_db.select(_db.documents)
+            ..where((d) => d.id.equals(documentId)))
+          .getSingle();
+
+      if (doc.currentVersionId != null) {
+        await (_db.update(_db.documentVersions)
+              ..where((v) => v.id.equals(doc.currentVersionId!)))
+            .write(const DocumentVersionsCompanion(
+          status: Value(DocumentVersionStatus.replaced),
+          // Sync-hardening pass: without this, replacing an already-synced
+          // version would silently never push that "replaced" status.
+          syncStatus: Value('pendingSync'),
+        ));
+        await _reminders.disableForSource('document', doc.currentVersionId!);
+        await _enqueueOutbox(doc.currentVersionId!, 'update', entityType: 'document_version');
+      }
+
+      await _db.into(_db.documentVersions).insert(
+            DocumentVersionsCompanion.insert(
+              id: newVersionId,
+              documentId: documentId,
+              documentNumber: Value(documentNumber),
+              issueDate: Value(issueDate),
+              expiryDate: Value(expiryDate),
+              cost: Value(cost),
+              providerId: Value(providerId),
+              comments: Value(comments),
+              createdAt: now,
+            ),
+          );
+      await (_db.update(_db.documents)..where((d) => d.id.equals(documentId)))
+          .write(DocumentsCompanion(
+        currentVersionId: Value(newVersionId),
+        updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
+      ));
+
+      if (doc.vehicleId != null) {
+        await _timeline.logEvent(
+          vehicleId: doc.vehicleId!,
+          moduleOrigin: 'documents',
+          eventType: 'document_renewed',
+          title: '${doc.type} renouvelé',
+          linkedEntityId: documentId,
+          linkedEntityType: 'document',
+          occurredAt: now,
         );
-    await (_db.update(_db.documents)..where((d) => d.id.equals(documentId)))
-        .write(DocumentsCompanion(
-      currentVersionId: Value(newVersionId),
-      updatedAt: Value(now),
-      syncStatus: const Value('pendingSync'),
-    ));
+      }
+      if (expiryDate != null) {
+        await _reminders.upsertForSource(
+          vehicleId: doc.vehicleId,
+          sourceType: 'document',
+          sourceId: newVersionId,
+          title: _reminderTitle(doc.type, expiryDate),
+          dueDate: expiryDate,
+          createdBy: currentUserId ?? doc.ownerId,
+        );
+      }
 
-    if (doc.vehicleId != null) {
-      await _timeline.logEvent(
-        vehicleId: doc.vehicleId!,
-        moduleOrigin: 'documents',
-        eventType: 'document_renewed',
-        title: '${doc.type} renouvelé',
-        linkedEntityId: documentId,
-        linkedEntityType: 'document',
-        occurredAt: now,
-      );
-    }
-    if (expiryDate != null) {
-      await _reminders.upsertForSource(
-        vehicleId: doc.vehicleId,
-        sourceType: 'document',
-        sourceId: newVersionId,
-        title: _reminderTitle(doc.type, expiryDate),
-        dueDate: expiryDate,
-        createdBy: currentUserId ?? doc.ownerId,
-      );
-    }
-
-    await _enqueueOutbox(documentId, 'update');
-    await _enqueueOutbox(newVersionId, 'create', entityType: 'document_version');
+      await _enqueueOutbox(documentId, 'update');
+      await _enqueueOutbox(newVersionId, 'create', entityType: 'document_version');
+    });
     _nudgeSync();
   }
 
   Future<void> softDelete(String documentId) async {
-    await (_db.update(_db.documents)..where((d) => d.id.equals(documentId)))
-        .write(DocumentsCompanion(
-      isDeleted: const Value(true),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    await _timeline.removeForEntity('document', documentId);
-    await _enqueueOutbox(documentId, 'delete');
+    await _db.transaction(() async {
+      await (_db.update(_db.documents)..where((d) => d.id.equals(documentId)))
+          .write(DocumentsCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _timeline.removeForEntity('document', documentId);
+      await _enqueueOutbox(documentId, 'delete');
+    });
     _nudgeSync();
   }
 }

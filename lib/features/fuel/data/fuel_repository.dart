@@ -99,68 +99,74 @@ class FuelRepository {
     String? linkedExpenseId;
     if (createLinkedExpense) linkedExpenseId = newId();
 
-    await _db.into(_db.fuelEntries).insert(
-          FuelEntriesCompanion.insert(
-            id: id,
-            vehicleId: vehicleId,
-            date: date,
-            mileage: mileage,
-            providerId: Value(providerId),
-            fuelType: fuelType,
-            quantityLiters: quantityLiters,
-            pricePerLiter: pricePerLiter,
-            totalAmount: totalAmount,
-            isFullTank: Value(isFullTank),
-            comments: Value(comments),
-            linkedExpenseId: Value(linkedExpenseId),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-
-    if (linkedExpenseId != null) {
-      await _db.into(_db.expenses).insert(
-            ExpensesCompanion.insert(
-              id: linkedExpenseId,
+    // Atomic: the fill-up row, its linked expense, the mileage entry it
+    // feeds, and the outbox entries all commit together or not at all -
+    // see VehicleRepository.createVehicle's identical rationale.
+    await _db.transaction(() async {
+      await _db.into(_db.fuelEntries).insert(
+            FuelEntriesCompanion.insert(
+              id: id,
               vehicleId: vehicleId,
-              // Distinct category so AdBlue never gets counted as
-              // "Carburant" spend in the dépenses breakdown (mission
-              // point 12).
-              category: isAdblue ? 'AdBlue' : 'Carburant',
               date: date,
-              amount: totalAmount,
-              currency: Value(currency),
+              mileage: mileage,
               providerId: Value(providerId),
-              mileage: Value(mileage),
-              comments: Value(
-                  isAdblue ? 'Généré depuis un plein AdBlue' : 'Généré depuis un plein'),
-              linkedFuelId: Value(id),
+              fuelType: fuelType,
+              quantityLiters: quantityLiters,
+              pricePerLiter: pricePerLiter,
+              totalAmount: totalAmount,
+              isFullTank: Value(isFullTank),
+              comments: Value(comments),
+              linkedExpenseId: Value(linkedExpenseId),
               createdAt: now,
               updatedAt: now,
             ),
           );
-    }
 
-    await _vehicles.recordOperationMileage(
-      vehicleId: vehicleId,
-      value: mileage,
-      source: 'fuel',
-      sourceId: id,
-    );
+      if (linkedExpenseId != null) {
+        await _db.into(_db.expenses).insert(
+              ExpensesCompanion.insert(
+                id: linkedExpenseId,
+                vehicleId: vehicleId,
+                // Distinct category so AdBlue never gets counted as
+                // "Carburant" spend in the dépenses breakdown (mission
+                // point 12).
+                category: isAdblue ? 'AdBlue' : 'Carburant',
+                date: date,
+                amount: totalAmount,
+                currency: Value(currency),
+                providerId: Value(providerId),
+                mileage: Value(mileage),
+                comments: Value(
+                    isAdblue ? 'Généré depuis un plein AdBlue' : 'Généré depuis un plein'),
+                linkedFuelId: Value(id),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
 
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'fuel',
-      eventType: 'fuel_added',
-      title: _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
-      linkedEntityId: id,
-      linkedEntityType: 'fuel',
-      occurredAt: date,
-    );
+      await _vehicles.recordOperationMileage(
+        vehicleId: vehicleId,
+        value: mileage,
+        source: 'fuel',
+        sourceId: id,
+      );
 
-    if (isAdblue) await _reconcileAdblueReminder(vehicleId);
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'fuel',
+        eventType: 'fuel_added',
+        title:
+            _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
+        linkedEntityId: id,
+        linkedEntityType: 'fuel',
+        occurredAt: date,
+      );
 
-    await _enqueueOutbox(id, 'create');
+      if (isAdblue) await _reconcileAdblueReminder(vehicleId);
+
+      await _enqueueOutbox(id, 'create');
+    });
     _nudgeSync();
     return id;
   }
@@ -231,128 +237,133 @@ class FuelRepository {
     bool createLinkedExpense = true,
   }) async {
     final now = DateTime.now();
-    final existing =
-        await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingle();
-    final isAdblue = fuelType == adblueFuelType;
-    final totalAmount = totalAmountOverride ?? (quantityLiters * pricePerLiter);
+    await _db.transaction(() async {
+      final existing =
+          await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingle();
+      final isAdblue = fuelType == adblueFuelType;
+      final totalAmount = totalAmountOverride ?? (quantityLiters * pricePerLiter);
 
-    var linkedExpenseId = existing.linkedExpenseId;
-    if (createLinkedExpense) {
-      if (linkedExpenseId != null) {
+      var linkedExpenseId = existing.linkedExpenseId;
+      if (createLinkedExpense) {
+        if (linkedExpenseId != null) {
+          await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
+              .write(ExpensesCompanion(
+            category: Value(isAdblue ? 'AdBlue' : 'Carburant'),
+            date: Value(date),
+            amount: Value(totalAmount),
+            currency: Value(currency),
+            providerId: Value(providerId),
+            mileage: Value(mileage),
+            updatedAt: Value(now),
+          ));
+        } else {
+          linkedExpenseId = newId();
+          await _db.into(_db.expenses).insert(
+                ExpensesCompanion.insert(
+                  id: linkedExpenseId,
+                  vehicleId: vehicleId,
+                  category: isAdblue ? 'AdBlue' : 'Carburant',
+                  date: date,
+                  amount: totalAmount,
+                  currency: Value(currency),
+                  providerId: Value(providerId),
+                  mileage: Value(mileage),
+                  comments: Value(isAdblue
+                      ? 'Généré depuis un plein AdBlue'
+                      : 'Généré depuis un plein'),
+                  linkedFuelId: Value(id),
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
+        }
+      } else if (linkedExpenseId != null) {
         await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
             .write(ExpensesCompanion(
-          category: Value(isAdblue ? 'AdBlue' : 'Carburant'),
-          date: Value(date),
-          amount: Value(totalAmount),
-          currency: Value(currency),
-          providerId: Value(providerId),
-          mileage: Value(mileage),
+          isDeleted: const Value(true),
           updatedAt: Value(now),
         ));
-      } else {
-        linkedExpenseId = newId();
-        await _db.into(_db.expenses).insert(
-              ExpensesCompanion.insert(
-                id: linkedExpenseId,
-                vehicleId: vehicleId,
-                category: isAdblue ? 'AdBlue' : 'Carburant',
-                date: date,
-                amount: totalAmount,
-                currency: Value(currency),
-                providerId: Value(providerId),
-                mileage: Value(mileage),
-                comments: Value(isAdblue
-                    ? 'Généré depuis un plein AdBlue'
-                    : 'Généré depuis un plein'),
-                linkedFuelId: Value(id),
-                createdAt: now,
-                updatedAt: now,
-              ),
-            );
+        linkedExpenseId = null;
       }
-    } else if (linkedExpenseId != null) {
-      await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
-          .write(ExpensesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(now),
-      ));
-      linkedExpenseId = null;
-    }
 
-    await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
-      FuelEntriesCompanion(
-        date: Value(date),
-        mileage: Value(mileage),
-        providerId: Value(providerId),
-        fuelType: Value(fuelType),
-        quantityLiters: Value(quantityLiters),
-        pricePerLiter: Value(pricePerLiter),
-        totalAmount: Value(totalAmount),
-        isFullTank: Value(isFullTank),
-        comments: Value(comments),
-        linkedExpenseId: Value(linkedExpenseId),
-        updatedAt: Value(now),
-        // Sync-hardening pass: without this, editing an already-synced
-        // fill-up would silently never reach the cloud again (the push
-        // query only ever looks at rows still flagged pendingSync).
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
+      await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
+        FuelEntriesCompanion(
+          date: Value(date),
+          mileage: Value(mileage),
+          providerId: Value(providerId),
+          fuelType: Value(fuelType),
+          quantityLiters: Value(quantityLiters),
+          pricePerLiter: Value(pricePerLiter),
+          totalAmount: Value(totalAmount),
+          isFullTank: Value(isFullTank),
+          comments: Value(comments),
+          linkedExpenseId: Value(linkedExpenseId),
+          updatedAt: Value(now),
+          // Sync-hardening pass: without this, editing an already-synced
+          // fill-up would silently never reach the cloud again (the push
+          // query only ever looks at rows still flagged pendingSync).
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
 
-    await _vehicles.updateOperationMileage(
-      vehicleId: vehicleId,
-      source: 'fuel',
-      sourceId: id,
-      newValue: mileage,
-    );
+      await _vehicles.updateOperationMileage(
+        vehicleId: vehicleId,
+        source: 'fuel',
+        sourceId: id,
+        newValue: mileage,
+      );
 
-    // Same eventType/linkedEntityId as creation: logEvent upserts in place.
-    await _timeline.logEvent(
-      vehicleId: vehicleId,
-      moduleOrigin: 'fuel',
-      eventType: 'fuel_added',
-      title: _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
-      linkedEntityId: id,
-      linkedEntityType: 'fuel',
-      occurredAt: date,
-    );
+      // Same eventType/linkedEntityId as creation: logEvent upserts in place.
+      await _timeline.logEvent(
+        vehicleId: vehicleId,
+        moduleOrigin: 'fuel',
+        eventType: 'fuel_added',
+        title:
+            _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
+        linkedEntityId: id,
+        linkedEntityType: 'fuel',
+        occurredAt: date,
+      );
 
-    if (isAdblue || existing.fuelType == adblueFuelType) {
-      await _reconcileAdblueReminder(vehicleId);
-    }
+      if (isAdblue || existing.fuelType == adblueFuelType) {
+        await _reconcileAdblueReminder(vehicleId);
+      }
 
-    await _enqueueOutbox(id, 'update');
+      await _enqueueOutbox(id, 'update');
+    });
     _nudgeSync();
   }
 
   Future<void> softDelete(String id) async {
-    final entry =
-        await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingleOrNull();
     final now = DateTime.now();
-    await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
-      FuelEntriesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(now),
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    if (entry?.linkedExpenseId != null) {
-      // Never leave the auto-generated expense behind pointing at a
-      // deleted fill-up.
-      await (_db.update(_db.expenses)
-            ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
-          .write(ExpensesCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(now),
-        syncStatus: const Value('pendingSync'),
-      ));
-    }
-    await _timeline.removeForEntity('fuel', id);
-    if (entry != null && entry.fuelType == adblueFuelType) {
-      await _reconcileAdblueReminder(entry.vehicleId);
-    }
+    await _db.transaction(() async {
+      final entry =
+          await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingleOrNull();
+      await (_db.update(_db.fuelEntries)..where((f) => f.id.equals(id))).write(
+        FuelEntriesCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      if (entry?.linkedExpenseId != null) {
+        // Never leave the auto-generated expense behind pointing at a
+        // deleted fill-up.
+        await (_db.update(_db.expenses)
+              ..where((e) => e.id.equals(entry!.linkedExpenseId!)))
+            .write(ExpensesCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+          syncStatus: const Value('pendingSync'),
+        ));
+      }
+      await _timeline.removeForEntity('fuel', id);
+      if (entry != null && entry.fuelType == adblueFuelType) {
+        await _reconcileAdblueReminder(entry.vehicleId);
+      }
 
-    await _enqueueOutbox(id, 'delete');
+      await _enqueueOutbox(id, 'delete');
+    });
     _nudgeSync();
   }
 

@@ -163,52 +163,60 @@ class VehicleRepository {
     final initialMileageEntryId = newId();
     final now = DateTime.now();
     final resolvedCardColor = cardColor ?? await _nextCardColor();
-    await _db.into(_db.vehicles).insert(
-          VehiclesCompanion.insert(
-            id: id,
-            brand: brand,
-            model: model,
-            currentMileage: currentMileage,
-            trim: Value(trim),
-            year: Value(year),
-            vin: Value(vin),
-            plate: Value(plate),
-            motorization: Value(motorization),
-            fuelType: Value(fuelType),
-            transmission: Value(transmission),
-            color: Value(color),
-            finishLevel: Value(finishLevel),
-            cardColorKey: Value(resolvedCardColor.storageKey),
-            photoPath: Value(photoPath),
-            comments: Value(comments),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await _db.into(_db.mileageEntries).insert(
-          MileageEntriesCompanion.insert(
-            id: initialMileageEntryId,
-            vehicleId: id,
-            value: currentMileage,
-            recordedAt: now,
-            source: 'manual',
-            createdAt: now,
-          ),
-        );
-    await _audit.log(
-      vehicleId: id,
-      entityType: 'vehicle',
-      entityId: id,
-      action: 'created',
-      summary: '$brand $model ajouté au carnet',
-      occurredAt: now,
-    );
-    // Step 2 of the mission's own flow: the outbox entry is created in the
-    // very same call as the local write, before step 3 (the fire-and-
-    // forget push attempt right below) even starts - so it survives
-    // regardless of whether that attempt gets to run before the app closes.
-    await _enqueueOutbox(id, 'create');
-    await _enqueueMileageOutbox(initialMileageEntryId, 'create');
+    // Atomic (mission: "il ne doit jamais pouvoir exister une donnée locale
+    // modifiée sans entrée de synchronisation correspondante") - the
+    // vehicle row, its initial mileage entry, the audit log AND both
+    // outbox entries commit together or not at all. A crash/exception
+    // mid-way rolls every one of them back, so a half-written vehicle with
+    // no matching outbox entry (or vice versa) can never exist on disk.
+    await _db.transaction(() async {
+      await _db.into(_db.vehicles).insert(
+            VehiclesCompanion.insert(
+              id: id,
+              brand: brand,
+              model: model,
+              currentMileage: currentMileage,
+              trim: Value(trim),
+              year: Value(year),
+              vin: Value(vin),
+              plate: Value(plate),
+              motorization: Value(motorization),
+              fuelType: Value(fuelType),
+              transmission: Value(transmission),
+              color: Value(color),
+              finishLevel: Value(finishLevel),
+              cardColorKey: Value(resolvedCardColor.storageKey),
+              photoPath: Value(photoPath),
+              comments: Value(comments),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _db.into(_db.mileageEntries).insert(
+            MileageEntriesCompanion.insert(
+              id: initialMileageEntryId,
+              vehicleId: id,
+              value: currentMileage,
+              recordedAt: now,
+              source: 'manual',
+              createdAt: now,
+            ),
+          );
+      await _audit.log(
+        vehicleId: id,
+        entityType: 'vehicle',
+        entityId: id,
+        action: 'created',
+        summary: '$brand $model ajouté au carnet',
+        occurredAt: now,
+      );
+      // Step 2 of the mission's own flow: the outbox entry is created in
+      // the very same transaction as the local write, before step 3 (the
+      // fire-and-forget push attempt below, once this transaction has
+      // actually committed) even starts.
+      await _enqueueOutbox(id, 'create');
+      await _enqueueMileageOutbox(initialMileageEntryId, 'create');
+    });
     _nudgeSync();
     return id;
   }
@@ -244,14 +252,16 @@ class VehicleRepository {
   /// entirely their choice (spec: two vehicles may deliberately share a
   /// colour).
   Future<void> updateVehicleCardColor(String vehicleId, VehicleCardColor color) async {
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId))).write(
-      VehiclesCompanion(
-        cardColorKey: Value(color.storageKey),
-        updatedAt: Value(DateTime.now()),
-        syncStatus: const Value('pendingSync'),
-      ),
-    );
-    await _enqueueOutbox(vehicleId, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId))).write(
+        VehiclesCompanion(
+          cardColorKey: Value(color.storageKey),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value('pendingSync'),
+        ),
+      );
+      await _enqueueOutbox(vehicleId, 'update');
+    });
     _nudgeSync();
   }
 
@@ -272,63 +282,69 @@ class VehicleRepository {
         if (v.cardColorKey != null) v.cardColorKey,
     ];
     VehicleCardColor? previous;
-    for (final vehicle in missing) {
-      final color = VehicleCardColor.nextFor(assignedKeys, avoid: previous);
-      assignedKeys.add(color.storageKey);
-      previous = color;
-      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
-        VehiclesCompanion(
-          cardColorKey: Value(color.storageKey),
-          // Was previously missing here too: a backfilled colour never
-          // re-flagged the vehicle for sync (fixed as part of the
-          // sync-hardening pass), so it would have stayed local-only
-          // forever on an existing vehicle.
-          syncStatus: const Value('pendingSync'),
-        ),
-      );
-      await _enqueueOutbox(vehicle.id, 'update');
-    }
+    await _db.transaction(() async {
+      for (final vehicle in missing) {
+        final color = VehicleCardColor.nextFor(assignedKeys, avoid: previous);
+        assignedKeys.add(color.storageKey);
+        previous = color;
+        await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
+          VehiclesCompanion(
+            cardColorKey: Value(color.storageKey),
+            // Was previously missing here too: a backfilled colour never
+            // re-flagged the vehicle for sync (fixed as part of the
+            // sync-hardening pass), so it would have stayed local-only
+            // forever on an existing vehicle.
+            syncStatus: const Value('pendingSync'),
+          ),
+        );
+        await _enqueueOutbox(vehicle.id, 'update');
+      }
+    });
     _nudgeSync();
   }
 
   Future<void> updateVehicle(Vehicle vehicle, {String? changeSummary}) async {
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
-      vehicle.toCompanion(true).copyWith(
-            updatedAt: Value(DateTime.now()),
-            syncStatus: const Value('pendingSync'),
-          ),
-    );
-    await _audit.log(
-      vehicleId: vehicle.id,
-      entityType: 'vehicle',
-      entityId: vehicle.id,
-      action: 'updated',
-      summary: changeSummary ?? 'Fiche véhicule modifiée',
-    );
-    await _enqueueOutbox(vehicle.id, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicle.id))).write(
+        vehicle.toCompanion(true).copyWith(
+              updatedAt: Value(DateTime.now()),
+              syncStatus: const Value('pendingSync'),
+            ),
+      );
+      await _audit.log(
+        vehicleId: vehicle.id,
+        entityType: 'vehicle',
+        entityId: vehicle.id,
+        action: 'updated',
+        summary: changeSummary ?? 'Fiche véhicule modifiée',
+      );
+      await _enqueueOutbox(vehicle.id, 'update');
+    });
     _nudgeSync();
   }
 
   Future<void> setStatus(String vehicleId, VehicleStatus status) async {
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
-        .write(VehiclesCompanion(
-      status: Value(status),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    await _audit.log(
-      vehicleId: vehicleId,
-      entityType: 'vehicle',
-      entityId: vehicleId,
-      action: 'status_changed',
-      summary: 'Statut changé : ${_statusLabel(status)}',
-    );
-    // RG-ALR-007: a vehicle that is no longer active stops generating
-    // future reminders.
-    if (status != VehicleStatus.active) {
-      await _reminders.disableAllForVehicle(vehicleId);
-    }
-    await _enqueueOutbox(vehicleId, 'update');
+    await _db.transaction(() async {
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+          .write(VehiclesCompanion(
+        status: Value(status),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _audit.log(
+        vehicleId: vehicleId,
+        entityType: 'vehicle',
+        entityId: vehicleId,
+        action: 'status_changed',
+        summary: 'Statut changé : ${_statusLabel(status)}',
+      );
+      // RG-ALR-007: a vehicle that is no longer active stops generating
+      // future reminders.
+      if (status != VehicleStatus.active) {
+        await _reminders.disableAllForVehicle(vehicleId);
+      }
+      await _enqueueOutbox(vehicleId, 'update');
+    });
     _nudgeSync();
   }
 
@@ -338,14 +354,16 @@ class VehicleRepository {
   /// delete, so nothing referencing it (documents, expenses, timeline...)
   /// loses its foreign key.
   Future<void> softDelete(String vehicleId) async {
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
-        .write(VehiclesCompanion(
-      isDeleted: const Value(true),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingSync'),
-    ));
-    await _reminders.disableAllForVehicle(vehicleId);
-    await _enqueueOutbox(vehicleId, 'delete');
+    await _db.transaction(() async {
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+          .write(VehiclesCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(DateTime.now()),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _reminders.disableAllForVehicle(vehicleId);
+      await _enqueueOutbox(vehicleId, 'delete');
+    });
     _nudgeSync();
   }
 
@@ -408,32 +426,34 @@ class VehicleRepository {
   }) async {
     final now = DateTime.now();
     final mileageEntryId = newId();
-    await _db.into(_db.mileageEntries).insert(
-          MileageEntriesCompanion.insert(
-            id: mileageEntryId,
-            vehicleId: vehicleId,
-            value: newValue,
-            recordedAt: now,
-            source: 'manual',
-            note: Value(note),
-            createdAt: now,
-          ),
-        );
-    await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
-        .write(VehiclesCompanion(
-      currentMileage: Value(newValue),
-      updatedAt: Value(now),
-      syncStatus: const Value('pendingSync'),
-    ));
-    await _audit.log(
-      vehicleId: vehicleId,
-      entityType: 'vehicle',
-      entityId: vehicleId,
-      action: 'mileage_corrected',
-      summary: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
-    );
-    await _enqueueOutbox(vehicleId, 'update');
-    await _enqueueMileageOutbox(mileageEntryId, 'create');
+    await _db.transaction(() async {
+      await _db.into(_db.mileageEntries).insert(
+            MileageEntriesCompanion.insert(
+              id: mileageEntryId,
+              vehicleId: vehicleId,
+              value: newValue,
+              recordedAt: now,
+              source: 'manual',
+              note: Value(note),
+              createdAt: now,
+            ),
+          );
+      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+          .write(VehiclesCompanion(
+        currentMileage: Value(newValue),
+        updatedAt: Value(now),
+        syncStatus: const Value('pendingSync'),
+      ));
+      await _audit.log(
+        vehicleId: vehicleId,
+        entityType: 'vehicle',
+        entityId: vehicleId,
+        action: 'mileage_corrected',
+        summary: 'Kilométrage mis à jour : ${newValue.toStringAsFixed(0)} km',
+      );
+      await _enqueueOutbox(vehicleId, 'update');
+      await _enqueueMileageOutbox(mileageEntryId, 'create');
+    });
     _nudgeSync();
   }
 
@@ -450,28 +470,30 @@ class VehicleRepository {
   }) async {
     final now = DateTime.now();
     final mileageEntryId = newId();
-    await _db.into(_db.mileageEntries).insert(
-          MileageEntriesCompanion.insert(
-            id: mileageEntryId,
-            vehicleId: vehicleId,
-            value: value,
-            recordedAt: now,
-            source: source,
-            sourceId: Value(sourceId),
-            createdAt: now,
-          ),
-        );
-    await _enqueueMileageOutbox(mileageEntryId, 'create');
-    final vehicle = await getOne(vehicleId);
-    if (value > vehicle.currentMileage) {
-      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
-          .write(VehiclesCompanion(
-        currentMileage: Value(value),
-        updatedAt: Value(now),
-        syncStatus: const Value('pendingSync'),
-      ));
-      await _enqueueOutbox(vehicleId, 'update');
-    }
+    await _db.transaction(() async {
+      await _db.into(_db.mileageEntries).insert(
+            MileageEntriesCompanion.insert(
+              id: mileageEntryId,
+              vehicleId: vehicleId,
+              value: value,
+              recordedAt: now,
+              source: source,
+              sourceId: Value(sourceId),
+              createdAt: now,
+            ),
+          );
+      await _enqueueMileageOutbox(mileageEntryId, 'create');
+      final vehicle = await getOne(vehicleId);
+      if (value > vehicle.currentMileage) {
+        await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+            .write(VehiclesCompanion(
+          currentMileage: Value(value),
+          updatedAt: Value(now),
+          syncStatus: const Value('pendingSync'),
+        ));
+        await _enqueueOutbox(vehicleId, 'update');
+      }
+    });
     _nudgeSync();
   }
 
@@ -488,52 +510,54 @@ class VehicleRepository {
     required double newValue,
   }) async {
     final now = DateTime.now();
-    final existing = await (_db.select(_db.mileageEntries)
-          ..where((m) => m.source.equals(source) & m.sourceId.equals(sourceId)))
-        .getSingleOrNull();
-    if (existing != null) {
-      await (_db.update(_db.mileageEntries)..where((m) => m.id.equals(existing.id)))
-          .write(MileageEntriesCompanion(
-        value: Value(newValue),
-        recordedAt: Value(now),
-        // Was previously missing here: a correction to an already-synced
-        // reading left its syncStatus at 'synced', so the corrected value
-        // was silently never re-pushed to the cloud (fixed as part of the
-        // sync-hardening pass).
-        syncStatus: const Value('pendingSync'),
-      ));
-      await _enqueueMileageOutbox(existing.id, 'update');
-    } else {
-      final mileageEntryId = newId();
-      await _db.into(_db.mileageEntries).insert(
-            MileageEntriesCompanion.insert(
-              id: mileageEntryId,
-              vehicleId: vehicleId,
-              value: newValue,
-              recordedAt: now,
-              source: source,
-              sourceId: Value(sourceId),
-              createdAt: now,
-            ),
-          );
-      await _enqueueMileageOutbox(mileageEntryId, 'create');
-    }
-    final all = await (_db.select(_db.mileageEntries)
-          ..where((m) => m.vehicleId.equals(vehicleId)))
-        .get();
-    if (all.isNotEmpty) {
-      final maxValue = all.map((m) => m.value).reduce((a, b) => a > b ? a : b);
-      await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
-          .write(VehiclesCompanion(
-        currentMileage: Value(maxValue),
-        updatedAt: Value(now),
-        // Also previously missing: a recomputed currentMileage never
-        // re-flagged the vehicle itself for sync (fixed as part of the
-        // sync-hardening pass).
-        syncStatus: const Value('pendingSync'),
-      ));
-      await _enqueueOutbox(vehicleId, 'update');
-    }
+    await _db.transaction(() async {
+      final existing = await (_db.select(_db.mileageEntries)
+            ..where((m) => m.source.equals(source) & m.sourceId.equals(sourceId)))
+          .getSingleOrNull();
+      if (existing != null) {
+        await (_db.update(_db.mileageEntries)..where((m) => m.id.equals(existing.id)))
+            .write(MileageEntriesCompanion(
+          value: Value(newValue),
+          recordedAt: Value(now),
+          // Was previously missing here: a correction to an already-synced
+          // reading left its syncStatus at 'synced', so the corrected value
+          // was silently never re-pushed to the cloud (fixed as part of the
+          // sync-hardening pass).
+          syncStatus: const Value('pendingSync'),
+        ));
+        await _enqueueMileageOutbox(existing.id, 'update');
+      } else {
+        final mileageEntryId = newId();
+        await _db.into(_db.mileageEntries).insert(
+              MileageEntriesCompanion.insert(
+                id: mileageEntryId,
+                vehicleId: vehicleId,
+                value: newValue,
+                recordedAt: now,
+                source: source,
+                sourceId: Value(sourceId),
+                createdAt: now,
+              ),
+            );
+        await _enqueueMileageOutbox(mileageEntryId, 'create');
+      }
+      final all = await (_db.select(_db.mileageEntries)
+            ..where((m) => m.vehicleId.equals(vehicleId)))
+          .get();
+      if (all.isNotEmpty) {
+        final maxValue = all.map((m) => m.value).reduce((a, b) => a > b ? a : b);
+        await (_db.update(_db.vehicles)..where((v) => v.id.equals(vehicleId)))
+            .write(VehiclesCompanion(
+          currentMileage: Value(maxValue),
+          updatedAt: Value(now),
+          // Also previously missing: a recomputed currentMileage never
+          // re-flagged the vehicle itself for sync (fixed as part of the
+          // sync-hardening pass).
+          syncStatus: const Value('pendingSync'),
+        ));
+        await _enqueueOutbox(vehicleId, 'update');
+      }
+    });
     // Also previously missing entirely: this method never nudged sync at
     // all, so a mileage correction only ever reached the cloud once some
     // OTHER write happened to trigger a pass (fixed as part of the

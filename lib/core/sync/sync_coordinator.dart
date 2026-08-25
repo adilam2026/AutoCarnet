@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -113,6 +114,67 @@ class SyncCoordinator {
     await _notifyNewConflicts();
   }
 
+  /// The outbox as a REAL recovery mechanism, not just a diagnostic
+  /// ledger: every row still sitting in `sync_outbox` (a row is only ever
+  /// deleted once Supabase has actually confirmed it - see
+  /// SyncOutboxRepository.markSynced) names an entity that must still be
+  /// pushed, independently of whether that entity's own table happens to
+  /// still be flagged `pendingSync` - if it somehow isn't (a bug
+  /// elsewhere, an interrupted write, anything), the outbox forces it back
+  /// to `pendingSync` here so the very next [syncAll] picks it up anyway.
+  /// Called before every [syncAll] pass this coordinator itself triggers
+  /// (startup, periodic timer, reconnect), so a forgotten operation can
+  /// never sit unsynced forever purely because of a syncStatus/outbox
+  /// mismatch.
+  Future<void> _reconcileFromOutbox() async {
+    final rows = await _db.select(_db.syncOutbox).get();
+    for (final row in rows) {
+      switch (row.entityType) {
+        case 'vehicle':
+          await (_db.update(_db.vehicles)..where((t) => t.id.equals(row.entityId)))
+              .write(const VehiclesCompanion(syncStatus: Value('pendingSync')));
+        case 'mileage':
+          await (_db.update(_db.mileageEntries)..where((t) => t.id.equals(row.entityId)))
+              .write(const MileageEntriesCompanion(syncStatus: Value('pendingSync')));
+        case 'maintenance':
+          await (_db.update(_db.maintenanceEntries)..where((t) => t.id.equals(row.entityId)))
+              .write(const MaintenanceEntriesCompanion(syncStatus: Value('pendingSync')));
+        case 'expense':
+          await (_db.update(_db.expenses)..where((t) => t.id.equals(row.entityId)))
+              .write(const ExpensesCompanion(syncStatus: Value('pendingSync')));
+        case 'fuel':
+          await (_db.update(_db.fuelEntries)..where((t) => t.id.equals(row.entityId)))
+              .write(const FuelEntriesCompanion(syncStatus: Value('pendingSync')));
+        case 'document':
+          await (_db.update(_db.documents)..where((t) => t.id.equals(row.entityId)))
+              .write(const DocumentsCompanion(syncStatus: Value('pendingSync')));
+        case 'document_version':
+          await (_db.update(_db.documentVersions)..where((t) => t.id.equals(row.entityId)))
+              .write(const DocumentVersionsCompanion(syncStatus: Value('pendingSync')));
+        case 'reminder':
+          await (_db.update(_db.reminders)..where((t) => t.id.equals(row.entityId)))
+              .write(const RemindersCompanion(syncStatus: Value('pendingSync')));
+        case 'frequency_pref':
+          await (_db.update(_db.operationFrequencyPreferences)
+                ..where((t) => t.id.equals(row.entityId)))
+              .write(const OperationFrequencyPreferencesCompanion(syncStatus: Value('pendingSync')));
+        case 'provider':
+          await (_db.update(_db.serviceProviders)..where((t) => t.id.equals(row.entityId)))
+              .write(const ServiceProvidersCompanion(syncStatus: Value('pendingSync')));
+      }
+    }
+  }
+
+  /// What every sync pass THIS coordinator triggers on its own actually
+  /// runs - reconcile first, then push/pull. Public so a "Synchroniser
+  /// maintenant" action (or a pre-disconnect warning - mission point 7)
+  /// can trigger the exact same guaranteed-replay pass on demand, not just
+  /// a bare [syncAll] that trusts syncStatus alone.
+  Future<void> resyncNow() async {
+    await _reconcileFromOutbox();
+    await syncAll();
+  }
+
   /// A version-mismatch push is recorded by ConflictRepository from deep
   /// inside each *SyncService, which has no notion of "notify the user" -
   /// centralizing that here (rather than threading NotificationRepository
@@ -142,7 +204,10 @@ class SyncCoordinator {
   void start() {
     if (_started) return;
     _started = true;
-    unawaited(syncAll());
+    // Startup: exactly the moment an operation queued (and possibly never
+    // even attempted) before the app was last closed needs to be picked
+    // back up - see [resyncNow]'s doc for why this isn't a bare [syncAll].
+    unawaited(resyncNow());
     _timer = Timer.periodic(_pollInterval, (_) => syncAll());
 
     // Mission: "dès que la connexion revient, l'application relance
@@ -150,12 +215,13 @@ class SyncCoordinator {
     // gets there eventually, but a device that just regained signal after
     // being offline shouldn't have to wait up to 30s for its pending
     // queue to drain; react to the none -> some transition immediately
-    // instead. Guarded so a device oscillating between two "connected"
-    // radio types (wifi -> mobile data) doesn't refire on every hop.
+    // instead, and via [resyncNow] for the same reason as startup.
+    // Guarded so a device oscillating between two "connected" radio types
+    // (wifi -> mobile data) doesn't refire on every hop.
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final hasConnectivity = !results.contains(ConnectivityResult.none);
       if (hasConnectivity && !_hadConnectivity) {
-        unawaited(syncAll());
+        unawaited(resyncNow());
       }
       _hadConnectivity = hasConnectivity;
     });

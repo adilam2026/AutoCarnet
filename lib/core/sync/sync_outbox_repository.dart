@@ -147,6 +147,24 @@ class SyncOutboxRepository {
     return (_db.select(_db.syncOutbox)..where((o) => o.syncStatus.equals('failed'))).get();
   }
 
+  Stream<int> watchFailedCount() {
+    final count = _db.syncOutbox.id.count();
+    final query = _db.selectOnly(_db.syncOutbox)
+      ..addColumns([count])
+      ..where(_db.syncOutbox.syncStatus.equals('failed'));
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
+  }
+
+  /// The most recent moment ANY outbox entry was actually attempted
+  /// (success or failure) - mission point 6 ("dernière tentative"),
+  /// distinct from [SyncMeta.lastSuccessAt]/[lastErrorAt] which only ever
+  /// move on a full coordinator pass, not on every individual push.
+  Stream<DateTime?> watchLastAttemptAt() {
+    final maxAttempt = _db.syncOutbox.lastAttemptAt.max();
+    final query = _db.selectOnly(_db.syncOutbox)..addColumns([maxAttempt]);
+    return query.map((row) => row.read(maxAttempt)).watchSingle();
+  }
+
   Future<void> recordSuccess() async {
     await _upsertMeta(SyncMetaCompanion(
       lastSuccessAt: Value(DateTime.now()),
@@ -202,15 +220,26 @@ final syncOutboxRepositoryProvider = Provider<SyncOutboxRepository>((ref) {
 class SyncStatus {
   const SyncStatus({
     required this.pendingCount,
+    required this.failedCount,
     this.lastSuccessAt,
     this.lastErrorAt,
     this.lastErrorMessage,
+    this.lastAttemptAt,
   });
 
   final int pendingCount;
+  // Mission point 6 ("nombre d'échecs") - a subset of pendingCount: every
+  // failed row is still pending (still sitting in the outbox, still
+  // retried), this just tells how many of those pending rows have already
+  // failed at least once, as opposed to never having been attempted yet.
+  final int failedCount;
   final DateTime? lastSuccessAt;
   final DateTime? lastErrorAt;
   final String? lastErrorMessage;
+  // Mission point 6 ("date/heure de la dernière tentative") - the most
+  // recent individual push attempt across every outbox entry, success or
+  // failure, not just the last full coordinator pass.
+  final DateTime? lastAttemptAt;
 
   /// The last error is only still relevant if nothing has succeeded since
   /// - a transient failure followed by a successful retry shouldn't keep
@@ -224,18 +253,30 @@ final _syncPendingCountProvider = StreamProvider<int>((ref) {
   return ref.watch(syncOutboxRepositoryProvider).watchPendingCount();
 });
 
+final _syncFailedCountProvider = StreamProvider<int>((ref) {
+  return ref.watch(syncOutboxRepositoryProvider).watchFailedCount();
+});
+
+final _syncLastAttemptAtProvider = StreamProvider<DateTime?>((ref) {
+  return ref.watch(syncOutboxRepositoryProvider).watchLastAttemptAt();
+});
+
 final _syncMetaProvider = StreamProvider<SyncMetaData?>((ref) {
   return ref.watch(syncOutboxRepositoryProvider).watchMeta();
 });
 
 final syncStatusProvider = Provider<SyncStatus>((ref) {
   final pending = ref.watch(_syncPendingCountProvider).valueOrNull ?? 0;
+  final failed = ref.watch(_syncFailedCountProvider).valueOrNull ?? 0;
+  final lastAttemptAt = ref.watch(_syncLastAttemptAtProvider).valueOrNull;
   final meta = ref.watch(_syncMetaProvider).valueOrNull;
   return SyncStatus(
     pendingCount: pending,
+    failedCount: failed,
     lastSuccessAt: meta?.lastSuccessAt,
     lastErrorAt: meta?.lastErrorAt,
     lastErrorMessage: meta?.lastErrorMessage,
+    lastAttemptAt: lastAttemptAt,
   );
 });
 

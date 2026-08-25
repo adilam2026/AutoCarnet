@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/sync/sync_coordinator.dart';
+import '../../../core/sync/sync_outbox_repository.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/icon_chip.dart';
 import '../../../core/widgets/list_surface.dart';
@@ -17,11 +21,61 @@ import '../../onboarding_lock/presentation/app_gate.dart';
 class AccountManagementScreen extends ConsumerWidget {
   const AccountManagementScreen({super.key});
 
+  /// Mission point 7 ("avertissement avant action destructrice"): a
+  /// disconnect/dissociate must never happen while the outbox still has
+  /// unsynced local changes, and the app must never let the user believe
+  /// everything is already saved when it isn't. Returns true only when it's
+  /// safe to proceed straight to the action's own confirmation dialog -
+  /// false either cancels outright or only nudges a sync pass, but never
+  /// lets the destructive action itself run in the same tap.
+  Future<bool> _proceedPastPendingSyncWarning(BuildContext context, WidgetRef ref) async {
+    // A direct, awaited query - not syncStatusProvider's stream-backed
+    // pendingCount, which can still read 0 on a "cold" first watch before
+    // its underlying stream has emitted, even when the outbox genuinely
+    // isn't empty. This decision must always see the true count.
+    final pendingCount = await ref.read(syncOutboxRepositoryProvider).pendingCount();
+    if (pendingCount == 0) return true;
+    if (!context.mounted) return false;
+
+    final choice = await showDialog<_PendingSyncChoice>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Modifications non sauvegardées'),
+        content: Text(
+          'Certaines modifications ne sont pas encore sauvegardées dans le '
+          'cloud ($pendingCount en attente). Continuer maintenant risque de '
+          'les perdre sur cet appareil.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(_PendingSyncChoice.cancel),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(_PendingSyncChoice.syncNow),
+            child: const Text('Synchroniser maintenant'),
+          ),
+        ],
+      ),
+    );
+    if (choice == _PendingSyncChoice.syncNow) {
+      unawaited(ref.read(syncCoordinatorProvider).syncAll());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Synchronisation en cours...')),
+        );
+      }
+    }
+    return false;
+  }
+
   /// The real, deliberate dissociation of the currently active account from
   /// this device: a fresh OTP will be required next time, even for this
   /// exact email. Any other account this device also knows is left
   /// completely untouched.
   Future<void> _onDissociateThisDevice(BuildContext context, WidgetRef ref) async {
+    if (!await _proceedPastPendingSyncWarning(context, ref)) return;
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -50,6 +104,8 @@ class AccountManagementScreen extends ConsumerWidget {
   /// devices keep their `devices` row (still listed under "Appareils
   /// connectés") but their cached session can no longer be refreshed.
   Future<void> _onDisconnectEverywhere(BuildContext context, WidgetRef ref) async {
+    if (!await _proceedPastPendingSyncWarning(context, ref)) return;
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -113,3 +169,5 @@ class AccountManagementScreen extends ConsumerWidget {
     );
   }
 }
+
+enum _PendingSyncChoice { cancel, syncNow }

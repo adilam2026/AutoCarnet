@@ -93,6 +93,38 @@ void main() {
     expect(meta.lastSuccessAt, isNotNull);
   });
 
+  test('watchFailedCount reflects only rows currently in "failed" status - '
+      'mission point 6\'s "nombre d\'échecs" indicator', () async {
+    await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+    await outbox.enqueue(entityType: 'fuel', entityId: 'f1', operation: 'create');
+    expect(await outbox.watchFailedCount().first, 0);
+
+    await outbox.markFailed('vehicle', 'v1', 'network error');
+    expect(await outbox.watchFailedCount().first, 1);
+
+    await outbox.markSynced('vehicle', 'v1');
+    expect(await outbox.watchFailedCount().first, 0);
+  });
+
+  test('watchLastAttemptAt reports the most recent attempt across every '
+      'outbox entry, not just the last full coordinator pass', () async {
+    expect(await outbox.watchLastAttemptAt().first, isNull);
+
+    await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+    await outbox.markSyncing('vehicle', 'v1');
+    final firstAttempt = await outbox.watchLastAttemptAt().first;
+    expect(firstAttempt, isNotNull);
+
+    // Drift's default NativeDatabase stores DateTime at second precision -
+    // a sub-second gap would round-trip identically and make this
+    // assertion flaky.
+    await Future<void>.delayed(const Duration(seconds: 1));
+    await outbox.enqueue(entityType: 'fuel', entityId: 'f1', operation: 'create');
+    await outbox.markFailed('fuel', 'f1', 'timeout');
+    final secondAttempt = await outbox.watchLastAttemptAt().first;
+    expect(secondAttempt!.isAfter(firstAttempt!), isTrue);
+  });
+
   group('syncOutboxOperationFor', () {
     test('a never-synced row (version 0) is a create', () {
       expect(syncOutboxOperationFor(version: 0, isDeleted: false), 'create');
