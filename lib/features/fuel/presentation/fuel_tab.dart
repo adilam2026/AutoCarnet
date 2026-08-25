@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/date_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -14,6 +15,8 @@ import '../../account/data/account_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
 import '../../vehicles/domain/vehicle_ownership.dart';
 import '../data/fuel_repository.dart';
+import '../domain/adblue_rules.dart';
+import 'adblue_form_sheet.dart';
 import 'fuel_form_sheet.dart';
 
 class FuelTab extends ConsumerStatefulWidget {
@@ -157,6 +160,7 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (context, i) {
                           final f = filtered[i];
+                          final isAdblue = f.fuelType == adblueFuelType;
                           final card = Card(
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(
@@ -173,19 +177,29 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                   borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: Icon(
-                                  Icons.local_gas_station_outlined,
+                                  // Distinct icon so an AdBlue row never
+                                  // reads as a regular fill-up at a glance
+                                  // (mission point 2: "traité séparément").
+                                  isAdblue
+                                      ? Icons.water_drop_outlined
+                                      : Icons.local_gas_station_outlined,
                                   color: Theme.of(context).colorScheme.primary,
                                   size: 19,
                                 ),
                               ),
                               title: Text(
-                                '${f.quantityLiters.toStringAsFixed(1)} L — ${f.fuelType}',
+                                isAdblue
+                                    ? 'Plein AdBlue'
+                                    : '${f.quantityLiters.toStringAsFixed(1)} L — ${f.fuelType}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                '${_fmt(f.date)} • ${f.mileage.toStringAsFixed(0)} km'
-                                '${f.isFullTank ? '' : ' • partiel'}',
+                                isAdblue
+                                    ? '${_fmt(f.date)} • ${f.mileage.toStringAsFixed(0)} km'
+                                        '${f.quantityLiters > 0 ? ' • ${f.quantityLiters.toStringAsFixed(1)} L' : ''}'
+                                    : '${_fmt(f.date)} • ${f.mileage.toStringAsFixed(0)} km'
+                                        '${f.isFullTank ? '' : ' • partiel'}',
                               ),
                               trailing: Text(
                                 formatAmount(f.totalAmount),
@@ -200,13 +214,23 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                                   : () => vehicleAsync.maybeWhen(
                                       data: (vehicle) {
                                         if (vehicle == null) return;
-                                        showFuelFormSheet(
-                                          context,
-                                          vehicleId: widget.vehicleId,
-                                          currentMileage:
-                                              vehicle.currentMileage,
-                                          editing: f,
-                                        );
+                                        if (isAdblue) {
+                                          showAdblueFormSheet(
+                                            context,
+                                            vehicleId: widget.vehicleId,
+                                            currentMileage:
+                                                vehicle.currentMileage,
+                                            editing: f,
+                                          );
+                                        } else {
+                                          showFuelFormSheet(
+                                            context,
+                                            vehicleId: widget.vehicleId,
+                                            currentMileage:
+                                                vehicle.currentMileage,
+                                            editing: f,
+                                          );
+                                        }
                                       },
                                       orElse: () {},
                                     ),
@@ -215,10 +239,14 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                           if (!canEdit) return card;
                           return DismissibleDelete(
                             itemKey: ValueKey(f.id),
-                            confirmTitle: 'Supprimer ce plein ?',
-                            confirmMessage:
-                                'Le plein du ${_fmt(f.date)} sera déplacé dans '
-                                'la corbeille.',
+                            confirmTitle: isAdblue
+                                ? 'Supprimer ce plein AdBlue ?'
+                                : 'Supprimer ce plein ?',
+                            confirmMessage: isAdblue
+                                ? 'Le plein AdBlue du ${_fmt(f.date)} sera déplacé dans '
+                                    'la corbeille.'
+                                : 'Le plein du ${_fmt(f.date)} sera déplacé dans '
+                                    'la corbeille.',
                             onConfirmedDelete: () async {
                               await ref
                                   .read(fuelRepositoryProvider)
@@ -226,7 +254,7 @@ class _FuelTabState extends ConsumerState<FuelTab> {
                               if (context.mounted) {
                                 showAppSnackBar(
                                   context,
-                                  'Plein supprimé',
+                                  isAdblue ? 'Plein AdBlue supprimé' : 'Plein supprimé',
                                   icon: Icons.delete_outline,
                                 );
                               }
@@ -260,5 +288,5 @@ class _FuelTabState extends ConsumerState<FuelTab> {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }

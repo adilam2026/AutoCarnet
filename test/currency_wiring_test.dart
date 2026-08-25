@@ -29,7 +29,7 @@ void main() {
     vehicles = VehicleRepository(db, AuditRepository(db), reminders);
     expenseRepo = ExpenseRepository(db, timeline);
     maintenanceRepo = MaintenanceRepository(db, timeline, reminders, vehicles);
-    fuelRepo = FuelRepository(db, timeline, vehicles);
+    fuelRepo = FuelRepository(db, timeline, vehicles, reminders);
     vehicleId = await vehicles.createVehicle(
       brand: 'Peugeot',
       model: '208',

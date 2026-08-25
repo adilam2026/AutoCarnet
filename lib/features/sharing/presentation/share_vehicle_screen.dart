@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/date_field.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -166,7 +167,7 @@ class _ShareVehicleScreenState extends ConsumerState<ShareVehicleScreen> {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year} à ${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
+  String _fmt(DateTime d) => '${formatDdMmYyyy(d)} à ${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
 }
 
 /// Never leaves the user staring at a spinner that will never resolve: a
@@ -321,5 +322,5 @@ class _GeneratedCodeCard extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year} à ${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
+  String _fmt(DateTime d) => '${formatDdMmYyyy(d)} à ${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/date_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
@@ -241,17 +242,13 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _date,
-                              firstDate: DateTime(1990),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) setState(() => _date = picked);
+                        child: AppDateField(
+                          label: 'Date *',
+                          initialDate: _date,
+                          requiredField: true,
+                          onChanged: (d) {
+                            if (d != null) setState(() => _date = d);
                           },
-                          child: Text('Date : ${_fmt(_date)}'),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -297,5 +294,5 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }

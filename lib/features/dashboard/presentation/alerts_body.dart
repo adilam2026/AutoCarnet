@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/date_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -373,8 +374,8 @@ class _AlertListRow extends StatelessWidget {
       final d = r.dueDate!;
       final overdue = d.isBefore(DateTime.now());
       return overdue
-          ? 'En retard depuis le ${d.day}/${d.month}/${d.year}'
-          : '${d.day}/${d.month}/${d.year}';
+          ? 'En retard depuis le ${formatDdMmYyyy(d)}'
+          : formatDdMmYyyy(d);
     }
     if (r.dueMileage != null) return '${r.dueMileage!.toStringAsFixed(0)} km';
     return '';

@@ -7,6 +7,10 @@ const List<String> expenseCategories = [
   'Vignette',
   'Visite technique',
   'Carburant',
+  // Distinct from 'Carburant' on purpose (mission 2026, point 12): AdBlue
+  // must stay identifiable as its own expense line, never blended into
+  // classic fuel spend.
+  'AdBlue',
   'Péage',
   'Lavage',
   'Parking',

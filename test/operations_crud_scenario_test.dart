@@ -42,7 +42,7 @@ void main() {
     reminders = ReminderRepository(db);
     vehicles = VehicleRepository(db, AuditRepository(db), reminders);
     maintenance = MaintenanceRepository(db, timeline, reminders, vehicles);
-    fuel = FuelRepository(db, timeline, vehicles);
+    fuel = FuelRepository(db, timeline, vehicles, reminders);
     expenses = ExpenseRepository(db, timeline);
     documents = DocumentRepository(db, timeline, reminders);
   }

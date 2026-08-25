@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/date_field.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -354,5 +355,5 @@ class _JoinVehicleScreenState extends ConsumerState<JoinVehicleScreen> {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }

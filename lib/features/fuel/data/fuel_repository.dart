@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/providers.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../reminders/data/reminder_repository.dart';
 import '../../timeline/data/timeline_repository.dart';
 import '../../vehicles/data/vehicle_repository.dart';
+import '../domain/adblue_rules.dart';
 
 class FuelStats {
   /// L/100km, computed only between consecutive full tanks (RG-CARB-005).
@@ -20,10 +22,11 @@ class FuelStats {
 }
 
 class FuelRepository {
-  FuelRepository(this._db, this._timeline, this._vehicles);
+  FuelRepository(this._db, this._timeline, this._vehicles, this._reminders);
   final AppDatabase _db;
   final TimelineRepository _timeline;
   final VehicleRepository _vehicles;
+  final ReminderRepository _reminders;
 
   Stream<List<FuelEntry>> watchForVehicle(String vehicleId) {
     final query = _db.select(_db.fuelEntries)
@@ -44,6 +47,11 @@ class FuelRepository {
     required String fuelType,
     required double quantityLiters,
     required double pricePerLiter,
+    // AdBlue's primary input is a direct montant, not a price×quantity
+    // computation (quantity is only "si connue") - mission point 2. Left
+    // null for every regular fill-up, which keeps computing totalAmount
+    // the way it always has.
+    double? totalAmountOverride,
     String currency = 'MAD',
     String? providerId,
     bool isFullTank = true,
@@ -52,7 +60,8 @@ class FuelRepository {
   }) async {
     final id = newId();
     final now = DateTime.now();
-    final totalAmount = quantityLiters * pricePerLiter;
+    final isAdblue = fuelType == adblueFuelType;
+    final totalAmount = totalAmountOverride ?? (quantityLiters * pricePerLiter);
 
     String? linkedExpenseId;
     if (createLinkedExpense) linkedExpenseId = newId();
@@ -81,13 +90,17 @@ class FuelRepository {
             ExpensesCompanion.insert(
               id: linkedExpenseId,
               vehicleId: vehicleId,
-              category: 'Carburant',
+              // Distinct category so AdBlue never gets counted as
+              // "Carburant" spend in the dépenses breakdown (mission
+              // point 12).
+              category: isAdblue ? 'AdBlue' : 'Carburant',
               date: date,
               amount: totalAmount,
               currency: Value(currency),
               providerId: Value(providerId),
               mileage: Value(mileage),
-              comments: const Value('Généré depuis un plein'),
+              comments: Value(
+                  isAdblue ? 'Généré depuis un plein AdBlue' : 'Généré depuis un plein'),
               linkedFuelId: Value(id),
               createdAt: now,
               updatedAt: now,
@@ -106,14 +119,62 @@ class FuelRepository {
       vehicleId: vehicleId,
       moduleOrigin: 'fuel',
       eventType: 'fuel_added',
-      title: 'Plein ${isFullTank ? 'complet' : 'partiel'} — '
-          '${quantityLiters.toStringAsFixed(1)} L',
+      title: _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
       linkedEntityId: id,
       linkedEntityType: 'fuel',
       occurredAt: date,
     );
 
+    if (isAdblue) await _reconcileAdblueReminder(vehicleId);
+
     return id;
+  }
+
+  String _timelineTitle({
+    required bool isAdblue,
+    required bool isFullTank,
+    required double quantityLiters,
+  }) {
+    if (isAdblue) {
+      return quantityLiters > 0
+          ? 'Plein AdBlue — ${quantityLiters.toStringAsFixed(1)} L'
+          : 'Plein AdBlue';
+    }
+    return 'Plein ${isFullTank ? 'complet' : 'partiel'} — '
+        '${quantityLiters.toStringAsFixed(1)} L';
+  }
+
+  /// AdBlue's own échéance track (mission points 3/4): one active reminder
+  /// per vehicle, driven by the most recent AdBlue fill-up's mileage plus
+  /// [AdblueRules.defaultRangeKm] - mirrors how
+  /// MaintenanceRepository._reconcileCategoryReminders keeps a category's
+  /// échéance following only its own latest operation. sourceId is the
+  /// vehicleId itself (not a fill-up id): there is only ever one AdBlue
+  /// track per vehicle, never one per entry.
+  Future<void> _reconcileAdblueReminder(String vehicleId) async {
+    final entries = await (_db.select(_db.fuelEntries)
+          ..where((f) =>
+              f.vehicleId.equals(vehicleId) &
+              f.fuelType.equals(adblueFuelType) &
+              f.isDeleted.equals(false)))
+        .get();
+    if (entries.isEmpty) {
+      await _reminders.disableForSource('adblue', vehicleId);
+      return;
+    }
+    entries.sort((a, b) {
+      final byMileage = a.mileage.compareTo(b.mileage);
+      if (byMileage != 0) return byMileage;
+      return a.date.compareTo(b.date);
+    });
+    final reference = entries.last;
+    await _reminders.upsertForSource(
+      vehicleId: vehicleId,
+      sourceType: 'adblue',
+      sourceId: vehicleId,
+      title: 'AdBlue à prévoir',
+      dueMileage: AdblueRules.nextDueMileage(reference.mileage),
+    );
   }
 
   /// Edits an existing fuel entry in place: updates the entry, keeps its
@@ -127,6 +188,7 @@ class FuelRepository {
     required String fuelType,
     required double quantityLiters,
     required double pricePerLiter,
+    double? totalAmountOverride,
     String currency = 'MAD',
     String? providerId,
     bool isFullTank = true,
@@ -136,13 +198,15 @@ class FuelRepository {
     final now = DateTime.now();
     final existing =
         await (_db.select(_db.fuelEntries)..where((f) => f.id.equals(id))).getSingle();
-    final totalAmount = quantityLiters * pricePerLiter;
+    final isAdblue = fuelType == adblueFuelType;
+    final totalAmount = totalAmountOverride ?? (quantityLiters * pricePerLiter);
 
     var linkedExpenseId = existing.linkedExpenseId;
     if (createLinkedExpense) {
       if (linkedExpenseId != null) {
         await (_db.update(_db.expenses)..where((e) => e.id.equals(linkedExpenseId!)))
             .write(ExpensesCompanion(
+          category: Value(isAdblue ? 'AdBlue' : 'Carburant'),
           date: Value(date),
           amount: Value(totalAmount),
           currency: Value(currency),
@@ -156,13 +220,15 @@ class FuelRepository {
               ExpensesCompanion.insert(
                 id: linkedExpenseId,
                 vehicleId: vehicleId,
-                category: 'Carburant',
+                category: isAdblue ? 'AdBlue' : 'Carburant',
                 date: date,
                 amount: totalAmount,
                 currency: Value(currency),
                 providerId: Value(providerId),
                 mileage: Value(mileage),
-                comments: const Value('Généré depuis un plein'),
+                comments: Value(isAdblue
+                    ? 'Généré depuis un plein AdBlue'
+                    : 'Généré depuis un plein'),
                 linkedFuelId: Value(id),
                 createdAt: now,
                 updatedAt: now,
@@ -206,12 +272,15 @@ class FuelRepository {
       vehicleId: vehicleId,
       moduleOrigin: 'fuel',
       eventType: 'fuel_added',
-      title: 'Plein ${isFullTank ? 'complet' : 'partiel'} — '
-          '${quantityLiters.toStringAsFixed(1)} L',
+      title: _timelineTitle(isAdblue: isAdblue, isFullTank: isFullTank, quantityLiters: quantityLiters),
       linkedEntityId: id,
       linkedEntityType: 'fuel',
       occurredAt: date,
     );
+
+    if (isAdblue || existing.fuelType == adblueFuelType) {
+      await _reconcileAdblueReminder(vehicleId);
+    }
   }
 
   Future<void> softDelete(String id) async {
@@ -229,14 +298,23 @@ class FuelRepository {
           .write(ExpensesCompanion(isDeleted: const Value(true), updatedAt: Value(now)));
     }
     await _timeline.removeForEntity('fuel', id);
+    if (entry != null && entry.fuelType == adblueFuelType) {
+      await _reconcileAdblueReminder(entry.vehicleId);
+    }
   }
 
   /// RG-CARB-005: consumption is only computed between two consecutive full
   /// tanks. A partial fill between them still counts towards the liters
   /// consumed over that distance (it just tops up before the cycle closes),
   /// but a cycle is never opened or closed on a partial fill itself.
+  ///
+  /// AdBlue entries are excluded up front (mission point 2/4: an AdBlue
+  /// fill-up must never be counted as a Diesel fill-up) - every figure this
+  /// method returns (liters, cost, average consumption) is Diesel/Essence
+  /// fuel only, never blended with AdBlue litres or spend.
   FuelStats computeStats(List<FuelEntry> entries) {
-    final chronological = [...entries]..sort((a, b) => a.date.compareTo(b.date));
+    final realFuel = entries.where((e) => e.fuelType != adblueFuelType).toList();
+    final chronological = [...realFuel]..sort((a, b) => a.date.compareTo(b.date));
     final totalLiters =
         chronological.fold<double>(0, (s, e) => s + e.quantityLiters);
     final totalCost =
@@ -283,6 +361,7 @@ final fuelRepositoryProvider = Provider<FuelRepository>((ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(timelineRepositoryProvider),
     ref.watch(vehicleRepositoryProvider),
+    ref.watch(reminderRepositoryProvider),
   );
 });
 

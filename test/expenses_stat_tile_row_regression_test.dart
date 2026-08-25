@@ -244,7 +244,7 @@ void main() {
 
   testWidgets('FuelTab (same StatTileRow) also survives real, non-empty '
       'stats without a layout crash', (tester) async {
-    final fuel = FuelRepository(db, TimelineRepository(db), vehicles);
+    final fuel = FuelRepository(db, TimelineRepository(db), vehicles, ReminderRepository(db));
     await fuel.createEntry(
       vehicleId: vehicleId,
       date: DateTime(2026, 8, 9),

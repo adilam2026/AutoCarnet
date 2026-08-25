@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show Value;
+import '../../../../core/widgets/date_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -72,16 +73,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
     _color.dispose();
     _comments.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickFirstRegistrationDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _firstRegistrationDate ?? DateTime.now(),
-      firstDate: DateTime(1970),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _firstRegistrationDate = picked);
   }
 
   Future<void> _save() async {
@@ -176,34 +167,12 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
-          InkWell(
-            onTap: _pickFirstRegistrationDate,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Première mise en circulation',
-                suffixIconConstraints: BoxConstraints(minWidth: 64, minHeight: 24),
-                suffixIcon: Padding(
-                  padding: EdgeInsets.only(right: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.calendar_today_outlined, size: 20),
-                      SizedBox(width: 6),
-                      Icon(Icons.chevron_right, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-              child: Text(
-                _firstRegistrationDate == null
-                    ? 'Sélectionner une date'
-                    : _fmt(_firstRegistrationDate!),
-                style: _firstRegistrationDate == null
-                    ? TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)
-                    : null,
-              ),
-            ),
+          AppDateField(
+            label: 'Première mise en circulation',
+            initialDate: _firstRegistrationDate,
+            firstDate: DateTime(1970),
+            lastDate: DateTime.now(),
+            onChanged: (d) => setState(() => _firstRegistrationDate = d),
           ),
           const SizedBox(height: AppSpacing.lg),
           const SectionHeader('Identification'),
@@ -283,8 +252,6 @@ class _VehicleEditScreenState extends ConsumerState<VehicleEditScreen> {
       ),
     );
   }
-
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
   String _conditionLabel(VehicleCondition c) => switch (c) {
         VehicleCondition.excellent => 'Excellent',

@@ -131,7 +131,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Permis de conduire'), findsOneWidget);
-    expect(find.text('Expire le 15/6/2030'), findsOneWidget);
+    expect(find.text('Expire le 15/06/2030'), findsOneWidget);
     expect(find.text('Aucun document personnel'), findsNothing);
   });
 

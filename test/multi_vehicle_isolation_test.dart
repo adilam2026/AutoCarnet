@@ -35,7 +35,7 @@ void main() {
     expenses = ExpenseRepository(db, timeline);
     documents = DocumentRepository(db, timeline, reminders);
     maintenance = MaintenanceRepository(db, timeline, reminders, vehicles);
-    fuel = FuelRepository(db, timeline, vehicles);
+    fuel = FuelRepository(db, timeline, vehicles, reminders);
 
     vehicleA = await vehicles.createVehicle(
       brand: 'Audi',

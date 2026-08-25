@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../core/widgets/date_field.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -624,7 +625,7 @@ class _VehicleSummaryCard extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }
 
 class _HealthBadge extends StatelessWidget {
@@ -750,7 +751,7 @@ class _NextRevisionCard extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }
 
 class _TodoCard extends StatelessWidget {
@@ -924,7 +925,7 @@ class _RecentOperationsCard extends ConsumerWidget {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }
 
 /// Santé lives as the ring badge on [_VehicleSummaryCard] now - never
@@ -1138,7 +1139,7 @@ class _AdministrativeCard extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => formatDdMmYyyy(d);
 }
 
 class _ModuleTile extends StatelessWidget {

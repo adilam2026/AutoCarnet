@@ -5,6 +5,7 @@ import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
+import '../../../core/widgets/date_field.dart';
 import '../../../core/widgets/sheet_handle.dart';
 import '../../onboarding_lock/data/local_profile_repository.dart';
 import '../../providers/data/provider_repository.dart';
@@ -176,7 +177,7 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Supprimer ce plein ?'),
-        content: Text('Le plein du ${_fmt(_date)} sera déplacé dans la corbeille.'),
+        content: Text('Le plein du ${formatDdMmYyyy(_date)} sera déplacé dans la corbeille.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -262,17 +263,13 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _date,
-                              firstDate: DateTime(1990),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) setState(() => _date = picked);
+                        child: AppDateField(
+                          label: 'Date *',
+                          initialDate: _date,
+                          requiredField: true,
+                          onChanged: (d) {
+                            if (d != null) setState(() => _date = d);
                           },
-                          child: Text('Date : ${_fmt(_date)}'),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -380,6 +377,4 @@ class _FuelFormSheetState extends ConsumerState<_FuelFormSheet> {
             ),
     );
   }
-
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }

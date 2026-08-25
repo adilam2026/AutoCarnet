@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/sheet_handle.dart';
 import '../../../documents/presentation/document_form_sheet.dart';
 import '../../../expenses/presentation/expense_form_sheet.dart';
+import '../../../fuel/presentation/adblue_form_sheet.dart';
 import '../../../fuel/presentation/fuel_form_sheet.dart';
 import '../../../maintenance/presentation/maintenance_form_sheet.dart';
 import 'mileage_update_sheet.dart';
@@ -22,6 +23,12 @@ Future<void> showAddOperationSheet(
   return showModalBottomSheet(
     context: context,
     useSafeArea: true,
+    // Scrollable on purpose (mission 2026: adding "Plein AdBlue" as a 6th
+    // tile overflowed the previous fixed-fraction sheet on shorter
+    // screens) - matches every other bottom sheet in the app
+    // (isScrollControlled + a scrollable child) rather than a plain
+    // Column capped at a fraction of the screen height.
+    isScrollControlled: true,
     builder: (sheetContext) {
       return Padding(
         padding: EdgeInsets.only(
@@ -30,9 +37,8 @@ Future<void> showAddOperationSheet(
           top: AppSpacing.sm,
           bottom: MediaQuery.of(sheetContext).padding.bottom + AppSpacing.md,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+          shrinkWrap: true,
           children: [
             const SheetHandle(),
             Text(
@@ -66,6 +72,22 @@ Future<void> showAddOperationSheet(
                 );
               },
             ),
+            // Diesel-only (mission 2026, point 15: "ne pas proposer AdBlue
+            // à une voiture essence") - a vehicle with no declared fuel
+            // type stays neutral rather than guessing.
+            if (vehicle.fuelType == 'Diesel')
+              _OperationTile(
+                icon: Icons.water_drop_outlined,
+                label: 'Plein AdBlue',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  showAdblueFormSheet(
+                    context,
+                    vehicleId: vehicle.id,
+                    currentMileage: vehicle.currentMileage,
+                  );
+                },
+              ),
             _OperationTile(
               icon: Icons.payments_outlined,
               label: 'Dépense',

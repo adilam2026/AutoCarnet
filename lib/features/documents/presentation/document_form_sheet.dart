@@ -5,6 +5,7 @@ import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/feedback.dart';
 import '../../../core/utils/layout.dart';
+import '../../../core/widgets/date_field.dart';
 import '../../../core/widgets/sheet_handle.dart';
 import '../../account/data/account_repository.dart';
 import '../../providers/domain/insurance_companies.dart';
@@ -134,25 +135,6 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
     _expiryDate = DateTime(issue.year, issue.month + months, issue.day);
   }
 
-  Future<void> _pickDate({required bool isExpiry}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1990),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null) return;
-    setState(() {
-      if (isExpiry) {
-        _expiryUserEdited = true;
-        _expiryDate = picked;
-      } else {
-        _issueDate = picked;
-        _applyDefaultExpirySuggestion();
-      }
-    });
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -280,21 +262,25 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickDate(isExpiry: false),
-                      child: Text(_issueDate == null
-                          ? 'Date de délivrance'
-                          : 'Délivré : ${_fmt(_issueDate!)}'),
+                    child: AppDateField(
+                      label: 'Date de délivrance',
+                      initialDate: _issueDate,
+                      onChanged: (d) => setState(() {
+                        _issueDate = d;
+                        _applyDefaultExpirySuggestion();
+                      }),
                     ),
                   ),
                   if (_showExpiryField) ...[
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _pickDate(isExpiry: true),
-                        child: Text(_expiryDate == null
-                            ? 'Date d\'expiration'
-                            : 'Expire : ${_fmt(_expiryDate!)}'),
+                      child: AppDateField(
+                        label: 'Date d\'expiration',
+                        initialDate: _expiryDate,
+                        onChanged: (d) => setState(() {
+                          _expiryUserEdited = true;
+                          _expiryDate = d;
+                        }),
                       ),
                     ),
                   ],
@@ -354,6 +340,4 @@ class _DocumentFormSheetState extends ConsumerState<_DocumentFormSheet> {
       ),
     );
   }
-
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/date_field.dart';
 
 enum PeriodKind { all, thisMonth, last3Months, thisYear, lastYear, custom }
 
@@ -53,7 +54,7 @@ class PeriodFilter {
     }
   }
 
-  static String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  static String _fmt(DateTime d) => formatDdMmYyyy(d);
 
   @override
   bool operator ==(Object other) =>

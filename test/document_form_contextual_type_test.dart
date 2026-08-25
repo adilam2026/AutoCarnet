@@ -129,11 +129,10 @@ void main() {
     // still show its unfilled placeholder if present at all - it must not
     // be there.
     expect(find.text('Date d\'expiration'), findsNothing);
-    expect(find.textContaining('Expire :'), findsNothing);
     expect(find.text('Coût'), findsNothing);
     expect(find.text('Organisme / prestataire'), findsNothing);
     // The single relevant date field stays - already pre-filled to today.
-    expect(find.textContaining('Délivré :'), findsOneWidget);
+    expect(find.text('Date de délivrance'), findsOneWidget);
   });
 
   testWidgets(
@@ -145,11 +144,11 @@ void main() {
     expect(find.text('Type *'), findsNothing);
     expect(find.text('Coût'), findsNothing);
     expect(find.text('Organisme / prestataire'), findsNothing);
-    expect(find.textContaining('Délivré :'), findsOneWidget);
+    expect(find.text('Date de délivrance'), findsOneWidget);
     // Permis de conduire has a 120-month default renewal, so the expiry
-    // button is pre-filled ("Expire : ...") rather than showing its
-    // unfilled placeholder - either way, it must be present.
-    expect(find.textContaining('Expire :'), findsOneWidget);
+    // field is pre-filled with a suggested date rather than being absent -
+    // either way, it must be present.
+    expect(find.text('Date d\'expiration'), findsOneWidget);
   });
 
   testWidgets(
