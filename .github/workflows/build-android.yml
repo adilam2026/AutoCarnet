@@ -12,6 +12,11 @@ on:
       - master
       - claude/autocarnet-specs-mj7872
   workflow_dispatch:
+    inputs:
+      build_aab:
+        description: "Also build the Play Store App Bundle (leave unchecked for an APK-only test build)"
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -68,14 +73,19 @@ jobs:
       - name: Build release APK (split per ABI - smaller downloads for testing)
         run: flutter build apk --release --split-per-abi
 
+      # Skipped only for a manual workflow_dispatch run with build_aab
+      # unchecked - every push/pull_request build still produces both, same
+      # as before. The AAB is the Play Store submission artifact; it should
+      # only be produced once a TEST APK build has actually been validated
+      # end-to-end on a real device.
       - name: Build release App Bundle (Play Store)
+        if: github.event_name != 'workflow_dispatch' || inputs.build_aab
         run: flutter build appbundle --release
 
       - name: Rename artifacts
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/autocarnet-release-arm64-v8a.apk
-          cp build/app/outputs/bundle/release/app-release.aab dist/autocarnet-release.aab
 
       - name: Upload APK (arm64-v8a - covers virtually all modern phones)
         uses: actions/upload-artifact@v4
@@ -84,7 +94,12 @@ jobs:
           path: dist/autocarnet-release-arm64-v8a.apk
           retention-days: 30
 
+      - name: Rename App Bundle artifact
+        if: github.event_name != 'workflow_dispatch' || inputs.build_aab
+        run: cp build/app/outputs/bundle/release/app-release.aab dist/autocarnet-release.aab
+
       - name: Upload App Bundle
+        if: github.event_name != 'workflow_dispatch' || inputs.build_aab
         uses: actions/upload-artifact@v4
         with:
           name: autocarnet-aab
