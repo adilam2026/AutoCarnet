@@ -20,8 +20,27 @@ class PinService {
   static const _saltPrefix = 'pin_salt_';
   static const _hashPrefix = 'pin_hash_';
 
+  /// See AccountRepository._safeRead's identical rationale: a raw
+  /// FlutterSecureStorage read throws (BadPaddingException/OPENSSL_internal:
+  /// BAD_DECRYPT) instead of returning null when the stored ciphertext
+  /// can't be decrypted with the current Android Keystore key - observed
+  /// for real after an uninstall/reinstall cycle. An undecryptable PIN
+  /// salt/hash is exactly as unusable as no PIN at all; treating it as
+  /// such (and clearing it) sends the account back to PIN setup instead of
+  /// crashing the lock screen.
+  Future<String?> _safeRead(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      try {
+        await _storage.delete(key: key);
+      } catch (_) {}
+      return null;
+    }
+  }
+
   Future<bool> isPinSet(String accountId) async =>
-      (await _storage.read(key: _hashPrefix + accountId)) != null;
+      (await _safeRead(_hashPrefix + accountId)) != null;
 
   Future<void> setPin(String accountId, String pin) async {
     final salt = _generateSalt();
@@ -31,8 +50,8 @@ class PinService {
   }
 
   Future<bool> verifyPin(String accountId, String pin) async {
-    final salt = await _storage.read(key: _saltPrefix + accountId);
-    final expectedHash = await _storage.read(key: _hashPrefix + accountId);
+    final salt = await _safeRead(_saltPrefix + accountId);
+    final expectedHash = await _safeRead(_hashPrefix + accountId);
     if (salt == null || expectedHash == null) return false;
     return _hash(pin, salt) == expectedHash;
   }

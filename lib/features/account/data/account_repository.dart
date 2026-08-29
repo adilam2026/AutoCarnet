@@ -57,6 +57,31 @@ class AccountRepository {
   static const _deviceAuthEmailKey = 'device_authorized_email';
   static const _lastDeviceUserIdKey = 'device_last_user_id';
 
+  /// A raw [FlutterSecureStorage.read] throws (a `PlatformException`
+  /// wrapping `javax.crypto.BadPaddingException`/`OPENSSL_internal:
+  /// BAD_DECRYPT`) instead of returning null when the stored ciphertext
+  /// can't be decrypted with the app's *current* Android Keystore key - a
+  /// real, observed failure mode after an uninstall/reinstall: Android's
+  /// Auto Backup restores the old encrypted preferences file, but the
+  /// Keystore key itself is hardware-bound and never backed up, so the
+  /// fresh install gets a brand new key that can never open the old
+  /// ciphertext. Every read in this class goes through here instead of
+  /// `_storage.read` directly - an undecryptable value is exactly as good
+  /// as an absent one from the app's perspective, and is deleted so this
+  /// same key doesn't keep throwing on every future read.
+  Future<String?> _safeRead(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (e) {
+      debugPrint('[AutoCarnet][secure_storage] undecryptable value for "$key" ($e) - '
+          'treating as absent and clearing it');
+      try {
+        await _storage.delete(key: key);
+      } catch (_) {}
+      return null;
+    }
+  }
+
   /// A stable identifier for this physical app installation - generated
   /// once and never cleared by sign-out/account-switch (it identifies the
   /// *device*, not any one account's session on it). Deliberately not a
@@ -64,7 +89,7 @@ class AccountRepository {
   /// téléphone") - a fresh random id has no PII and survives a SIM/number
   /// change.
   Future<String> installationId() async {
-    final existing = await _storage.read(key: _installationIdKey);
+    final existing = await _safeRead(_installationIdKey);
     if (existing != null) return existing;
     final fresh = newId();
     await _storage.write(key: _installationIdKey, value: fresh);
@@ -79,7 +104,7 @@ class AccountRepository {
   /// anything else - only [disconnectFromThisDevice]/
   /// [disconnectFromAllDevices] (a real dissociation) can send this back to
   /// null, and only for the account being dissociated.
-  Future<String?> deviceAuthorizedUserId() => _storage.read(key: _deviceAuthUserIdKey);
+  Future<String?> deviceAuthorizedUserId() => _safeRead(_deviceAuthUserIdKey);
 
   /// The last account id this device was ever authorized for. Used exactly
   /// once, right after any account becomes active (fresh OTP *or* a silent
@@ -88,13 +113,13 @@ class AccountRepository {
   /// install, or a rare session-expiry edge case) belongs to whoever
   /// actually used this device most recently, not to the account that just
   /// became active.
-  Future<String?> lastDeviceUserId() => _storage.read(key: _lastDeviceUserIdKey);
+  Future<String?> lastDeviceUserId() => _safeRead(_lastDeviceUserIdKey);
 
   /// Cosmetic only - never used for any authorization decision. Shown on
   /// the PIN screen (spec bloc 5) only as a fallback greeting for an
   /// account with no profile displayName set yet; once one exists, that
   /// name is used instead (mission: never a raw email once a name exists).
-  Future<String?> deviceAuthorizedEmail() => _storage.read(key: _deviceAuthEmailKey);
+  Future<String?> deviceAuthorizedEmail() => _safeRead(_deviceAuthEmailKey);
 
   Future<void> _rememberDeviceAuthorization({required String userId, required String email}) async {
     await _storage.write(key: _deviceAuthUserIdKey, value: userId);
@@ -187,7 +212,7 @@ class AccountRepository {
   /// fall back to a real OTP (spec CAS 1/2).
   Future<String?> tryRestoreDeviceSession(String email) async {
     final normalized = _normalizeEmail(email);
-    final refreshToken = await _storage.read(key: _refreshTokenKey(normalized));
+    final refreshToken = await _safeRead(_refreshTokenKey(normalized));
     if (refreshToken == null) return null;
     try {
       final response = await _client.auth.setSession(refreshToken);

@@ -31,8 +31,22 @@ class BiometricService {
     }
   }
 
-  Future<bool> isEnabled(String accountId) async =>
-      (await _storage.read(key: _enabledPrefix + accountId)) == 'true';
+  /// See PinService._safeRead's identical rationale: an undecryptable
+  /// stored value (BadPaddingException after an uninstall/reinstall
+  /// mismatched the Android Keystore key) is exactly as good as "never
+  /// enabled" - never a reason to crash the lock screen.
+  Future<bool> isEnabled(String accountId) async {
+    String? value;
+    try {
+      value = await _storage.read(key: _enabledPrefix + accountId);
+    } catch (_) {
+      try {
+        await _storage.delete(key: _enabledPrefix + accountId);
+      } catch (_) {}
+      return false;
+    }
+    return value == 'true';
+  }
 
   Future<void> setEnabled(String accountId, bool enabled) async {
     await _storage.write(key: _enabledPrefix + accountId, value: enabled ? 'true' : 'false');
