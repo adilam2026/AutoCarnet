@@ -125,6 +125,68 @@ void main() {
     expect(secondAttempt!.isAfter(firstAttempt!), isTrue);
   });
 
+  group('stateFor - mission point 3: precise per-entity sync state, not '
+      'just a binary "saved or not"', () {
+    test('a locally-marked-synced row is EntitySyncState.synced regardless '
+        'of any stale outbox trace', () async {
+      final state = await outbox.stateFor(
+        entityType: 'vehicle',
+        entityId: 'v1',
+        localSyncStatus: 'synced',
+      );
+      expect(state, EntitySyncState.synced);
+    });
+
+    test('a pendingSync row with a freshly enqueued (never attempted) '
+        'outbox entry is EntitySyncState.queued', () async {
+      await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+      final state = await outbox.stateFor(
+        entityType: 'vehicle',
+        entityId: 'v1',
+        localSyncStatus: 'pendingSync',
+      );
+      expect(state, EntitySyncState.queued);
+    });
+
+    test('a pendingSync row whose outbox entry is actively being pushed is '
+        'EntitySyncState.syncing', () async {
+      await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+      await outbox.markSyncing('vehicle', 'v1');
+      final state = await outbox.stateFor(
+        entityType: 'vehicle',
+        entityId: 'v1',
+        localSyncStatus: 'pendingSync',
+      );
+      expect(state, EntitySyncState.syncing);
+    });
+
+    test('a pendingSync row whose outbox entry has failed at least once is '
+        'EntitySyncState.failed - never silently reported as synced or '
+        'merely queued', () async {
+      await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+      await outbox.markFailed('vehicle', 'v1', 'network error');
+      final state = await outbox.stateFor(
+        entityType: 'vehicle',
+        entityId: 'v1',
+        localSyncStatus: 'pendingSync',
+      );
+      expect(state, EntitySyncState.failed);
+    });
+
+    test('once markSynced actually runs (confirmed by the server), the '
+        'combination becomes EntitySyncState.synced', () async {
+      await outbox.enqueue(entityType: 'vehicle', entityId: 'v1', operation: 'create');
+      await outbox.markFailed('vehicle', 'v1', 'timeout');
+      await outbox.markSynced('vehicle', 'v1');
+      final state = await outbox.stateFor(
+        entityType: 'vehicle',
+        entityId: 'v1',
+        localSyncStatus: 'synced',
+      );
+      expect(state, EntitySyncState.synced);
+    });
+  });
+
   group('syncOutboxOperationFor', () {
     test('a never-synced row (version 0) is a create', () {
       expect(syncOutboxOperationFor(version: 0, isDeleted: false), 'create');

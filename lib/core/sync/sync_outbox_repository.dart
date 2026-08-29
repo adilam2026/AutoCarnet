@@ -27,6 +27,27 @@ import '../utils/id_generator.dart';
 /// never appends a second row for the same entity, so retrying the same
 /// operation many times (mission TEST 6) can never duplicate the outbox
 /// itself the way it must never duplicate the remote row either.
+/// The engine's own precise answer to "where does this one row actually
+/// stand?" (mission point 3) - never inferred by the UI from raw
+/// syncStatus strings, always resolved through [SyncOutboxRepository.
+/// stateFor].
+enum EntitySyncState {
+  /// Written locally, enqueued, but no push attempt has completed or is
+  /// running yet (offline, or simply not this coordinator pass's turn).
+  queued,
+
+  /// A push attempt for this exact row is in flight right now.
+  syncing,
+
+  /// Confirmed by Supabase - the row's own `syncStatus` column says
+  /// `synced` and its outbox trace (if any lingered) is gone.
+  synced,
+
+  /// At least one push attempt failed - still queued, still retried
+  /// automatically on the next pass, never silently dropped.
+  failed,
+}
+
 class SyncOutboxRepository {
   SyncOutboxRepository(this._db);
   final AppDatabase _db;
@@ -145,6 +166,40 @@ class SyncOutboxRepository {
 
   Future<List<SyncOutboxData>> failing() {
     return (_db.select(_db.syncOutbox)..where((o) => o.syncStatus.equals('failed'))).get();
+  }
+
+  /// The one authoritative answer to "où en est CETTE ligne exactement ?"
+  /// (mission point 3, post-Volkswagen-vehicle-loss report: never just a
+  /// binary "saved or not", never just an aggregate app-wide count) -
+  /// correlates the entity's own table's `syncStatus` column with its
+  /// outbox trace, since neither alone tells the full story: a table row
+  /// can say `pendingSync` while the outbox row underneath it is actively
+  /// `syncing`, sitting `failed` after a retry, or simply still `pending`
+  /// (queued, never even attempted yet - e.g. offline, or created a moment
+  /// ago and the coordinator hasn't ticked). Never exposed as user-facing
+  /// UI by itself - see [SyncStatus] for the app-wide indicator - but the
+  /// engine can always answer this precisely for any one row.
+  Future<EntitySyncState> stateFor({
+    required String entityType,
+    required String entityId,
+    required String localSyncStatus,
+  }) async {
+    if (localSyncStatus == 'synced') return EntitySyncState.synced;
+    final row = await (_db.select(_db.syncOutbox)
+          ..where((o) => o.entityType.equals(entityType) & o.entityId.equals(entityId)))
+        .getSingleOrNull();
+    // The local row itself says "not yet synced" but there's no matching
+    // outbox trace at all - a state that should never happen given every
+    // synced write enqueues its own outbox entry in the same atomic
+    // transaction (see e.g. VehicleRepository.createVehicle), but treating
+    // it as "queued" rather than crashing keeps this purely diagnostic API
+    // from ever becoming a new way to break the caller.
+    if (row == null) return EntitySyncState.queued;
+    return switch (row.syncStatus) {
+      'syncing' => EntitySyncState.syncing,
+      'failed' => EntitySyncState.failed,
+      _ => EntitySyncState.queued,
+    };
   }
 
   Stream<int> watchFailedCount() {

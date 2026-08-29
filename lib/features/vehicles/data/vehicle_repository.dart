@@ -58,6 +58,23 @@ class VehicleRepository {
         Future.value();
   }
 
+  /// The engine's precise, queryable answer to "is this exact vehicle
+  /// really saved in the cloud?" (mission point 3, post-Volkswagen-loss
+  /// report) - queued / syncing / synced / failed, never just a boolean.
+  /// Returns [EntitySyncState.synced] when there is no outbox at all
+  /// (unit tests constructing this repository without one) - that mirrors
+  /// production, where a vehicle's own `syncStatus` column is the only
+  /// thing that can ever legitimately disagree with a present outbox.
+  Future<EntitySyncState> syncStateFor(String vehicleId) async {
+    final vehicle = await getOne(vehicleId);
+    if (_outbox == null) return EntitySyncState.synced;
+    return _outbox.stateFor(
+      entityType: 'vehicle',
+      entityId: vehicleId,
+      localSyncStatus: vehicle.syncStatus,
+    );
+  }
+
   /// [currentUserId] scopes the list to the signed-in account: a vehicle is
   /// visible if it's unowned locally (never synced - offline-created, or no
   /// cloud account at all), owned by this account, or shared with it
