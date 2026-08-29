@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,6 +75,63 @@ class _AppGateState extends ConsumerState<AppGate> {
   /// `deviceAuthorized` is true, which is exactly when this gets set).
   String? _activeAccountId;
 
+  /// Bound on each individual local read (secure storage) that decides the
+  /// very first screen. Local reads should complete in milliseconds; this
+  /// is a hard ceiling, not a realistic expectation - see [_bounded].
+  static const _localStepTimeout = Duration(seconds: 4);
+
+  /// Bound on the background, online-only device-authorization check - see
+  /// [_reconcileDeviceAuthorization]. Generous because it's never on the
+  /// critical path to a visible screen any more.
+  static const _backgroundCheckTimeout = Duration(seconds: 10);
+
+  /// Absolute ceiling on the entire local-only decision phase (mission
+  /// bloc 5's "fail-safe global AppGate") - belt-and-suspenders on top of
+  /// the per-step [_localStepTimeout]s: even an unanticipated hang inside
+  /// [_resolveLocalGateInputs] itself (not just one of its awaited calls)
+  /// can never keep this screen up past this ceiling.
+  static const _bootstrapFailsafeTimeout = Duration(seconds: 10);
+
+  void _log(String stage, String message) {
+    developer.log('APP_GATE $stage - $message', name: 'AppGate');
+  }
+
+  /// Runs [action] with a hard timeout and a safe [fallback] instead of
+  /// ever letting AppGate hang on it - logs the start, the outcome (success/
+  /// timeout/error) and how long it actually took, exactly what's needed to
+  /// tell from a device's logs which single step is responsible if this
+  /// ever regresses again (mission bloc 1/6: full traceability, audit every
+  /// await on the gate's critical path).
+  Future<T> _bounded<T>(
+    String stage,
+    String label,
+    Future<T> Function() action,
+    T fallback, {
+    Duration timeout = _localStepTimeout,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    _log(stage, '$label - start');
+    try {
+      final result = await action().timeout(timeout);
+      _log(stage, '$label - success (${stopwatch.elapsedMilliseconds}ms)');
+      return result;
+    } on TimeoutException {
+      _log(
+        stage,
+        '$label - TIMEOUT after ${stopwatch.elapsedMilliseconds}ms (limit '
+        '${timeout.inSeconds}s) - falling back to $fallback',
+      );
+      return fallback;
+    } catch (e) {
+      _log(
+        stage,
+        '$label - ERROR after ${stopwatch.elapsedMilliseconds}ms ($e) - '
+        'falling back to $fallback',
+      );
+      return fallback;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -86,7 +144,18 @@ class _AppGateState extends ConsumerState<AppGate> {
   /// silent same-device restore), and right after a revocation is
   /// discovered - never on every rebuild, and never raced against another
   /// listener deciding something else.
+  ///
+  /// Offline-first by construction (mission 2026, post-launch-hang
+  /// incident): the very first decision is made from LOCAL data only -
+  /// device id, sign-in state and PIN presence, all local reads - and is
+  /// never gated on any network call. Whether this exact device has since
+  /// been revoked from another one is checked in the background, after a
+  /// screen is already showing (see [_reconcileDeviceAuthorization]) - a
+  /// slow, unreachable or non-responding Supabase project can visibly delay
+  /// that *reconciliation*, but can never again keep the app itself stuck
+  /// on the loading splash.
   Future<void> _evaluate() async {
+    _log('01', 'start');
     // Transparent, idempotent migration for vehicles that predate
     // per-vehicle dashboard card colours (schema v8) - fire-and-forget so a
     // slow database can never delay the gate itself; see
@@ -100,34 +169,109 @@ class _AppGateState extends ConsumerState<AppGate> {
     try {
       unawaited(ref.read(vehicleRepositoryProvider).backfillMissingCardColors());
     } catch (_) {}
-    final account = ref.read(accountRepositoryProvider);
-    final deviceUserId = await account.deviceAuthorizedUserId();
-    var authorized = deviceUserId != null &&
-        account.isSignedIn &&
-        account.currentUser?.id == deviceUserId;
-    if (authorized) {
-      // Best-effort, online-only: has the account owner revoked this exact
-      // device from "Appareils connectés" since it last checked in? Never
-      // blocks offline use - see AccountRepository.isDeviceStillAuthorized.
-      final stillAuthorized = await account.isDeviceStillAuthorized(userId: deviceUserId);
-      if (!stillAuthorized) {
-        await account.disconnectFromThisDevice();
-        authorized = false;
-      }
-    }
-    final pinSet = authorized ? await ref.read(pinServiceProvider).isPinSet(deviceUserId!) : false;
-    final email = authorized ? await account.deviceAuthorizedEmail() : null;
-    final state = resolveGateState(deviceAuthorized: authorized, pinSet: pinSet);
+
+    final inputs = await _resolveLocalGateInputs().timeout(
+      _bootstrapFailsafeTimeout,
+      onTimeout: () {
+        _log(
+          'FAILSAFE',
+          'local bootstrap exceeded ${_bootstrapFailsafeTimeout.inSeconds}s total - '
+          'forcing the safest decision (email screen) instead of staying on the splash',
+        );
+        return const (deviceUserId: null, authorizedLocally: false, pinSet: false, email: null);
+      },
+    );
+
+    final state =
+        resolveGateState(deviceAuthorized: inputs.authorizedLocally, pinSet: inputs.pinSet);
+    _log('06', 'local route decision: $state (authorized=${inputs.authorizedLocally})');
     if (!mounted) return;
     setState(() {
-      _activeAccountId = authorized ? deviceUserId : null;
-      _lockedEmail = email;
+      _activeAccountId = inputs.authorizedLocally ? inputs.deviceUserId : null;
+      _lockedEmail = inputs.email;
       _step = switch (state) {
         GateState.email => _GateStep.email,
         GateState.pinSetup => _GateStep.pinSetup,
         GateState.locked => _GateStep.locked,
       };
     });
+    _log('07', 'route applied: $_step');
+
+    if (inputs.authorizedLocally) {
+      unawaited(_reconcileDeviceAuthorization(inputs.deviceUserId!));
+    }
+  }
+
+  /// Everything needed to pick the first screen, from local reads alone -
+  /// no network. Extracted so [_evaluate] can wrap the *whole* sequence in
+  /// one hard ceiling ([_bootstrapFailsafeTimeout]) on top of each read's
+  /// own bound.
+  Future<
+      ({
+        String? deviceUserId,
+        bool authorizedLocally,
+        bool pinSet,
+        String? email,
+      })> _resolveLocalGateInputs() async {
+    final account = ref.read(accountRepositoryProvider);
+    final deviceUserId = await _bounded(
+      '02',
+      'device id (secure storage)',
+      account.deviceAuthorizedUserId,
+      null,
+    );
+    final authorizedLocally = deviceUserId != null &&
+        account.isSignedIn &&
+        account.currentUser?.id == deviceUserId;
+    _log('03', 'local authorization=$authorizedLocally (deviceUserId=$deviceUserId)');
+
+    final pinSet = authorizedLocally
+        ? await _bounded(
+            '04',
+            'pin set check (secure storage)',
+            () => ref.read(pinServiceProvider).isPinSet(deviceUserId),
+            false,
+          )
+        : false;
+    final email = authorizedLocally
+        ? await _bounded(
+            '05',
+            'device email (secure storage)',
+            account.deviceAuthorizedEmail,
+            null,
+          )
+        : null;
+    return (
+      deviceUserId: deviceUserId,
+      authorizedLocally: authorizedLocally,
+      pinSet: pinSet,
+      email: email,
+    );
+  }
+
+  /// Best-effort, online-only: has the account owner revoked this exact
+  /// device from "Appareils connectés" since it last checked in? Runs
+  /// strictly AFTER a screen is already showing (see [_evaluate]) - never
+  /// blocks offline use, and a non-responding Supabase project only ever
+  /// delays this reconciliation, never the app's own bootstrap. On a
+  /// confirmed revocation, forces the device back to the email screen
+  /// exactly like [_onPinAccepted]'s identical, pre-existing reactive check.
+  Future<void> _reconcileDeviceAuthorization(String deviceUserId) async {
+    final account = ref.read(accountRepositoryProvider);
+    final stillAuthorized = await _bounded(
+      '08',
+      'background device authorization check',
+      () => account.isDeviceStillAuthorized(userId: deviceUserId),
+      true,
+      timeout: _backgroundCheckTimeout,
+    );
+    _log('09', 'background device authorization result: $stillAuthorized');
+    if (!stillAuthorized && mounted) {
+      await account.disconnectFromThisDevice();
+      if (!mounted) return;
+      _log('10', 'device revoked remotely - forcing back to the email screen');
+      setState(() => _step = _GateStep.email);
+    }
   }
 
   /// An account just became active on this device - either a genuinely
