@@ -239,7 +239,7 @@ class AccountRepository {
         'device_name': _deviceLabel(),
         'platform': _platformName(),
         'last_seen_at': DateTime.now().toIso8601String(),
-      });
+      }).timeout(const Duration(seconds: 8));
     } catch (_) {
       // Best-effort: an offline first sign-in must still work locally (see
       // isDeviceStillAuthorized's own fail-open policy below) - the next
@@ -261,8 +261,18 @@ class AccountRepository {
   Future<bool> isDeviceStillAuthorized({required String userId}) async {
     try {
       final instId = await installationId();
-      final rows =
-          await _client.from('devices').select('id').eq('id', '${instId}_$userId').limit(1);
+      final rows = await _client
+          .from('devices')
+          .select('id')
+          .eq('id', '${instId}_$userId')
+          .limit(1)
+          // A request that never resolves (present but broken network, a
+          // captive portal, a stalled TCP connection) throws nothing on its
+          // own - without this, AppGate's _evaluate() would await this
+          // forever and the whole app would stay stuck on the splash
+          // screen, never even reaching PIN/lock. A real error/timeout both
+          // fall into the catch below and keep the same fail-open policy.
+          .timeout(const Duration(seconds: 8));
       return rows.isNotEmpty;
     } catch (_) {
       return true;
@@ -324,7 +334,11 @@ class AccountRepository {
       if (user.email != null) await _forgetKnownAccount(user.email!);
       final instId = await installationId();
       try {
-        await _client.from('devices').delete().eq('id', '${instId}_${user.id}');
+        await _client
+            .from('devices')
+            .delete()
+            .eq('id', '${instId}_${user.id}')
+            .timeout(const Duration(seconds: 8));
       } catch (_) {
         // Best-effort - if offline, the row is simply cleaned up the next
         // time this device (or the account owner from elsewhere) revokes it.
@@ -341,7 +355,13 @@ class AccountRepository {
   /// switches which already-known account is active.
   Future<void> disconnectFromThisDevice() async {
     await _forgetCurrentAccountAssociation();
-    await _client.auth.signOut();
+    // The local association is already forgotten above - a stalled/failed
+    // network sign-out must never leave this call hanging (it would freeze
+    // whichever screen awaits it, e.g. AppGate itself re-evaluating after a
+    // revocation) or stop the local effect from taking hold.
+    try {
+      await _client.auth.signOut().timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 
   /// Same as [disconnectFromThisDevice], but also revokes every other
@@ -352,7 +372,10 @@ class AccountRepository {
   /// refreshed, so their own next launch naturally falls back to email/OTP.
   Future<void> disconnectFromAllDevices() async {
     await _forgetCurrentAccountAssociation();
-    await _client.auth.signOut(scope: SignOutScope.global);
+    // See disconnectFromThisDevice's identical rationale.
+    try {
+      await _client.auth.signOut(scope: SignOutScope.global).timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 }
 
