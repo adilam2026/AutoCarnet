@@ -76,7 +76,16 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     } catch (e) {
       debugPrint('EmailEntryScreen._submit: $e');
       if (mounted) {
-        setState(() { _error = 'Une erreur est survenue. Réessayez.'; _busy = false; });
+        // Mission 2026 diagnostic pass: this branch only ever runs for
+        // something Supabase's own auth client did NOT wrap into an
+        // AuthException (see authErrorMessage's doc - a real network
+        // failure normally already comes back as AuthRetryableFetchException/
+        // AuthUnknownException, caught above with a friendly message) - so
+        // whatever lands here is unexpected by definition. Showing the raw
+        // exception too (not just logging it) is deliberate for this
+        // TEST-APK cycle: without device log access, this is the only way
+        // to get the real cause instead of guessing at it again.
+        setState(() { _error = 'Une erreur est survenue : $e'; _busy = false; });
       }
     }
   }
