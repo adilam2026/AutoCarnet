@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart' show Value;
@@ -102,16 +103,35 @@ class SyncCoordinator {
     // Order matters: a child row's vehicle_id must already exist locally
     // (or the child sync's own upsert would just be pointless) before its
     // own pull runs.
-    await vehicles.syncNow();
-    await maintenance.syncNow();
-    await expenses.syncNow();
-    await fuel.syncNow();
-    await documents.syncNow();
-    await reminders.syncNow();
-    await mileage.syncNow();
-    await frequencyPrefs.syncNow();
-    await providers.syncNow();
+    await _guarded('vehicles', vehicles.syncNow);
+    await _guarded('maintenance', maintenance.syncNow);
+    await _guarded('expenses', expenses.syncNow);
+    await _guarded('fuel', fuel.syncNow);
+    await _guarded('documents', documents.syncNow);
+    await _guarded('reminders', reminders.syncNow);
+    await _guarded('mileage', mileage.syncNow);
+    await _guarded('frequencyPrefs', frequencyPrefs.syncNow);
+    await _guarded('providers', providers.syncNow);
     await _notifyNewConflicts();
+  }
+
+  /// Each *SyncService.syncNow() already catches its own push/pull errors
+  /// internally (see e.g. VehicleSyncService.syncNow) - this is defense in
+  /// depth against something entirely unanticipated escaping that (mission
+  /// point 12: a defect in one table's sync must never silently prevent
+  /// every OTHER table from getting its own turn in this same pass, the
+  /// way an uncaught exception in `vehicles.syncNow()` used to abort this
+  /// whole method before `maintenance.syncNow()` even ran).
+  Future<void> _guarded(String label, Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      developer.log(
+        'unexpected error escaped $label.syncNow() - other tables still ran '
+        'this pass ($e)',
+        name: 'SyncCoordinator',
+      );
+    }
   }
 
   /// The outbox as a REAL recovery mechanism, not just a diagnostic

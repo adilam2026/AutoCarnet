@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,16 +44,43 @@ class VehicleSyncService {
 
   bool _syncing = false;
 
+  void _log(String stage, String message) {
+    developer.log('SYNC_VEHICLE $stage - $message', name: 'VehicleSyncService');
+  }
+
+  /// Mission 2026, real-device incident report (a vehicle created while
+  /// genuinely signed in never reached Supabase, with zero visible error):
+  /// every gate this method can silently return on, and every step of the
+  /// actual push, is now logged - so if this happens again on a real
+  /// device, `adb logcat | grep SYNC_VEHICLE` gives a definitive answer
+  /// instead of another round of hypotheses.
   Future<void> syncNow() async {
-    if (_syncing) return;
-    if (_client.auth.currentSession == null) return;
-    if (!await hasConnectivity()) return;
+    _log('01', 'syncNow() called');
+    if (_syncing) {
+      _log('02', 'skipped - a pass is already in flight');
+      return;
+    }
+    if (_client.auth.currentSession == null) {
+      _log('03', 'skipped - no Supabase session (not signed in, or the '
+          'session died/expired without a fresh login since)');
+      return;
+    }
+    final hasNet = await hasConnectivity();
+    _log('04', 'connectivity check: $hasNet');
+    if (!hasNet) {
+      _log('05', 'skipped - no radio connectivity');
+      return;
+    }
     _syncing = true;
     try {
+      _log('06', 'push starting');
       await _push();
+      _log('07', 'push done - pull starting');
       await _pull();
+      _log('08', 'pull done - recording success');
       unawaited(_outbox?.recordSuccess());
     } catch (e) {
+      _log('09', 'pass FAILED: $e');
       unawaited(_outbox?.recordError('vehicles: $e'));
     } finally {
       _syncing = false;
@@ -64,6 +92,8 @@ class VehicleSyncService {
     final pending = await (_db.select(_db.vehicles)
           ..where((v) => v.syncStatus.equals('pendingSync')))
         .get();
+    _log('06a', '${pending.length} pending vehicle(s) to push: '
+        '${pending.map((v) => v.id).toList()}');
     if (pending.isEmpty) return;
 
     final OccPushResult result;
@@ -84,7 +114,11 @@ class VehicleSyncService {
             ),
         ],
       );
+      _log('06b', 'pushWithOcc succeeded - '
+          'newVersionByPushedId=${result.newVersionByPushedId} '
+          'conflictedIds=${result.conflictedIds}');
     } catch (e) {
+      _log('06c', 'pushWithOcc THREW for ${pending.map((v) => v.id).toList()}: $e');
       for (final v in pending) {
         unawaited(_outbox?.markFailed('vehicle', v.id, e.toString()));
       }
@@ -103,6 +137,7 @@ class VehicleSyncService {
           ),
         );
         unawaited(_outbox?.markSynced('vehicle', v.id));
+        _log('06d', 'vehicle ${v.id} confirmed synced (version=$newVersion)');
       } else if (result.conflictedIds.contains(v.id)) {
         final remoteRows =
             await _client.from('vehicles').select().eq('id', v.id).limit(1);
