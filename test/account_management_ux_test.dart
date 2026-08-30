@@ -210,10 +210,15 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pumpAndSettle();
 
-      // "Mes documents personnels" (mission 2026) pushes "Sécurité" further
-      // down the page - scroll to it rather than assuming it's on-screen.
-      await tester.ensureVisible(find.text('Verrouiller maintenant'));
+      // "Mes documents personnels" and "Diagnostic de synchronisation"
+      // (mission 2026) push "Sécurité" far enough down the page that it
+      // sits outside the ListView sliver's initial cache extent - the
+      // element doesn't exist yet, so ensureVisible (which needs the
+      // element to already be mounted to locate it) can't find it.
+      // scrollUntilVisible actually scrolls first, mounting it along the way.
+      await tester.scrollUntilVisible(find.text('Verrouiller maintenant'), 200.0);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Verrouiller maintenant'));
       await tester.pumpAndSettle();

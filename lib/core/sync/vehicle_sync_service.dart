@@ -44,8 +44,18 @@ class VehicleSyncService {
 
   bool _syncing = false;
 
+  /// Mission 2026, diagnostic screen (no adb/computer access on the real
+  /// device that lost a vehicle silently): an optional, purely additive
+  /// observer of the exact same stages [_log] already emits to
+  /// `developer.log`. Null in every normal production/test path (nothing
+  /// sets it), so this changes no behavior and no sync strategy - it only
+  /// lets [VehicleSyncDiagnosticRunner] watch the REAL syncNow() run for
+  /// one vehicle and show each stage's outcome directly on the phone.
+  void Function(String stage, String message)? onStep;
+
   void _log(String stage, String message) {
     developer.log('SYNC_VEHICLE $stage - $message', name: 'VehicleSyncService');
+    onStep?.call(stage, message);
   }
 
   /// Mission 2026, real-device incident report (a vehicle created while

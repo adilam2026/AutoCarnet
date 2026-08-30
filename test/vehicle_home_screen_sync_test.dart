@@ -61,6 +61,9 @@ class _FakeAccountRepository implements AccountRepository {
 class _NoopVehicleSyncService implements VehicleSyncService {
   @override
   Future<void> syncNow() async {}
+
+  @override
+  void Function(String stage, String message)? onStep;
 }
 
 /// Regression coverage for the "Rejoindre un véhicule" crash: right after

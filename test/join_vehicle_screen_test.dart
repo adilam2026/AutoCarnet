@@ -59,6 +59,9 @@ class _FakeSharingRepository implements SharingRepository {
 class _NoopVehicleSyncService implements VehicleSyncService {
   @override
   Future<void> syncNow() async {}
+
+  @override
+  void Function(String stage, String message)? onStep;
 }
 
 InvitePreview _preview({bool alreadyMember = false, bool alreadyOwner = false}) => InvitePreview(

@@ -15,6 +15,7 @@ import '../../onboarding_lock/presentation/app_gate.dart';
 import '../../onboarding_lock/presentation/pin_dialogs.dart';
 import 'account_management_screen.dart';
 import 'devices_screen.dart';
+import 'sync_diagnostics_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -212,6 +213,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: const Text('Dissocier cet appareil, déconnecter tous les appareils'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _onOpenAccountManagement,
+                ),
+                ListTile(
+                  leading: const IconChip(Icons.sync_outlined),
+                  title: const Text('Diagnostic de synchronisation'),
+                  subtitle: const Text('État technique détaillé du cloud, véhicule par véhicule'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const SyncDiagnosticsScreen())),
                 ),
               ],
             ),
